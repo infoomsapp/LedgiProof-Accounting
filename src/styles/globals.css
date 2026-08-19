@@ -1,0 +1,842 @@
+/* PATH: src/styles/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── 🆕 DESIGN SYSTEM TOKENS (CSS Sprint Mensaje 3 - Light Theme Default) ── */
+:root {
+  /* Systemic Light Palette (Primary Surface & Layout) — a cooler,
+     "technological" gray canvas instead of near-white, with borders strong
+     enough to actually read as card edges rather than disappearing against
+     the surface (2026-08-18: --lp-bg/--lp-border were both too close to
+     --lp-surface's white, so cards looked like they had no lines at all). */
+  --lp-bg:               #e7ebf1;   /* visible cool slate — the page canvas, not white */
+  --lp-surface:          #fbfcfe;   /* near-white cards — soft, not clinical pure white */
+  --lp-surface-2:        #e2e7ee;   /* deeper slate-gray, scaled to the new canvas */
+  --lp-border:           #b4bac6;   /* real contrast on --lp-surface — actually visible */
+  --lp-border-2:         #98a0ad;   /* stronger hairline for inputs / dividers */
+  --lp-text:             #0f172a;   /* slate-900 */
+  --lp-text-muted:       #475569;   /* slate-600 */
+  --lp-accent:           #1d4ed8;   /* blue-700 — deep corporate blue (was blue-500) */
+  --sidebar-width:       220px;
+
+  /* Violet — semantic for Convert / Cross-module actions (e.g. Estimate → Invoice) */
+  --lp-violet:           #7c3aed;   /* violet-600 */
+  --lp-violet-bg:        rgba(124, 58, 237, 0.06);
+  --lp-violet-bg-hover:  rgba(124, 58, 237, 0.12);
+  --lp-violet-border:    rgba(124, 58, 237, 0.25);
+
+  /* Spacing Architecture */
+  --lp-space-xs:         4px;
+  --lp-space-sm:         8px;
+  --lp-space-md:         12px;
+  --lp-space-lg:         16px;
+  --lp-space-xl:         24px;
+
+  /* Financial Semaphore Operations */
+  --sem-green:           #059669;   /* emerald-600 — refund/balance-favor (was green-600) */
+  --sem-green-bg:        rgba(5, 150, 105, 0.07);
+  --sem-blue:            #2563eb;   /* blue-600 */
+  --sem-blue-bg:         rgba(37, 99, 235, 0.07);
+  --sem-amber:           #d97706;   /* amber-600 */
+  --sem-amber-bg:        rgba(217, 119, 6, 0.07);
+  --sem-red:             #dc2626;   /* red-600 */
+  --sem-red-bg:          rgba(220, 38, 38, 0.07);
+
+  /* Estimate Document Life Cycle Status Mapping */
+  --est-draft:           #64748b;   /* slate-500 */
+  --est-draft-bg:        rgba(100, 116, 139, 0.08);
+  --est-sent:            #2563eb;   /* blue-600 */
+  --est-sent-bg:         rgba(37, 99, 235, 0.08);
+  --est-viewed:          #7c3aed;   /* violet-600 */
+  --est-viewed-bg:       rgba(124, 58, 237, 0.08);
+  --est-accepted:        #16a34a;   /* green-600 */
+  --est-accepted-bg:     rgba(22, 163, 74, 0.08);
+  --est-rejected:        #dc2626;   /* red-600 */
+  --est-rejected-bg:     rgba(220, 38, 38, 0.08);
+  --est-counter:         #d97706;   /* amber-600 */
+  --est-counter-bg:      rgba(217, 119, 6, 0.08);
+  --est-expired:         #475569;   /* slate-600 */
+  --est-expired-bg:      rgba(71, 85, 105, 0.08);
+  --est-converted:       #0891b2;   /* cyan-600 */
+  --est-converted-bg:    rgba(8, 145, 178, 0.08);
+  --est-cancelled:       #334155;   /* slate-700 */
+  --est-cancelled-bg:    rgba(51, 65, 85, 0.08);
+
+  /* ── 🆕 Sprint 4 Mensaje 4 — Extended Token System ───────────────────────── */
+
+  /* Soft variants of semantic colors (for KPIs, soft warnings, light accents) */
+  --sem-red-soft:        #f87171;                  /* red-400  */
+  --sem-amber-soft:      #fbbf24;                  /* amber-400 */
+  --sem-cyan:            #06b6d4;                  /* cyan-500 — used for 'viewed' status */
+  --sem-cyan-bg:         rgba(6, 182, 212, 0.08);
+
+  /* Text with stronger weight (for table headers, secondary labels with emphasis) */
+  --lp-text-stronger:    #334155;                  /* slate-700 */
+
+  /* Standard shadow system (paper / card / modal elevations) */
+  --lp-shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.04);
+  --lp-shadow-md:        0 4px 16px rgba(0, 0, 0, 0.08);
+  --lp-shadow-lg:        0 8px 32px rgba(0, 0, 0, 0.12);
+  --lp-shadow-xl:        0 16px 48px rgba(0, 0, 0, 0.18);
+
+  /* Per-semantic borders at 0.30 alpha (config tables, badge borders) */
+  --sem-red-border:      rgba(220, 38, 38, 0.30);
+  --sem-amber-border:    rgba(217, 119, 6, 0.30);
+  --sem-blue-border:     rgba(37, 99, 235, 0.30);
+  --sem-green-border:    rgba(5, 150, 105, 0.30);
+  --sem-cyan-border:     rgba(6, 182, 212, 0.25);
+  --lp-violet-border-strong: rgba(124, 58, 237, 0.30);
+
+  /* Bg-strong variants for active states (steps active, selected cards) at 0.15 alpha */
+  --sem-blue-bg-strong:    rgba(37, 99, 235, 0.15);
+  --sem-green-bg-strong:   rgba(5, 150, 105, 0.15);
+  --sem-amber-bg-strong:   rgba(217, 119, 6, 0.15);
+  --sem-red-bg-strong:     rgba(220, 38, 38, 0.15);
+
+  /* Bg-stronger for completed states (steps done, paid invoices, etc) at 0.30 alpha */
+  --sem-blue-bg-stronger:  rgba(37, 99, 235, 0.30);
+  --sem-green-bg-stronger: rgba(5, 150, 105, 0.30);
+  --sem-amber-bg-stronger: rgba(217, 119, 6, 0.30);
+  --sem-red-bg-stronger:   rgba(220, 38, 38, 0.30);
+
+  /* Neutral muted (gray semi-transparent for inactive badges, chips, dividers) */
+  --lp-muted-bg:         rgba(100, 116, 139, 0.10);
+  --lp-muted-border:     rgba(100, 116, 139, 0.25);
+
+  /* ── Print Views (always light, never theme-dependent) ─────────────────── */
+  --print-bg:            #ffffff;                  /* paper white */
+  --print-text:          #111827;                  /* gray-900 — body */
+  --print-text-strong:   #374151;                  /* gray-700 — labels */
+  --print-text-muted:    #6b7280;                  /* gray-500 — secondary */
+  --print-text-soft:     #9ca3af;                  /* gray-400 — captions */
+  --print-border:        #e5e7eb;                  /* gray-200 — dividers */
+  --print-border-soft:   #f3f4f6;                  /* gray-100 — subtle */
+  --print-ink:           #1d4ed8;                  /* blue-700 — accent ink */
+  --print-ink-bg:        #eff6ff;                  /* blue-50 — accent banner */
+  --print-ink-soft:      #bfdbfe;                  /* blue-200 — soft accent */
+  --print-success-bg:    #f0fdf4;                  /* green-50 */
+  --print-success-bd:    #bbf7d0;                  /* green-200 */
+  --print-success-tx:    #15803d;                  /* green-700 */
+  --print-surface-2:     #f9fafb;                  /* gray-50 — alt rows */
+  --print-border-2:      #d1d5db;                  /* gray-300 — emphasis */
+
+  /* Adaptive UI Layer Modals & Canvas Preview Backgrounds */
+  --lp-overlay-backdrop: rgba(15, 23, 42, 0.3); /* Soft dimmed tint */
+  --lp-surface-net:      #f1f5f9;                 /* Flat gray for paper canvas preview */
+
+  /* Hints the browser to render NATIVE controls (select dropdowns, scrollbars,
+     date pickers) with light-mode chrome. Without this, .theme-dark's <option>
+     list renders using OS-default light colors regardless of our CSS — <option>
+     elements ignore almost all styling and fall back to color-scheme instead. */
+  color-scheme: light;
+}
+
+/* ── 🌙 OPTIONAL CONSOLIDATED DARK MODE OVERRIDES ───────────────────────── */
+.theme-dark {
+  --lp-bg:               #0f1117;
+  --lp-surface:          #161b27;
+  --lp-surface-2:        #1c2235;
+  /* Doubled from 0.07/0.12 — same near-invisible-hairline issue as the
+     light theme, just less noticeable against a dark canvas. */
+  --lp-border:           rgba(255, 255, 255, 0.14);
+  --lp-border-2:         rgba(255, 255, 255, 0.22);
+  --lp-text:             #e2e8f0;
+  --lp-text-muted:       #64748b;
+  --lp-accent:           #3b82f6;
+
+  --lp-violet:           #a78bfa;
+  --lp-violet-bg:        rgba(167, 139, 250, 0.15);
+  --lp-violet-bg-hover:  rgba(167, 139, 250, 0.22);
+  --lp-violet-border:    rgba(167, 139, 250, 0.35);
+
+  --sem-green:           #22c55e;
+  --sem-green-bg:        rgba(34, 197, 94, 0.10);
+  --sem-blue:            #3b82f6;
+  --sem-blue-bg:         rgba(59, 130, 246, 0.10);
+  --sem-amber:           #f59e0b;
+  --sem-amber-bg:        rgba(245, 158, 11, 0.10);
+  --sem-red:             #ef4444;
+  --sem-red-bg:          rgba(239, 68, 68, 0.10);
+
+  --est-draft:           #94a3b8;
+  --est-draft-bg:        rgba(148, 163, 184, 0.10);
+  --est-sent:            #60a5fa;
+  --est-sent-bg:         rgba(96, 165, 250, 0.10);
+  --est-viewed:          #a78bfa;
+  --est-viewed-bg:       rgba(167, 139, 250, 0.10);
+  --est-accepted:        #22c55e;
+  --est-accepted-bg:     rgba(34, 197, 94, 0.10);
+  --est-rejected:        #ef4444;
+  --est-rejected-bg:     rgba(239, 68, 68, 0.10);
+  --est-counter:         #f59e0b;
+  --est-counter-bg:      rgba(245, 158, 11, 0.10);
+  --est-expired:         #64748b;
+  --est-expired-bg:      rgba(100, 116, 139, 0.10);
+  --est-converted:       #06b6d4;
+  --est-converted-bg:    rgba(6, 182, 212, 0.10);
+  --est-cancelled:       #475569;
+  --est-cancelled-bg:    rgba(71, 85, 105, 0.10);
+
+  /* ── 🆕 Sprint 4 Mensaje 4 — Extended Token System (dark) ───────────────── */
+
+  /* Soft semantic colors (slightly brighter in dark for contrast) */
+  --sem-red-soft:        #fca5a5;                  /* red-300 — brighter than light */
+  --sem-amber-soft:      #fcd34d;                  /* amber-300 */
+  --sem-cyan:            #22d3ee;                  /* cyan-400 */
+  --sem-cyan-bg:         rgba(34, 211, 238, 0.10);
+
+  /* Stronger text — in dark theme, this is brighter than --lp-text */
+  --lp-text-stronger:    #f1f5f9;                  /* slate-100 */
+
+  /* Shadows — much stronger in dark mode (darker bg needs more contrast) */
+  --lp-shadow-sm:        0 1px 3px rgba(0, 0, 0, 0.30);
+  --lp-shadow-md:        0 4px 16px rgba(0, 0, 0, 0.40);
+  --lp-shadow-lg:        0 8px 32px rgba(0, 0, 0, 0.50);
+  --lp-shadow-xl:        0 16px 48px rgba(0, 0, 0, 0.60);
+
+  /* Per-semantic borders — using dark theme base colors (brighter) */
+  --sem-red-border:      rgba(239, 68, 68, 0.30);
+  --sem-amber-border:    rgba(245, 158, 11, 0.30);
+  --sem-blue-border:     rgba(59, 130, 246, 0.30);
+  --sem-green-border:    rgba(34, 197, 94, 0.30);
+  --sem-cyan-border:     rgba(34, 211, 238, 0.25);
+  --lp-violet-border-strong: rgba(167, 139, 250, 0.35);
+
+  /* Bg-strong / bg-stronger using dark-theme base colors */
+  --sem-blue-bg-strong:    rgba(59, 130, 246, 0.15);
+  --sem-green-bg-strong:   rgba(34, 197, 94, 0.15);
+  --sem-amber-bg-strong:   rgba(245, 158, 11, 0.15);
+  --sem-red-bg-strong:     rgba(239, 68, 68, 0.15);
+
+  --sem-blue-bg-stronger:  rgba(59, 130, 246, 0.30);
+  --sem-green-bg-stronger: rgba(34, 197, 94, 0.30);
+  --sem-amber-bg-stronger: rgba(245, 158, 11, 0.30);
+  --sem-red-bg-stronger:   rgba(239, 68, 68, 0.30);
+
+  /* Neutral muted — slightly brighter alpha in dark */
+  --lp-muted-bg:         rgba(148, 163, 184, 0.10);
+  --lp-muted-border:     rgba(148, 163, 184, 0.25);
+
+  /* NOTE: --print-* vars are NOT overridden in dark theme.
+     Print views must always use the light/paper palette. */
+
+  --lp-overlay-backdrop: rgba(0, 0, 0, 0.6);
+  --lp-surface-net:      #1a1f2e;
+
+  /* Fixes the reported bug: template-picker / role <select> dropdowns'
+     <option> lists were invisible in dark mode (dark text on the browser's
+     default light option-list background) — see the note in :root above. */
+  color-scheme: dark;
+}
+
+/* ── Base Reset & Typography ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height:                 100%;
+  margin:                 0;
+  padding:                0;
+  background:             var(--lp-bg);
+  color:                  var(--lp-text);
+  font-family:            'Inter', system-ui, -apple-system, sans-serif;
+  font-size:              14px;
+  -webkit-font-smoothing: antialiased;
+  user-select:            none;
+  transition: background-color 0.2s ease, color 0.15s ease;
+}
+
+input, textarea, select, option, button, a, p, span, td, th, label, pre, code,
+[data-selectable], [data-copyable], [data-editable] { user-select: text; }
+
+/* ── Custom Scrollbar System ──────────────────────────────────────────────── */
+::-webkit-scrollbar              { width: 5px; height: 5px; }
+::-webkit-scrollbar-track        { background: transparent; }
+::-webkit-scrollbar-thumb        { background: var(--lp-border-2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover  { background: var(--lp-text-muted); }
+
+.theme-dark ::webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+.theme-dark ::webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+/* ── Core Accounting Operational Semaphore Elements ──────────────────────── */
+.sem-dot             { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sem-dot.blue        { background: var(--sem-blue);  box-shadow: 0 0 5px var(--sem-blue);  }
+.sem-dot.green       { background: var(--sem-green); box-shadow: 0 0 5px var(--sem-green); }
+.sem-dot.amber       { background: var(--sem-amber); box-shadow: 0 0 5px var(--sem-amber); }
+.sem-dot.red         { background: var(--sem-red);   box-shadow: 0 0 5px var(--sem-red);   }
+
+.sem-badge           { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 500; letter-spacing: 0.03em; }
+.sem-badge.blue      { background: var(--sem-blue-bg);  color: var(--sem-blue);  border: 0.5px solid rgba(59,130,246,0.25); }
+.sem-badge.green     { background: var(--sem-green-bg); color: var(--sem-green); border: 0.5px solid rgba(34,197,94,0.25); }
+.sem-badge.amber     { background: var(--sem-amber-bg); color: var(--sem-amber); border: 0.5px solid rgba(245,158,11,0.25); }
+.sem-badge.red       { background: var(--sem-red-bg);   color: var(--sem-red);   border: 0.5px solid rgba(239,68,68,0.25); }
+
+/* ── Atomic Feature Status Badges ────────────────────────────────────────── */
+.est-badge {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            5px;
+  padding:        3px 10px;
+  border-radius:  100px;
+  font-size:      11px;
+  font-weight:    600;
+  line-height:    1;
+  white-space:    nowrap;
+  letter-spacing: 0.02em;
+}
+.est-badge.compact { padding: 2px 8px; font-size: 10.5px; gap: 4px; }
+.est-badge.draft           { background: var(--est-draft-bg);           color: var(--est-draft);           border: 0.5px solid rgba(148,163,184,0.25); }
+.est-badge.sent            { background: var(--est-sent-bg);            color: var(--est-sent);            border: 0.5px solid rgba(96,165,250,0.25); }
+.est-badge.viewed          { background: var(--est-viewed-bg);          color: var(--est-viewed);          border: 0.5px solid rgba(167,139,250,0.25); }
+.est-badge.accepted        { background: var(--est-accepted-bg);        color: var(--est-accepted);        border: 0.5px solid rgba(34,197,94,0.25); }
+.est-badge.rejected        { background: var(--est-rejected-bg);        color: var(--est-rejected);        border: 0.5px solid rgba(239,68,68,0.25); }
+.est-badge.counter_offered { background: var(--est-counter-bg);         color: var(--est-counter);         border: 0.5px solid rgba(245,158,11,0.25); }
+.est-badge.expired         { background: var(--est-expired-bg);         color: var(--est-expired);         border: 0.5px solid rgba(100,116,139,0.25); }
+.est-badge.converted       { background: var(--est-converted-bg);       color: var(--est-converted);       border: 0.5px solid rgba(6,182,212,0.25); }
+.est-badge.cancelled       { background: var(--est-cancelled-bg);       color: var(--est-cancelled);       border: 0.5px solid rgba(71,85,105,0.25); }
+
+/* ── Unified Layout Components ───────────────────────────────────────────── */
+.lp-card {
+  background:    var(--lp-surface);
+  border:        1px solid var(--lp-border);
+  border-radius: 12px;
+  padding:       var(--lp-space-lg);
+  box-shadow:    0 1px 2px rgba(16, 24, 40, 0.05);   /* subtle lift in light mode */
+}
+.theme-dark .lp-card { box-shadow: none; }           /* borders carry definition in dark */
+
+/* ── Sidebar nav items ──────────────────────────────────────────────────────
+   Shared class so nav links get real hover/active states (inline styles can't
+   do :hover, which made the buttons read as floating text). */
+.lp-nav-item {
+  display:        flex;
+  align-items:    center;
+  gap:            9px;
+  padding:        8px 11px;
+  border-radius:  8px;
+  text-decoration: none;
+  font-size:      13px;
+  font-weight:    500;
+  color:          var(--lp-text);
+  background:     var(--lp-surface-2);            /* soft fill so each reads as a button, not floating text */
+  border:         1px solid var(--lp-border);
+  transition:     background 0.12s, color 0.12s, border-color 0.12s;
+}
+.lp-nav-item:hover  { background: var(--sem-blue-bg); border-color: var(--lp-border-2); color: var(--lp-text); }
+.lp-nav-item.active { background: var(--sem-blue-bg); border-color: var(--lp-accent); color: var(--lp-text); font-weight: 600; }
+
+/* ── Client workspace tab bar ───────────────────────────────────────────────
+   Horizontal tabs shown in ClientScopeBanner when inside /clients/:id/*.
+   Bookkeepers see operational tabs; accountants additionally see Journal + Periods. */
+.lp-workspace-tab {
+  display:          flex;
+  align-items:      center;
+  padding:          8px 12px;
+  font-size:        12.5px;
+  font-weight:      400;
+  color:            var(--lp-text-muted);
+  border-bottom:    2px solid transparent;
+  text-decoration:  none;
+  white-space:      nowrap;
+  flex-shrink:      0;
+  transition:       color 0.1s, border-color 0.1s;
+}
+.lp-workspace-tab:hover  { color: var(--lp-text); }
+.lp-workspace-tab.active { color: var(--lp-accent); border-bottom-color: var(--lp-accent); font-weight: 600; }
+
+/* ── Dashboard SectionCard ──────────────────────────────────────────────────
+   Firm dashboards (bookkeeper/accountant) build cards from this. The old inline
+   border was a white translucent hairline — invisible on white in light mode,
+   which made the cards look borderless/floating. Theme-aware here instead. */
+.lp-section-card {
+  background:    var(--lp-surface);
+  border:        1px solid var(--lp-border);
+  border-radius: 11px;
+  box-shadow:    0 1px 2px rgba(16, 24, 40, 0.05);
+}
+.theme-dark .lp-section-card { box-shadow: none; }
+
+/* Atomic Control Buttons */
+.lp-btn {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            6px;
+  padding:        7px 14px;
+  border-radius:  8px;
+  font-size:      13px;
+  font-weight:    500;
+  cursor:         pointer;
+  transition:     opacity 0.15s, transform 0.1s, background-color 0.12s;
+  border:         none;
+  outline:        none;
+  font-family:    inherit;
+}
+.lp-btn:hover    { opacity: 0.82; }
+.lp-btn:active   { transform: scale(0.98); }
+.lp-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.lp-btn:focus-visible { outline: 2px solid var(--lp-accent); outline-offset: 2px; }
+
+.lp-btn-primary { background: var(--lp-accent); color: #fff; }
+.lp-btn-ghost   { background: rgba(0, 0, 0, 0.03); color: var(--lp-text-muted); border: 0.5px solid var(--lp-border); }
+.lp-btn-ghost:hover { color: var(--lp-text); background: rgba(0, 0, 0, 0.06); opacity: 1; }
+.lp-btn-danger  { background: rgba(239,68,68,0.1); color: #ef4444; border: 0.5px solid rgba(239,68,68,0.3); }
+
+.theme-dark .lp-btn-ghost { background: rgba(255,255,255,0.06); }
+.theme-dark .lp-btn-ghost:hover { background: rgba(255,255,255,0.1); }
+
+/* Special-Intent Module Routing Controls */
+.lp-btn-convert {
+  background: var(--lp-violet-bg);
+  color: var(--lp-violet);
+  border: 0.5px solid var(--lp-violet-border);
+  font-weight: 600;
+}
+.lp-btn-convert:hover { background: var(--lp-violet-bg-hover); opacity: 1; }
+
+.lp-btn-accent-action {
+  background: rgba(59, 130, 246, 0.06) !important;
+  color: var(--lp-accent) !important;
+  border: 0.5px solid rgba(59, 130, 246, 0.25) !important;
+}
+.lp-btn-accent-action:hover {
+  background: rgba(59, 130, 246, 0.12) !important;
+}
+
+.lp-btn-sm      { padding: 5px 10px; font-size: 12px; }
+.lp-btn-lg      { padding: 9px 18px; font-size: 14px; }
+
+/* Outline button — bordered pill with a soft fill so it clearly reads as a
+   button (not floating link text). Grounds "View all →", "Review →", etc. */
+.lp-btn-outline {
+  display:        inline-flex;
+  align-items:    center;
+  gap:            5px;
+  padding:        5px 12px;
+  border-radius:  8px;
+  font-size:      11.5px;
+  font-weight:    600;
+  font-family:    inherit;
+  cursor:         pointer;
+  background:     var(--lp-surface-2);
+  border:         1px solid var(--lp-border-2);
+  color:          var(--lp-accent);
+  transition:     background 0.12s, border-color 0.12s, transform 0.1s;
+}
+.lp-btn-outline:hover  { background: var(--sem-blue-bg); border-color: var(--lp-accent); }
+.lp-btn-outline:active { transform: scale(0.97); }
+
+/* Pure Form Data Ingestion Fields */
+.lp-input {
+  background:    rgba(0, 0, 0, 0.02);
+  border:        0.5px solid var(--lp-border-2);
+  border-radius: 8px;
+  color:         var(--lp-text);
+  font-size:     13.5px;
+  padding:       9px 12px;
+  outline:       none;
+  width:         100%;
+  transition:    border-color 0.15s, box-shadow 0.15s;
+  font-family:   inherit;
+}
+.theme-dark .lp-input { background: rgba(255,255,255,0.04); }
+.lp-input:focus { border-color: var(--lp-accent); }
+.lp-input:focus-visible { outline: 2px solid rgba(59,130,246,0.25); outline-offset: 1px; }
+.lp-input::placeholder { color: var(--lp-text-muted); }
+.lp-input-disabled { opacity: 0.6; cursor: not-allowed; }
+
+select.lp-input { appearance: none; cursor: pointer; }
+/* Belt-and-suspenders on top of :root's color-scheme fix above: color-scheme
+   alone didn't reliably light up every <option> list (still reported invisible
+   in dark mode on some selects, e.g. the client picker on Reports) — background
+   and color ARE respected directly on <option> in every evergreen browser, so
+   set them explicitly instead of trusting the OS-native fallback alone. */
+select.lp-input option { background: var(--lp-surface); color: var(--lp-text); }
+textarea.lp-input { resize: vertical; min-height: 64px; }
+
+/* ── Typography & Sectioning Labels ───────────────────────────────────────── */
+.lp-page-title { font-size: 20px; font-weight: 600; color: var(--lp-text); letter-spacing: -0.01em; }
+.lp-page-sub   { font-size: 13px; color: var(--lp-text-muted); margin-top: 4px; }
+
+.lp-section-label {
+  font-size:      10.5px;
+  font-weight:    600;
+  color:          var(--lp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom:  6px;
+}
+
+/* ── Legacy Tables ───────────────────────────────────────────────────────── */
+.lp-table-wrap { border-radius: 10px; border: 0.5px solid var(--lp-border); overflow: hidden; }
+.lp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lp-table thead th {
+  padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 500;
+  color: var(--lp-text-muted); text-transform: uppercase; letter-spacing: 0.05em;
+  border-bottom: 0.5px solid var(--lp-border); background: var(--lp-surface); white-space: nowrap;
+}
+.lp-table tbody tr { border-bottom: 0.5px solid var(--lp-border); transition: background 0.1s; }
+.lp-table tbody tr:last-child { border-bottom: none; }
+.lp-table tbody tr:hover { background: rgba(0,0,0,0.02); }
+.theme-dark .lp-table tbody tr:hover { background: rgba(255,255,255,0.03); }
+.lp-table td { padding: 9px 14px; }
+
+/* ── High-Security Modal Blurs ───────────────────────────────────────────── */
+.lp-overlay-blur {
+  position: fixed;
+  inset: 0;
+  background: var(--lp-overlay-backdrop);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+/* ── Core Grid Board Dashboards ──────────────────────────────────────────── */
+.lp-workspace-container { padding: 28px 32px; flex: 1; overflow-y: auto; }
+.lp-workspace-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.lp-page-title-count { font-size: 13px; color: var(--lp-text-muted); font-weight: 500; margin-left: 10px; }
+.lp-filter-chips-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.lp-mb-14 { margin-bottom: 14px !important; }
+.lp-py-48 { padding-top: 48px !important; padding-bottom: 48px !important; }
+.lp-p-0 { padding: 0 !important; }
+.lp-overflow-hidden { overflow: hidden !important; }
+.lp-min-w-0 { min-width: 0 !important; }
+.lp-text-right { text-align: right !important; }
+.lp-text-center { text-align: center !important; }
+.lp-justify-between { justify-content: space-between !important; }
+.lp-justify-center { justify-content: center !important; display: flex !important; }
+.lp-loading-centered { padding: 48px; display: flex; justify-content: center; align-items: center; }
+.lp-panel-empty-message { padding: 48px; text-align: center; color: var(--lp-text-muted); font-size: 14px; }
+.lp-btn-close-banner { background: none; border: none; color: inherit; cursor: pointer; font-size: 14px; font-family: inherit; }
+.lp-btn-retry-link { background: none; border: none; color: inherit; text-decoration: underline; cursor: pointer; font-family: inherit; margin-left: 6px; }
+
+/* Functional Interactive Filter Utility Chips */
+.lp-filter-chip {
+  padding: 5px 12px; border-radius: 100px; background: transparent;
+  border: 0.5px solid var(--lp-border); color: var(--lp-text-muted);
+  font-size: 11.5px; font-weight: 500; cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  transition: all 0.1s;
+}
+.lp-filter-chip:hover { border-color: var(--lp-text-muted); color: var(--lp-text); }
+.lp-filter-chip-count { font-size: 10px; opacity: 0.7; font-weight: 600; margin-left: 3px; }
+
+/* Grid Structured Virtual Tables (No-Table Strategy) */
+.lp-grid-table {
+  display: grid;
+  grid-template-columns: 130px 1fr 130px 140px 100px 110px;
+  gap: 12px;
+  align-items: center;
+}
+.lp-grid-header {
+  padding: 10px 14px; background: rgba(0, 0, 0, 0.01);
+  border-bottom: 0.5px solid var(--lp-border); font-size: 10px;
+  color: var(--lp-text-muted); font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.theme-dark .lp-grid-header { background: rgba(255,255,255,0.02); }
+
+.lp-grid-row {
+  padding: 11px 14px; border-bottom: 0.5px solid var(--lp-border);
+  cursor: pointer; font-size: 12.5px; color: var(--lp-text);
+  transition: background 0.12s;
+}
+.lp-grid-row:last-child { border-bottom: none; }
+.lp-grid-row:hover { background: rgba(59, 130, 246, 0.04); }
+
+.lp-row-number { font-family: monospace; font-size: 12px; color: var(--lp-violet); font-weight: 500; }
+.lp-row-client-name { font-size: 12.5px; font-weight: 500; color: var(--lp-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-row-title-sub { font-size: 11px; color: var(--lp-text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-row-date { font-size: 11.5px; color: var(--lp-text-muted); }
+.lp-row-total { font-family: monospace; font-size: 12.5px; font-weight: 600; color: var(--sem-green); }
+.lp-empty-icon { font-size: 40px; margin-bottom: 10px; opacity: 0.4; }
+.lp-empty-title { font-size: 14px; color: var(--lp-text); font-weight: 500; margin-bottom: 6px; }
+.lp-empty-sub { font-size: 12px; color: var(--lp-text-muted); margin-bottom: 16px; }
+
+/* ── Notification & Status Messaging Layout Banners ──────────────────────── */
+.lp-banner {
+  display:       flex;
+  align-items:   center;
+  gap:           10px;
+  padding:       10px 14px;
+  border-radius: 8px;
+  font-size:     12.5px;
+  line-height:   1.5;
+}
+.lp-banner.info    { background: rgba(37, 99, 235, 0.06);   border: 0.5px solid rgba(37, 99, 235, 0.25);   color: var(--sem-blue); }
+.lp-banner.success { background: rgba(22, 163, 74, 0.06);   border: 0.5px solid rgba(22, 163, 74, 0.25);   color: var(--sem-green); }
+.lp-banner.warning { background: rgba(217, 119, 6, 0.06);   border: 0.5px solid rgba(217, 119, 6, 0.25);   color: var(--sem-amber); }
+.lp-banner.error   { background: rgba(220, 38, 38, 0.06);   border: 0.5px solid rgba(220, 38, 38, 0.25);   color: var(--sem-red); }
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* CSS Sprint Mensaje 3 — Light Theme System for PUBLIC PAGES                  */
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Used by: EstimatePublic.tsx, public-facing /e/:token, future client portal  */
+/* WHY a separate system: the rest of the app uses --lp-bg (dark slate-900);   */
+/* public pages need a Wise/Stripe-style light look for client trust.          */
+/* Scope: applied ONLY inside .lp-web-page wrappers to prevent leak into app. */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.lp-web-page {
+  /* Light palette (Wise-inspired) */
+  --web-bg:           #f8fafc;   /* slate-50  (page background) */
+  --web-surface:      #ffffff;   /* card background */
+  --web-surface-alt:  #f1f5f9;   /* slate-100 (subtle row hover) */
+  --web-border:       #e2e8f0;   /* slate-200 (1px borders) */
+  --web-border-hover: #cbd5e1;   /* slate-300 (hover borders) */
+  --web-text:         #0f172a;   /* slate-900 (primary text) */
+  --web-text-muted:   #475569;   /* slate-600 (secondary text) */
+  --web-text-subtle:  #94a3b8;   /* slate-400 (captions) */
+
+  /* Accent + semantic kept consistent with dark theme intent */
+  --web-primary:        #3b82f6;  /* blue-500 */
+  --web-primary-hover:  #2563eb;  /* blue-600 */
+  --web-success:        #16a34a;  /* green-600 */
+  --web-success-bg:     rgba(22, 163, 74, 0.08);
+  --web-success-border: rgba(22, 163, 74, 0.30);
+  --web-danger:         #dc2626;  /* red-600 */
+  --web-danger-bg:      rgba(220, 38, 38, 0.08);
+  --web-danger-border:  rgba(220, 38, 38, 0.30);
+  --web-warning:        #d97706;  /* amber-600 */
+
+  /* Page-level resets so the wrapper alone produces light look */
+  min-height:  100vh;
+  background:  var(--web-bg);
+  color:       var(--web-text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ── Cards & containers ─────────────────────────────────────────────────── */
+.lp-web-page .lp-web-card {
+  background:    var(--web-surface);
+  border:        1px solid var(--web-border);
+  border-radius: 12px;
+  padding:       24px;
+}
+
+.lp-web-page .lp-web-card-sm {
+  background:    var(--web-surface);
+  border:        1px solid var(--web-border);
+  border-radius: 10px;
+  padding:       16px;
+}
+
+/* ── Form elements ──────────────────────────────────────────────────────── */
+.lp-web-page .lp-web-label {
+  font-size:      10.5px;
+  font-weight:    700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color:          var(--web-text-muted);
+  margin-bottom:  5px;
+  display:        block;
+}
+
+.lp-web-page .lp-web-input,
+.lp-web-page .lp-web-textarea {
+  width:         100%;
+  padding:       10px 12px;
+  font-size:     13px;
+  border:        1px solid var(--web-border);
+  border-radius: 8px;
+  font-family:   inherit;
+  box-sizing:    border-box;
+  outline:       none;
+  background:    var(--web-surface);
+  color:         var(--web-text);
+  transition:    border-color 0.15s;
+}
+.lp-web-page .lp-web-input:focus,
+.lp-web-page .lp-web-textarea:focus {
+  border-color: var(--web-primary);
+}
+.lp-web-page .lp-web-textarea {
+  resize:       vertical;
+  min-height:   80px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.lp-web-page .lp-web-btn {
+  padding:       10px 18px;
+  border-radius: 8px;
+  font-size:     13px;
+  font-weight:   500;
+  font-family:   inherit;
+  cursor:        pointer;
+  transition:    background 0.15s, opacity 0.15s, border-color 0.15s;
+  border:         1px solid transparent;
+  display:       inline-flex;
+  align-items:   center;
+  justify-content: center;
+  gap:           6px;
+}
+.lp-web-page .lp-web-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.lp-web-page .lp-web-btn-primary {
+  background:   var(--web-primary);
+  color:        #fff;
+  border-color: var(--web-primary);
+  font-weight:  600;
+}
+.lp-web-page .lp-web-btn-primary:hover:not(:disabled) {
+  background:   var(--web-primary-hover);
+  border-color: var(--web-primary-hover);
+}
+
+.lp-web-page .lp-web-btn-ghost {
+  background:   var(--web-surface);
+  color:        var(--web-text);
+  border-color: var(--web-border);
+}
+.lp-web-page .lp-web-btn-ghost:hover:not(:disabled) {
+  border-color: var(--web-border-hover);
+  background:   var(--web-surface-alt);
+}
+
+.lp-web-page .lp-web-btn-accept {
+  background:   var(--web-success);
+  color:        #fff;
+  border-color: var(--web-success);
+  font-weight:  600;
+}
+.lp-web-page .lp-web-btn-accept:hover:not(:disabled) { opacity: 0.92; }
+
+.lp-web-page .lp-web-btn-decline {
+  background:   var(--web-danger);
+  color:        #fff;
+  border-color: var(--web-danger);
+  font-weight:  600;
+}
+.lp-web-page .lp-web-btn-decline:hover:not(:disabled) { opacity: 0.92; }
+
+.lp-web-page .lp-web-btn-counter {
+  background:   var(--web-warning);
+  color:        #fff;
+  border-color: var(--web-warning);
+  font-weight:  600;
+}
+.lp-web-page .lp-web-btn-counter:hover:not(:disabled) { opacity: 0.92; }
+
+/* Text-only link-style button (no border, no background) */
+.lp-web-page .lp-web-btn-text {
+  background:  transparent;
+  border:      none;
+  color:       var(--web-primary);
+  font-size:   12.5px;
+  cursor:      pointer;
+  font-family: inherit;
+  padding:     4px 8px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.lp-web-page .lp-web-btn-text:hover:not(:disabled) { color: var(--web-primary-hover); }
+
+/* ── Banners ────────────────────────────────────────────────────────────── */
+.lp-web-page .lp-web-error {
+  padding:       10px 12px;
+  background:    var(--web-danger-bg);
+  border:        1px solid var(--web-danger-border);
+  border-radius: 8px;
+  color:         var(--web-danger);
+  font-size:     12px;
+}
+.lp-web-page .lp-web-success {
+  padding:       10px 12px;
+  background:    var(--web-success-bg);
+  border:        1px solid var(--web-success-border);
+  border-radius: 8px;
+  color:         var(--web-success);
+  font-size:     12px;
+}
+
+/* ── 💬 CHAT TOKENS — Semantic colors for messaging UX ──────────────────── */
+:root {
+  /* Mine — viewer's own message (LIGHT MODE defaults) */
+  --chat-bubble-mine-bg:           rgba(59, 130, 246, 0.10);
+  --chat-bubble-mine-border:       rgba(59, 130, 246, 0.25);
+  --chat-bubble-mine-text:         var(--lp-text);
+
+  /* Other — peer's message */
+  --chat-bubble-other-bg:          var(--lp-surface);
+  --chat-bubble-other-border:      var(--lp-border);
+  --chat-bubble-other-text:        var(--lp-text);
+
+  /* Internal — auditor/bookkeeper-only note (not visible to client) */
+  --chat-bubble-internal-bg:       rgba(124, 58, 237, 0.08);
+  --chat-bubble-internal-border:   rgba(124, 58, 237, 0.30);
+  --chat-bubble-internal-text:     var(--lp-violet);
+
+  /* Sender labels (above bubble) */
+  --chat-sender-label:             var(--lp-text-muted);
+  --chat-sender-label-internal:    var(--lp-violet);
+  --chat-timestamp:                var(--lp-text-muted);
+
+  /* System messages (joined, archived, etc) */
+  --chat-system-text:              #64748b;
+
+  /* AI generated badge */
+  --chat-ai-badge-bg:              var(--sem-green-bg);
+  --chat-ai-badge-border:          var(--sem-green);
+  --chat-ai-badge-text:            var(--sem-green);
+
+  /* Document attachment chip */
+  --chat-attachment-bg:            var(--lp-surface-2);
+  --chat-attachment-border:        var(--lp-border);
+  --chat-attachment-text:          var(--lp-text-muted);
+
+  /* Unread indicator (badge dot, banner) */
+  --chat-unread-bg:                rgba(220, 38, 38, 0.06);
+  --chat-unread-text:              var(--sem-red);
+  --chat-unread-dot:               var(--lp-accent);
+
+  /* Conversation row hover */
+  --chat-row-hover:                rgba(59, 130, 246, 0.04);
+  --chat-row-divider:              rgba(15, 23, 42, 0.04);
+
+  /* Input area */
+  --chat-input-bg:                 var(--lp-surface);
+  --chat-input-border:             var(--lp-border);
+  --chat-input-border-focus:       var(--lp-accent);
+}
+
+/* DARK MODE overrides for chat tokens */
+.theme-dark {
+  --chat-bubble-mine-bg:           rgba(59, 130, 246, 0.14);
+  --chat-bubble-mine-border:       rgba(59, 130, 246, 0.30);
+  --chat-bubble-mine-text:         #e2e8f0;
+
+  --chat-bubble-other-bg:          rgba(255, 255, 255, 0.05);
+  --chat-bubble-other-border:      var(--lp-border);
+  --chat-bubble-other-text:        #e2e8f0;
+
+  --chat-bubble-internal-bg:       rgba(167, 139, 250, 0.10);
+  --chat-bubble-internal-border:   rgba(167, 139, 250, 0.40);
+  --chat-bubble-internal-text:     #a78bfa;
+
+  --chat-sender-label:             #94a3b8;
+  --chat-sender-label-internal:    #a78bfa;
+  --chat-timestamp:                #475569;
+
+  --chat-system-text:              #64748b;
+
+  --chat-ai-badge-bg:              rgba(34, 197, 94, 0.10);
+  --chat-ai-badge-border:          rgba(34, 197, 94, 0.25);
+  --chat-ai-badge-text:            #22c55e;
+
+  --chat-attachment-bg:            rgba(255, 255, 255, 0.04);
+  --chat-attachment-border:        var(--lp-border);
+  --chat-attachment-text:          #94a3b8;
+
+  --chat-unread-bg:                rgba(239, 68, 68, 0.05);
+  --chat-unread-text:              #fbbf24;
+  --chat-unread-dot:               var(--lp-accent);
+
+  --chat-row-hover:                rgba(59, 130, 246, 0.05);
+  --chat-row-divider:              rgba(255, 255, 255, 0.04);
+
+  --chat-input-bg:                 rgba(255, 255, 255, 0.02);
+  --chat-input-border:             var(--lp-border);
+  --chat-input-border-focus:       var(--lp-accent);
+}

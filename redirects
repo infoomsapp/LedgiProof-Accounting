@@ -1,0 +1,5 @@
+# Cloudflare Pages / Netlify SPA redirects
+# All unmatched routes fall back to index.html so React Router can handle them.
+# Without this, /transactions would 404 because there's no physical file there.
+
+/*    /index.html   200

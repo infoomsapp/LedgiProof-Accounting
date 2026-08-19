@@ -1,0 +1,250 @@
+/* PATH: src/styles/web.css
+ * Light theme for public pages: landing + pricing + signup-flow.
+ * Corporate blue/gray, friendly, not rustic.
+ *
+ * Scope: applied via .lp-web-page wrapper class so it doesn't leak
+ * into the dark-themed authenticated app.
+ */
+
+.lp-web-page {
+  /* Backgrounds */
+  --web-bg:           #f8fafc;   /* slate-50 */
+  --web-surface:      #ffffff;
+  --web-surface-alt:  #f1f5f9;   /* slate-100 */
+
+  /* Borders */
+  --web-border:       #e2e8f0;   /* slate-200 */
+  --web-border-hover: #cbd5e1;   /* slate-300 */
+
+  /* Text */
+  --web-text:         #0f172a;   /* slate-900 */
+  --web-text-muted:   #475569;   /* slate-600 */
+  --web-text-subtle:  #94a3b8;   /* slate-400 */
+
+  /* Brand */
+  --web-primary:        #3b82f6;  /* blue-500 */
+  --web-primary-hover:  #2563eb;  /* blue-600 */
+  --web-primary-light:  #dbeafe;  /* blue-100 */
+  --web-accent:         #06b6d4;  /* cyan-500 */
+  --web-accent-light:   #cffafe;  /* cyan-100 */
+
+  /* Status */
+  --web-success: #22c55e;
+  --web-warning: #f59e0b;
+  --web-danger:  #ef4444;
+
+  background:        var(--web-bg);
+  color:             var(--web-text);
+  font-family:       'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height:        100vh;
+}
+
+/* ── Topbar ──────────────────────────────────────────────────────── */
+.lp-web-page .web-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--web-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.lp-web-page .web-topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--web-text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+
+.lp-web-page .web-topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lp-web-page .web-topbar-nav a {
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--web-text-muted);
+  text-decoration: none;
+  border-radius: 7px;
+  transition: all 0.15s;
+}
+
+.lp-web-page .web-topbar-nav a:hover {
+  color: var(--web-text);
+  background: var(--web-surface-alt);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.lp-web-page .web-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.lp-web-page .web-btn-primary {
+  background: linear-gradient(135deg, var(--web-primary), var(--web-primary-hover));
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+}
+.lp-web-page .web-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+}
+
+.lp-web-page .web-btn-ghost {
+  background: transparent;
+  color: var(--web-text);
+  border-color: var(--web-border);
+}
+.lp-web-page .web-btn-ghost:hover {
+  background: var(--web-surface);
+  border-color: var(--web-border-hover);
+}
+
+.lp-web-page .web-btn-lg {
+  padding: 13px 26px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────── */
+.lp-web-page .web-hero {
+  padding: 80px 24px 60px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at top, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at top right, rgba(6, 182, 212, 0.06) 0%, transparent 60%);
+}
+
+.lp-web-page .web-hero h1 {
+  font-size: clamp(36px, 5vw, 56px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 0 0 18px;
+  color: var(--web-text);
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lp-web-page .web-hero h1 .accent {
+  background: linear-gradient(135deg, var(--web-primary), var(--web-accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lp-web-page .web-hero-subtitle {
+  font-size: clamp(16px, 1.4vw, 19px);
+  color: var(--web-text-muted);
+  line-height: 1.55;
+  max-width: 620px;
+  margin: 0 auto 32px;
+}
+
+.lp-web-page .web-hero-ctas {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.lp-web-page .web-hero-trust {
+  margin-top: 28px;
+  font-size: 13px;
+  color: var(--web-text-subtle);
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Page sections ───────────────────────────────────────────────── */
+.lp-web-page .web-section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 60px 24px;
+}
+
+.lp-web-page .web-section h2 {
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
+  margin: 0 0 8px;
+  color: var(--web-text);
+}
+
+.lp-web-page .web-section .web-section-sub {
+  font-size: 16px;
+  color: var(--web-text-muted);
+  text-align: center;
+  margin: 0 0 40px;
+}
+
+/* ── Cards (general) ─────────────────────────────────────────────── */
+.lp-web-page .web-card {
+  background: var(--web-surface);
+  border: 1px solid var(--web-border);
+  border-radius: 14px;
+  padding: 24px;
+  transition: all 0.15s;
+}
+
+.lp-web-page .web-card:hover {
+  border-color: var(--web-border-hover);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.lp-web-page .web-footer {
+  border-top: 1px solid var(--web-border);
+  padding: 32px 24px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--web-text-subtle);
+  background: var(--web-surface);
+}
+
+.lp-web-page .web-footer-links {
+  display: flex;
+  gap: 22px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.lp-web-page .web-footer-links a {
+  color: var(--web-text-muted);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.lp-web-page .web-footer-links a:hover {
+  color: var(--web-text);
+}

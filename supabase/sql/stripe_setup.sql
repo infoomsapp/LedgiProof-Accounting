@@ -1,0 +1,71 @@
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Stripe Integration Setup
+--
+-- NO schema changes needed — all required columns already exist:
+--   invoice_payments.method          TEXT NULL       → stores 'stripe'
+--   invoice_payments.reference       TEXT NULL       → stores Stripe payment_intent ID
+--   invoice_payments.currency        TEXT            → stores invoice currency
+--   subscriptions.stripe_customer_id TEXT NULL
+--   subscriptions.stripe_subscription_id TEXT NULL
+--   subscriptions.stripe_price_id    TEXT NULL
+--   subscriptions.status             subscription_status enum
+--   subscriptions.plan               subscription_plan enum
+--
+-- Edge Functions deployed:
+--   create-checkout-session   → handles 'invoice' and 'subscription' modes
+--   stripe-webhook            → handles checkout.session.completed + subscription events
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 1. SET STRIPE SECRETS
+-- Run these in your terminal (one-time setup):
+--
+--   supabase secrets set STRIPE_SECRET_KEY=sk_live_xxx
+--   supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_xxx
+--   supabase secrets set STRIPE_PRICE_ID_STARTER=price_xxx
+--   supabase secrets set STRIPE_PRICE_ID_ENTREPRENEUR=price_xxx
+--   supabase secrets set STRIPE_PRICE_ID_BOOKKEEPER=price_xxx
+--   supabase secrets set STRIPE_PRICE_ID_ACCOUNTANT=price_xxx
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2. DEPLOY EDGE FUNCTIONS
+--
+--   supabase functions deploy create-checkout-session --no-verify-jwt
+--   supabase functions deploy stripe-webhook --no-verify-jwt
+--
+-- Note: --no-verify-jwt is correct for both:
+--   create-checkout-session  → handles auth internally per request type
+--   stripe-webhook           → verified via Stripe signature, not JWT
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 3. REGISTER WEBHOOK IN STRIPE DASHBOARD
+--
+--   Stripe Dashboard → Developers → Webhooks → Add endpoint
+--   URL:    https://hceihybnqjpzqyibkznp.supabase.co/functions/v1/stripe-webhook
+--   Events: checkout.session.completed
+--           customer.subscription.updated
+--           customer.subscription.deleted
+--           invoice.payment_failed
+--
+--   Copy the signing secret → set as STRIPE_WEBHOOK_SECRET above.
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4. CREATE STRIPE PRODUCTS (in Stripe Dashboard → Products)
+--
+--   Starter        $9.99  /month  recurring
+--   Entrepreneur   $19.99 /month  recurring
+--   Bookkeeper     $59.99 /month  recurring
+--   Accountant     $69.99 /month  recurring
+--
+--   Copy each Price ID (price_xxx) → set as STRIPE_PRICE_ID_* secrets above.
+--
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5. OPTIONAL — unique index for webhook idempotency on subscriptions
+--
+-- If stripe_subscription_id doesn't already have a unique index, add one
+-- so the upsert in stripe-webhook works correctly:
+
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_stripe_subscription_id_key
+  ON public.subscriptions (stripe_subscription_id)
+  WHERE stripe_subscription_id IS NOT NULL;
+
+-- ─────────────────────────────────────────────────────────────────────────────

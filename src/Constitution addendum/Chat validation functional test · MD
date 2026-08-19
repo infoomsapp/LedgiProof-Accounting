@@ -1,0 +1,493 @@
+# LedgiProof — Chat System Functional Test Plan
+
+**Purpose**: Validate end-to-end that chat works correctly across all roles AND respects Constitution Addendum #1 (Zero-Knowledge).
+
+**Duration**: ~30-45 min to execute fully.
+
+**Pre-requisites**:
+1. SQL smoke test (`chat_validation_smoke_test.sql`) passed
+2. At least 2 user accounts available:
+   - 1 bookkeeper (Org A)
+   - 1 pyme_client (assigned to Org A)
+3. Optional: 1 super_admin account for Zero-Knowledge test
+4. Optional: 2 browsers or 1 normal + 1 incognito for realtime testing
+
+---
+
+## 🧪 SCENARIO 1 — Per-Transaction Chat (Bookkeeper opens review)
+
+**Goal**: Validate that bookkeeper can open a chat on a tx and send messages.
+
+### Steps
+
+1. Login as **bookkeeper**
+2. Go to `/transactions`
+3. Find an **amber** or **red** transaction (or create one if none exists)
+4. Click the transaction to open `TransactionDetail.tsx`
+5. Click "💬 Ask client" or "Open review" button
+6. Verify `OpenReviewDialog.tsx` appears
+7. Type a question: "Was this for business or personal?"
+8. Select question type: "Personal vs Business"
+9. Set deadline: 72 hours (default)
+10. Click "Send & open review"
+
+### Expected results
+
+| Check | Pass criteria |
+|---|---|
+| Modal closes after send | ✅ |
+| Tx status changes to `requires_review = true` | ✅ |
+| Chat panel/icon appears on the tx | ✅ |
+| Audit event created in `audit_events` table | ✅ Verify via SQL |
+| RPC call `open_review_with_message` returned `{review_id, conversation_id, message_id}` | ✅ Check network tab |
+
+### SQL verification
+
+```sql
+-- Should show the just-created review and message
+SELECT
+  tc.id AS conv_id,
+  tc.transaction_id,
+  tc.status,
+  tm.body,
+  tm.message_kind,
+  tm.created_at
+FROM transaction_conversations tc
+JOIN transaction_messages tm ON tm.conversation_id = tc.id
+WHERE tc.transaction_id = '<your_tx_id_here>'
+ORDER BY tm.created_at DESC;
+```
+
+---
+
+## 🧪 SCENARIO 2 — Client receives notification and responds
+
+**Goal**: Validate that the pyme_client sees the question and can respond.
+
+### Steps
+
+1. Logout from bookkeeper account
+2. Login as **pyme_client** (same Org A)
+3. Go to `/pyme` (PymeDashboard)
+4. Look at the **WorkspaceChatPanel** sidebar — there should be an unread indicator
+5. Look at **PendingActionsCard** or **ReceiptRequestsCard** — should show "1 pending review"
+6. Click the unread item / pending review
+7. Should navigate to the transaction OR open chat directly
+8. Read the bookkeeper's question
+9. Type a response: "This was for business — client lunch"
+10. Click send
+
+### Expected results
+
+| Check | Pass criteria |
+|---|---|
+| Unread badge visible BEFORE clicking | ✅ |
+| Bookkeeper's message visible in chat panel | ✅ |
+| Send button enabled when text not empty | ✅ |
+| After send: own message appears below bookkeeper's | ✅ |
+| Network: `send_transaction_message` RPC returned 200 | ✅ |
+
+### SQL verification
+
+```sql
+-- Should now show 2 messages: bookkeeper's (in) + client's (out)
+SELECT
+  sender_role,
+  message_kind,
+  body,
+  read_by_bookkeeper,
+  read_by_client,
+  created_at
+FROM transaction_messages
+WHERE conversation_id = '<conv_id_from_scenario_1>'
+ORDER BY created_at ASC;
+```
+
+---
+
+## 🧪 SCENARIO 3 — Realtime update (bookkeeper sees response live)
+
+**Goal**: Validate Supabase realtime subscription works for chat.
+
+### Setup
+
+- Browser 1 (normal): logged in as **bookkeeper**, viewing the transaction chat
+- Browser 2 (incognito): logged in as **pyme_client**, viewing same transaction chat
+
+### Steps
+
+1. In **Browser 2 (client)**, type a new message: "Adding more context — purchased 3 office chairs"
+2. Click send
+3. **WITHOUT REFRESHING Browser 1**, watch the bookkeeper's chat panel
+
+### Expected results
+
+| Check | Pass criteria |
+|---|---|
+| New message appears in Browser 1 within 2-3 seconds | ✅ |
+| No manual refresh needed | ✅ |
+| Console shows realtime event received | ✅ Check DevTools |
+| Mark-as-read fires automatically when message visible | ✅ |
+
+### Diagnose if it fails
+
+If realtime doesn't work, run:
+
+```sql
+-- Verify table is in publication
+SELECT * FROM pg_publication_tables
+WHERE pubname = 'supabase_realtime'
+  AND tablename = 'transaction_messages';
+
+-- If empty, add it:
+ALTER PUBLICATION supabase_realtime ADD TABLE public.transaction_messages;
+```
+
+---
+
+## 🧪 SCENARIO 4 — Workspace chat (Bookkeeper ↔ Client global, not per-tx)
+
+**Goal**: Validate the workspace-level inbox and message thread.
+
+### Steps
+
+1. Login as **bookkeeper**
+2. Go to `/` (BookkeeperDashboard)
+3. Look for "Workspace inbox" or `WorkspaceChatPanel` widget
+4. Should show list of conversations (one per client)
+5. Click on a client's conversation
+6. Messages from that client should load
+7. Type: "Reminder: please upload receipts for last week"
+8. Click send
+
+### Expected results
+
+| Check | Pass criteria |
+|---|---|
+| Inbox loads with conversations grouped by client | ✅ |
+| Unread counters accurate (red dots) | ✅ |
+| Open conversation loads messages chronologically | ✅ |
+| Send creates new message + refreshes inbox | ✅ |
+| RPC `send_workspace_message` returned `{message_id, conversation_id, is_new_conversation}` | ✅ |
+
+### Test pyme view
+
+1. Logout, login as **pyme_client**
+2. Should see ONLY their own conversation (filtered by `clientId` in `useWorkspaceChat`)
+3. Try inspecting the network response of `getWorkspaceInbox()` — should NOT contain other clients' data
+
+### SQL verification
+
+```sql
+-- Bookkeeper should see all org's conversations
+-- Client should only see theirs
+SELECT
+  wc.id,
+  wc.client_id,
+  c.display_name AS client,
+  wc.status,
+  wc.archived_at,
+  (SELECT count(*) FROM workspace_messages wm
+   WHERE wm.conversation_id = wc.id) AS total_messages
+FROM workspace_conversations wc
+JOIN clients c ON c.id = wc.client_id
+WHERE wc.org_id = '<your_org_id>'
+ORDER BY wc.updated_at DESC;
+```
+
+---
+
+## 🧪 SCENARIO 5 — Archive workspace conversation
+
+**Goal**: Validate archive/restore flow.
+
+### Steps
+
+1. As **bookkeeper** in WorkspaceChatPanel
+2. Find a conversation that's resolved
+3. Click the "Archive" button (or context menu)
+4. Verify conversation disappears from default inbox view
+5. Toggle "Show archived" switch
+6. Verify conversation reappears with archived label
+7. Click "Restore"
+8. Verify it returns to active inbox
+
+### Expected results
+
+| Check | Pass criteria |
+|---|---|
+| Archive button visible only to bookkeeper (not client) | ✅ |
+| RPC `archive_workspace_conversation` returns success | ✅ |
+| `archived_at` column populated in DB | ✅ |
+| Inbox refreshes automatically after archive | ✅ |
+| Toggle archived view shows archived ones | ✅ |
+| Restore returns conversation to active | ✅ |
+
+---
+
+## 🧪 SCENARIO 6 — Zero-Knowledge enforcement (CRITICAL)
+
+**Goal**: Validate that even with super_admin role, workspace chats CANNOT be read.
+
+⚠️ This is the **most important test** for Constitution Addendum #1 compliance.
+
+### Pre-requisites
+
+You need a super_admin account that has NO `organization_memberships` row.
+
+```sql
+-- Verify super_admin has no org membership
+SELECT
+  u.email,
+  ur.role,
+  count(om.id) AS org_memberships
+FROM auth.users u
+JOIN public.user_roles ur ON ur.user_id = u.id
+LEFT JOIN public.organization_memberships om ON om.user_id = u.id
+WHERE ur.role = 'super_admin'
+GROUP BY u.email, ur.role;
+
+-- Expected: org_memberships = 0 for super_admin
+-- If > 0: that super_admin has been incorrectly added to an org and CAN read chats.
+```
+
+### Steps
+
+1. Login as **super_admin** (one with zero org memberships)
+2. Open Supabase SQL Editor in another tab (with admin role)
+3. Run this to verify what super_admin can see:
+
+```sql
+-- Switch role context to super_admin
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '<super_admin_uuid>', true);
+
+-- These MUST return 0 rows each
+SELECT 'workspace_conversations' AS tbl, count(*) FROM workspace_conversations
+UNION ALL
+SELECT 'workspace_messages',                count(*) FROM workspace_messages
+UNION ALL
+SELECT 'transaction_conversations',         count(*) FROM transaction_conversations
+UNION ALL
+SELECT 'transaction_messages',              count(*) FROM transaction_messages;
+
+-- Reset
+RESET ROLE;
+```
+
+### Expected results
+
+| Table | Expected count |
+|---|---|
+| `workspace_conversations` | **0** |
+| `workspace_messages` | **0** |
+| `transaction_conversations` | **0** |
+| `transaction_messages` | **0** |
+
+If ANY returns > 0:
+
+🚨 **CRITICAL VIOLATION** of Addendum #1. The RLS policy on that table has an "OR is_super_admin()" clause. Find it:
+
+```sql
+SELECT schemaname, tablename, policyname, qual::text
+FROM pg_policies
+WHERE qual::text ILIKE '%is_super_admin%'
+  AND tablename IN (
+    'workspace_conversations', 'workspace_messages',
+    'transaction_conversations', 'transaction_messages'
+  );
+```
+
+Drop and recreate the policy WITHOUT the super_admin escape hatch.
+
+---
+
+## 🧪 SCENARIO 7 — Cross-org leak test (FUTURE-PROOFING)
+
+**Goal**: Validate that a bookkeeper from Org A cannot read Org B's chats.
+
+### Setup
+
+You need 2 orgs (A and B), each with their own bookkeeper.
+
+### Steps
+
+1. Login as **bookkeeper of Org A**
+2. Open DevTools → Network tab
+3. Run from console:
+
+```javascript
+// Try to read Org B's workspace conversations via direct RPC
+const orgB_id = 'KNOWN_ORG_B_UUID'  // get from admin
+const { data, error } = await window.supabase.rpc('get_workspace_inbox', {
+  p_org_id: orgB_id
+})
+console.log('Org B data leak test:', { data, error })
+```
+
+### Expected results
+
+| Outcome | Verdict |
+|---|---|
+| Error: "User is not a member of this organization" | ✅ PASS — RPC enforces membership |
+| Empty array returned | ✅ PASS — RLS filters out |
+| Data from Org B visible | 🚨 CRITICAL FAIL — multi-tenant leak |
+
+---
+
+## 🧪 SCENARIO 8 — Document linking (enrich_transaction_message_links)
+
+**Goal**: Validate that uploaded receipts auto-link to relevant chat messages.
+
+### Steps
+
+1. As **client**, open a transaction chat where bookkeeper asked "Where's the receipt?"
+2. Use upload component (`UploadReceiptDialog`) to upload an image
+3. After upload, check the chat panel
+
+### Expected results
+
+| Check | Pass criteria |
+|---|---|
+| Upload succeeds | ✅ |
+| Document attached to transaction | ✅ |
+| Latest chat message auto-updated with `document_id` (via `enrich_transaction_message_links`) | ✅ |
+| Chat shows clickable attachment preview | ✅ |
+
+### SQL verification
+
+```sql
+-- The most recent client message should have document_id populated
+SELECT
+  body,
+  document_id,
+  message_kind,
+  created_at
+FROM transaction_messages
+WHERE conversation_id = '<conv_id>'
+  AND sender_role = 'client'
+ORDER BY created_at DESC
+LIMIT 5;
+```
+
+---
+
+## 🧪 SCENARIO 9 — Hash chain integrity (audit trail)
+
+**Goal**: Validate that the message hash chain is intact.
+
+### Steps
+
+Run in Supabase SQL Editor:
+
+```sql
+SELECT public.lp_messages_hash_chain();
+```
+
+### Expected results
+
+| Output | Meaning |
+|---|---|
+| `{"messages_total": N, "hash_chain_intact": true, ...}` | ✅ PASS |
+| Includes `"verified_at": "2026-..."` | ✅ Recent verification |
+| `"hash_chain_intact": false` | 🚨 CRITICAL — message data tampered |
+
+This is your CGC Core differentiator — cryptographic proof that messages haven't been altered.
+
+---
+
+## 📊 SUMMARY DASHBOARD
+
+After running all 9 scenarios, fill this in:
+
+```
+SCENARIO 1 — Bookkeeper opens review .................. [ PASS / FAIL ]
+SCENARIO 2 — Client receives & responds ................ [ PASS / FAIL ]
+SCENARIO 3 — Realtime update ........................... [ PASS / FAIL ]
+SCENARIO 4 — Workspace chat global ..................... [ PASS / FAIL ]
+SCENARIO 5 — Archive / restore ......................... [ PASS / FAIL ]
+SCENARIO 6 — Zero-Knowledge enforcement ⚠ CRITICAL ..... [ PASS / FAIL ]
+SCENARIO 7 — Cross-org leak (multi-tenant) ............. [ PASS / FAIL ]
+SCENARIO 8 — Document linking .......................... [ PASS / FAIL ]
+SCENARIO 9 — Hash chain integrity ...................... [ PASS / FAIL ]
+```
+
+### Pass/Fail decision tree
+
+- **All 9 PASS**: 🎉 Chat system is production-ready. Compliant with Addendum #1.
+- **Scenarios 1-5 PASS but Scenario 6 FAILS**: 🚨 **DO NOT DEPLOY** — Zero-Knowledge violation. Fix RLS policies first.
+- **Scenario 7 FAILS**: 🚨 **CRITICAL** — multi-tenant data leak. Fix RPC/RLS immediately.
+- **Scenarios 3 or 8 FAIL**: ⚠️ Functional issues but not security-blocking. Fix in current sprint.
+- **Scenario 9 FAILS**: ⚠️ Audit/integrity concern. Investigate before relying on hash chain for compliance.
+
+---
+
+## 🛠 COMMON ISSUES & FIXES
+
+### Issue: Scenario 3 (realtime) fails
+
+**Cause 1**: Table not in publication
+```sql
+ALTER PUBLICATION supabase_realtime
+  ADD TABLE public.transaction_messages, public.workspace_messages;
+```
+
+**Cause 2**: RLS blocks the realtime channel
+- Realtime respects RLS. If the user can't read the table via RLS, they won't get realtime events.
+- Verify the user has org membership.
+
+**Cause 3**: Client-side channel subscription bug
+- Check browser console for "CLOSED" or "CHANNEL_ERROR" status
+- Verify `db.removeChannel()` is called on unmount (memory leak)
+
+### Issue: Scenario 6 (Zero-Knowledge) fails
+
+**Most likely cause**: Someone added "OR is_super_admin()" to a chat table's RLS policy.
+
+Fix:
+```sql
+-- 1. Find the offending policy
+SELECT schemaname, tablename, policyname, qual::text
+FROM pg_policies
+WHERE qual::text ILIKE '%is_super_admin%'
+  AND tablename LIKE '%conversation%' OR tablename LIKE '%message%';
+
+-- 2. Drop it
+DROP POLICY "<policy_name>" ON public.<table_name>;
+
+-- 3. Recreate WITHOUT the escape hatch
+CREATE POLICY "<policy_name>" ON public.<table_name>
+  FOR SELECT
+  USING (
+    org_id IN (
+      SELECT om.org_id
+      FROM public.organization_memberships om
+      WHERE om.user_id = auth.uid()
+    )
+    -- NO "OR is_super_admin()" — Zero-Knowledge per Addendum #1
+  );
+```
+
+### Issue: Scenario 1 (open review) fails with "permission denied for table"
+
+**Cause**: The user doesn't have the required role or org membership.
+
+Verify:
+```sql
+SELECT
+  u.email,
+  ur.role,
+  om.org_id,
+  o.name AS org_name
+FROM auth.users u
+JOIN public.user_roles ur ON ur.user_id = u.id
+LEFT JOIN public.organization_memberships om ON om.user_id = u.id
+LEFT JOIN public.organizations o ON o.id = om.org_id
+WHERE u.email = 'your_test_user@example.com';
+```
+
+User must have at least one `organization_memberships` row to interact with operational chat tables.
+
+---
+
+**End of test plan** · *Save your results in a CHAT_VALIDATION_RESULTS.md file for future audits.*

@@ -1,0 +1,159 @@
+# LedgiProof Constitution — Addendum: Chat Governance & Zero-Knowledge
+
+**Issued**: 2026-06-04 · **Status**: BINDING · **Version**: v1.0
+
+This addendum extends the LedgiProof System Constitution with formal governance rules for the communication subsystem. These rules are non-negotiable architectural law.
+
+---
+
+## ⚖️ CHAT GOVERNANCE & ZERO-KNOWLEDGE PRIVACY
+
+### Principle 1 — Channel Isolation (Aislamiento por Canal)
+
+Business communication and support communication MUST live in physically separate database schemas with separate RLS policies. There is NO cross-table access between operational and infrastructure layers.
+
+**Operational layer** (data financiera/contable):
+- `workspace_conversations` (bookkeeper ↔ pyme_client)
+- `workspace_messages`
+- `transaction_conversations` (bookkeeper ↔ cliente, per-tx)
+- `transaction_messages`
+
+All tables in this layer MUST have `org_id` as a foreign key and MUST enforce RLS by org_id match.
+
+**Infrastructure layer** (data operativa/soporte):
+- `support_tickets` (NEW — to be created in v33+)
+- `ticket_messages` (NEW — to be created in v33+)
+
+Tables in this layer MUST NOT have `org_id` as a direct FK. They anchor to `user_id` (auth.users) globally. Optional `origin_org_id` allowed ONLY for traceability — never for access control.
+
+**AI layer** (futuro):
+- `ai_conversations` (self_employed Dashboard ↔ AI Customer Service)
+
+Isolated from both above layers. AI never reads operational data unless explicitly granted via CGC Core decision pipeline.
+
+**Audit layer**:
+- Auditor access flows through `accountant_access_grants` with explicit user consent. Auditors get READ-ONLY access to specific operational hilos, NEVER global cross-org access.
+
+**Cross-layer queries are FORBIDDEN.** Any RPC that joins operational + infrastructure tables MUST be rejected at code review.
+
+---
+
+### Principle 2 — Zero-Knowledge by Construction (Privacidad por Aislamiento)
+
+The Super Admin role MUST NOT possess permission flags:
+- `canReadWorkspaceConversations`
+- `canReadTransactionMessages`
+- `canReadOperationalChats`
+
+Enforcement is structural, not procedural. RLS policies on operational tables MUST require:
+```sql
+org_id IN (
+  SELECT org_id FROM organization_memberships
+  WHERE user_id = auth.uid()
+)
+```
+
+Since the Super Admin has NO `organization_memberships` row (they exist globally, not per-org), the RLS evaluator automatically returns zero rows. The Super Admin is rejected by the database itself, not by application logic.
+
+**NO `is_super_admin() OR org_id match` policies are permitted on operational chat tables.** This is the most common implementation mistake and it breaks Zero-Knowledge.
+
+The only acceptable Super Admin chat access is to the `support_tickets` infrastructure layer, where the policy is:
+```sql
+created_by = auth.uid() OR public.is_super_admin()
+```
+
+This grants Super Admin access ONLY to support tickets, never to operational data.
+
+---
+
+### Principle 3 — Ticket-Driven Support (Iniciación por Disparador)
+
+Super Admin MUST NOT be able to initiate a conversation with any user. All communication between users and Super Admin originates from an explicit, user-initiated action.
+
+**The "Report a Problem" pattern**:
+1. User clicks a "Report a problem" button (AppShell footer, settings page, or in-context).
+2. UI opens a ticket creation form.
+3. Form INSERTs into `support_tickets` with `created_by = auth.uid()`.
+4. Super Admin sees the ticket appear in their inbox (RPC `get_my_support_inbox`).
+5. Super Admin can respond ONLY within that ticket thread.
+
+**Forbidden patterns** (must be rejected at code review):
+- ❌ Super Admin UI with "Send message to user X" functionality
+- ❌ RPC `super_admin_message_user(user_id, body)`
+- ❌ Background notifications from Super Admin to users (except system events triggered by user actions)
+
+System-generated notifications (e.g., "Your subscription expires in 7 days") are NOT considered Super Admin communication — they're system events that route through `notifications` table, not the chat subsystem.
+
+---
+
+## 🛡 ENFORCEMENT MECHANISMS
+
+These principles are enforced through three layers:
+
+### Layer A — Database (most important)
+- RLS policies on all chat tables
+- NO `OR is_super_admin()` in operational chat policies
+- Separate schemas for operational vs infrastructure tables
+- Foreign key constraints prevent accidental cross-references
+
+### Layer B — Service / API
+- All chat RPCs validate `auth.uid()` membership before returning data
+- No RPC accepts both `p_org_id` AND `p_admin_override` parameters in the same signature
+- Service files are domain-segregated: `workspace-chat.service.ts`, `chat-tx.service.ts`, `support.service.ts` (future) — they do NOT cross-import
+
+### Layer C — UI / UX
+- The Super Admin UI (`SuperAdmin.tsx`) MUST NOT contain any component that imports `workspace-chat.service.ts` or `chat-tx.service.ts`
+- The user-facing "Report a problem" button is the ONLY entry point to the support ticket system
+- The route `/admin/support` (future) renders ticket inboxes, never workspace conversations
+
+---
+
+## 📋 IMPLEMENTATION CHECKLIST (for future migrations)
+
+When implementing the support ticket system (planned v33+), this checklist MUST be satisfied:
+
+- [ ] Create `support_tickets` table with NO `org_id` as direct FK
+- [ ] Create `ticket_messages` table referencing ONLY `ticket_id` and `sender_id`
+- [ ] RLS on `support_tickets`: `created_by = auth.uid() OR is_super_admin()`
+- [ ] RLS on `ticket_messages`: ticket-scoped (via parent ticket access)
+- [ ] Build `support.service.ts` — NO imports from `workspace-chat.service.ts` or `chat-tx.service.ts`
+- [ ] Build "Report a problem" button in AppShell footer
+- [ ] Build `SupportInbox.tsx` for Super Admin — ONLY shows tickets
+- [ ] Audit: confirm Super Admin role still receives 0 rows on `SELECT * FROM workspace_conversations`
+- [ ] Code review checklist: any PR adding chat functionality must reference this addendum
+
+---
+
+## 🔍 AUDITABILITY
+
+The Super Admin's INABILITY to access operational chats is itself an auditable property. The following SQL query MUST return zero rows when executed under a Super Admin auth context:
+
+```sql
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '<super_admin_uuid>', true);
+
+SELECT count(*) FROM workspace_conversations;        -- expected: 0
+SELECT count(*) FROM workspace_messages;             -- expected: 0
+SELECT count(*) FROM transaction_conversations;      -- expected: 0
+SELECT count(*) FROM transaction_messages;           -- expected: 0
+```
+
+This query becomes part of the deployment smoke test suite. If any returns > 0, the deployment fails.
+
+---
+
+## 📖 RATIONALE
+
+Why this matters for LedgiProof specifically:
+
+1. **Regulatory positioning**: As a FinTech handling US tax data (Schedule C, 1099, IRS forms), LedgiProof faces SOC 2, IRS Pub 1075, and state-level data privacy laws (CCPA, NY SHIELD). A Super Admin with read access to client-bookkeeper conversations creates an audit liability.
+
+2. **Trust signal to bookkeepers**: Professional bookkeepers handle attorney-client analog data. They will NOT adopt a platform where the vendor (Anthropic + LedgiProof Inc.) can read their conversations with their clients. Zero-Knowledge is a sales differentiator.
+
+3. **AI safety preparation**: Future AI features (semaphore explanations, Customer Service IA) will operate within these channels. By isolating channels NOW, prompt injection attacks targeting cross-org data extraction become structurally impossible.
+
+4. **Competitive moat**: QuickBooks does NOT have this architecture. Intuit employees can theoretically be subpoenaed to produce QB chat content. LedgiProof's Zero-Knowledge construction is a defensible differentiator vs. QB and a marketing point.
+
+---
+
+**End of Addendum** · *Pegate este documento al inicio de futuras conversaciones con Claude para que respete los principios.*

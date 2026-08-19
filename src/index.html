@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      Content Security Policy
+
+      connect-src needs to allow:
+        · https://*.supabase.co        — Supabase REST API
+        · wss://*.supabase.co          — Supabase Realtime (WebSocket)
+        · https://api.anthropic.com    — Claude API (if proxied client-side)
+        · ws://localhost:*             — Vite HMR (DEV only)
+        · http://localhost:*           — Vite DevServer extras (DEV only)
+
+      In production builds you may want to remove the localhost entries.
+      For development, they are required for Vite hot-reload.
+
+      img-src adds blob: so generated previews (e.g. compressed images
+      before upload) render correctly. Supabase Storage signed URLs are
+      under *.supabase.co so they're covered by the wildcard.
+
+      worker-src 'self' blob: is needed for browser-image-compression
+      which spawns Web Workers for off-thread image processing.
+    -->
+    <meta http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        style-src 'self' 'unsafe-inline';
+        connect-src 'self'
+                    https://*.supabase.co wss://*.supabase.co
+                    https://api.anthropic.com
+                    ws://localhost:* http://localhost:*;
+        img-src 'self' data: blob: https://*.supabase.co;
+        worker-src 'self' blob:;
+        font-src 'self' data:;
+        media-src 'self' blob:;
+      " />
+
+    <title>LedgiProof</title>
+    <style>
+      /* Inline loading screen — visible immediately before React mounts */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; background: #0f1117; color: #e2e8f0; font-family: system-ui, sans-serif; }
+      #root { height: 100%; }
+      #loading {
+        position: fixed; inset: 0;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: #0f1117; z-index: 9999;
+        gap: 16px;
+      }
+      #loading .dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #3b82f6; animation: pulse 1.2s ease-in-out infinite;
+      }
+      #loading .dot:nth-child(2) { animation-delay: 0.2s; background: #22c55e; }
+      #loading .dot:nth-child(3) { animation-delay: 0.4s; background: #f59e0b; }
+      #loading .dot:nth-child(4) { animation-delay: 0.6s; background: #ef4444; }
+      @keyframes pulse { 0%,100%{opacity:0.3;transform:scale(0.8)} 50%{opacity:1;transform:scale(1.2)} }
+      #loading-dots { display: flex; gap: 8px; }
+      #loading-text { font-size: 13px; color: #64748b; }
+      #error-screen {
+        display: none; position: fixed; inset: 0;
+        background: #0f1117; align-items: center; justify-content: center; padding: 40px;
+      }
+      #error-screen.show { display: flex; }
+    </style>
+  </head>
+  <body>
+    <!-- Inline loading screen (shown until React mounts) -->
+    <div id="loading">
+      <div id="loading-dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+      <div id="loading-text">Loading LedgiProof…</div>
+    </div>
+
+    <!-- Error screen (shown if React fails to mount) -->
+    <div id="error-screen">
+      <div style="max-width:480px;background:#161b27;border:0.5px solid rgba(239,68,68,0.3);border-radius:12px;padding:28px 24px;">
+        <div style="font-size:15px;font-weight:600;color:#ef4444;margin-bottom:12px;">Failed to load</div>
+        <div id="error-msg" style="font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:16px;"></div>
+        <button onclick="location.reload()"
+          style="padding:8px 16px;background:#3b82f6;border:none;border-radius:7px;color:#fff;font-size:13px;cursor:pointer;">
+          Reload
+        </button>
+      </div>
+    </div>
+
+    <!-- React root -->
+    <div id="root"></div>
+
+    <!-- React entry -->
+    <script type="module" src="./main.tsx"></script>
+
+    <script>
+      // Hide loading screen once React has mounted
+      window.__hideLoading = function() {
+        var el = document.getElementById('loading')
+        if (el) el.style.display = 'none'
+      }
+
+      function generateErrorId() {
+        return 'LP-' + Date.now()
+      }
+
+      // If React hasn't mounted in 8 seconds, show error
+      var timeout = setTimeout(function() {
+        var root = document.getElementById('root')
+        if (!root || !root.children.length) {
+          var loading = document.getElementById('loading')
+          var errorScreen = document.getElementById('error-screen')
+          var errorMsg = document.getElementById('error-msg')
+          if (loading) loading.style.display = 'none'
+          if (errorScreen) errorScreen.classList.add('show')
+          if (errorMsg) errorMsg.textContent =
+            'LedgiProof failed to start. Please reload the application. If the issue persists, contact support. (Ref: ' + generateErrorId() + ')'
+        }
+      }, 8000)
+
+      // Clear timeout once React mounts
+      var observer = new MutationObserver(function() {
+        var root = document.getElementById('root')
+        if (root && root.children.length) {
+          clearTimeout(timeout)
+          window.__hideLoading && window.__hideLoading()
+          observer.disconnect()
+        }
+      })
+      observer.observe(document.getElementById('root'), { childList: true })
+    </script>
+  </body>
+</html>

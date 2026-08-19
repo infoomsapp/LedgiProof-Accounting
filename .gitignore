@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-web/
+dist-electron/
+out/
+release/
+
+# Environment — never commit
+.env
+.env.*
+!.env.example
+env.production.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Tests
+coverage/
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Electron builder cache
+electron-builder-cache/

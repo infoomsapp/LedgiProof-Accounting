@@ -1,0 +1,351 @@
+# LedgiProof Constitution — Addendum #2: Privacy-Safe Analytics
+
+**Issued**: 2026-06-04 · **Status**: BINDING · **Version**: v1.0
+**Supersedes**: Implicit SuperAdmin "see all" behavior in pre-Addendum codebase
+
+This addendum extends the LedgiProof System Constitution with formal governance rules for the SuperAdmin's relationship to user data. These rules are non-negotiable architectural law and complement Addendum #1 (Chat Governance).
+
+---
+
+## 🎯 EXECUTIVE STATEMENT
+
+A SuperAdmin doing routine monitoring (revenue, retention, system health) does NOT need to see WHICH org/user/client a metric belongs to. Granting that access by default creates:
+
+1. **Compliance risk** — SOC 2 audits require Principle of Least Privilege. "View all data always" fails Type II audits.
+2. **Insider threat surface** — An employee with bad intent can extract competitive intelligence about client businesses.
+3. **Regulatory exposure** — CCPA/GDPR-like rights of "do not sell my data" become harder to honor when admins routinely browse client identities.
+4. **Trust gap** — Bookkeepers handling sensitive client data will not adopt a platform where they suspect the vendor "looks at" their books.
+
+The fix: **dual-mode SuperAdmin**. Default is anonymous metrics. PII access requires explicit, audited, time-boxed elevation.
+
+---
+
+## ⚖️ PRINCIPLE 4 — Privacy-Safe Analytics (Default Mode)
+
+The SuperAdmin role's DEFAULT view (Analytics Mode) MUST NOT expose any Personally Identifiable Information (PII).
+
+### What is PROHIBITED in Analytics Mode
+
+- `org_id`, `org_name`, `org_slug` — any organization identifier
+- `user_id`, `email`, `display_name`, `lp_user_code` — any user identifier
+- `client_id`, `client_name`, client address, client tax_id — any client identifier
+- Transaction details: amounts, descriptions, merchant names, references
+- Invoice details: amounts, line items, recipient names
+- Estimate details: amounts, scope, client recipients
+- Any data joined on PII columns that would allow de-anonymization
+
+### What is PERMITTED in Analytics Mode
+
+- **Aggregate counts**: `count(*)`, `count(distinct ...)`, `sum(amount)`
+- **Averages and distributions**: `avg(duration)`, `percentile_cont`, histograms
+- **Cohort analyses**: retention curves, churn rates, lifetime value (LTV) by cohort
+- **Trend lines**: signups per week, MRR over time, transactions per day
+- **Plan and feature distributions**: subscribers per plan, feature usage rates
+- **Funnel metrics**: trial → paid conversion, onboarding completion rates
+- **Promotional metrics**: promo code redemptions, early-cancellation rates by promo
+- **System health**: API response times, error rates, uptime
+- **Risk distribution**: % of tx in blue/green/amber/red across the platform (no per-org breakdown)
+
+### Enforcement mechanism
+
+All "Analytics" RPCs MUST follow the naming convention `get_*_metrics_anonymous` and MUST:
+
+1. Be `SECURITY DEFINER`
+2. Reject if `NOT is_super_admin()`
+3. Return ONLY scalar aggregates or arrays of anonymous structs (no `*_id`, `*_name`, `*_email`)
+4. Be reviewed via code-review checklist that explicitly verifies no PII in return shape
+
+Example contract:
+
+```sql
+CREATE OR REPLACE FUNCTION public.get_retention_metrics_anonymous()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RETURN jsonb_build_object('error', 'Forbidden');
+  END IF;
+
+  RETURN jsonb_build_object(
+    -- ALL fields are AGGREGATE. No identifiers.
+    'live_users_now',           (SELECT count(*) FROM user_sessions WHERE ended_at IS NULL),
+    'avg_session_minutes',      (SELECT round(avg(duration_sec)/60.0, 1) FROM user_sessions WHERE ended_at IS NOT NULL),
+    'cohort_week_1_retention',  (SELECT round(avg(retention)::numeric, 3) FROM ...),
+    'promo_signups_30d',        (SELECT count(*) FROM subscriptions WHERE promo_code IS NOT NULL AND created_at >= now() - interval '30 days'),
+    'promo_left_early_count',   (SELECT count(*) FROM subscriptions WHERE promo_left_early = true),
+    'churn_by_plan',            jsonb_build_object(
+                                  'solo',  (SELECT round(churn_pct::numeric, 2) FROM churn_view WHERE plan = 'solo'),
+                                  'plus',  (SELECT round(churn_pct::numeric, 2) FROM churn_view WHERE plan = 'plus'),
+                                  'pro',   (SELECT round(churn_pct::numeric, 2) FROM churn_view WHERE plan = 'pro')
+                                ),
+    '_compliance_note',         'This RPC returns aggregates only. No PII included.'
+  );
+END $$;
+```
+
+### Forbidden patterns in Analytics Mode RPCs
+
+```sql
+-- ❌ FORBIDDEN: returns individual records
+SELECT id, name FROM organizations;
+
+-- ❌ FORBIDDEN: returns top-N with names
+SELECT name, tx_count FROM org_stats ORDER BY tx_count DESC LIMIT 10;
+
+-- ❌ FORBIDDEN: returns even slugs (slug = identifier)
+SELECT org_slug, last_activity FROM inactive_orgs;
+
+-- ✅ PERMITTED: counts and percentiles only
+SELECT count(*) FROM organizations WHERE is_active = true;
+SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY tx_count) FROM org_stats;
+```
+
+### Migration impact
+
+The current `get_admin_command_center()` RPC (admin-command.service.ts) returns:
+- `top_clients` — contains `org_id`, `org_name`, `org_slug` 🚨 PII
+- `clients_with_issues` — contains `org_id`, `org_name`, `org_slug` 🚨 PII
+- `inactive_clients` — contains `org_id`, `org_name`, `org_slug` 🚨 PII
+- `recent_events` — contains `actor` (user identifier) 🚨 PII
+
+This RPC violates Principle 4 in its current form. It MUST be replaced or split:
+
+- `get_admin_command_center_anonymous()` — current data MINUS the PII arrays
+- `get_admin_command_center_support()` — full data, requires Support Mode (Principle 5)
+
+The frontend (`CommandCenterOverview.tsx`) must call the anonymous variant by default and switch to the support variant ONLY in Support Mode.
+
+---
+
+## ⚖️ PRINCIPLE 5 — Explicit Mode Switch to Access PII (Support Mode)
+
+When the SuperAdmin needs to access PII (for legitimate support, debugging, account help), they MUST EXPLICITLY enter Support Mode via a confirmed, audited action.
+
+### Required UX flow
+
+1. SuperAdmin clicks a clearly-labeled "Enter Support Mode" button
+2. A modal appears requiring:
+   - **Reason** (free text, mandatory, minimum 20 characters)
+   - **Target** (org, user, ticket ID — at least one)
+   - **Expected duration** (default 30 minutes, max 4 hours)
+3. System creates an `impersonation_audit` entry BEFORE granting access
+4. Banner appears at top of screen: "🟠 Support Mode active — viewing PII for: [target] — expires in [X min]"
+5. ALL queries executed during Support Mode are logged with the audit entry ID
+6. Mode auto-expires at the declared duration
+7. Mode can be manually exited with a single click
+
+### Required RPC contract
+
+```sql
+CREATE OR REPLACE FUNCTION public.enter_support_mode(
+  p_reason         text,
+  p_target_org_id  uuid DEFAULT NULL,
+  p_target_user_id uuid DEFAULT NULL,
+  p_target_ticket_id uuid DEFAULT NULL,
+  p_duration_minutes int DEFAULT 30
+)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_audit_id   uuid;
+  v_expires_at timestamptz;
+BEGIN
+  -- Authorization check
+  IF NOT public.is_super_admin() THEN
+    RETURN jsonb_build_object('error', 'Forbidden');
+  END IF;
+
+  -- Reason validation (mandatory)
+  IF length(trim(p_reason)) < 20 THEN
+    RETURN jsonb_build_object('error', 'Reason must be at least 20 characters');
+  END IF;
+
+  -- At least one target required
+  IF p_target_org_id IS NULL
+     AND p_target_user_id IS NULL
+     AND p_target_ticket_id IS NULL THEN
+    RETURN jsonb_build_object('error', 'At least one target required');
+  END IF;
+
+  -- Duration cap
+  IF p_duration_minutes > 240 THEN
+    RETURN jsonb_build_object('error', 'Maximum duration is 4 hours');
+  END IF;
+
+  v_expires_at := now() + (p_duration_minutes || ' minutes')::interval;
+
+  -- Log entry BEFORE granting access
+  INSERT INTO public.impersonation_audit (
+    actor_user_id, actor_role, action,
+    context_org_id, context_user_id,
+    query_metadata, created_at
+  ) VALUES (
+    auth.uid(), 'super_admin', 'support_mode_enter',
+    p_target_org_id, p_target_user_id,
+    jsonb_build_object(
+      'reason',         p_reason,
+      'ticket_id',      p_target_ticket_id,
+      'duration_min',   p_duration_minutes,
+      'expires_at',     v_expires_at
+    ),
+    now()
+  ) RETURNING id INTO v_audit_id;
+
+  RETURN jsonb_build_object(
+    'audit_id',   v_audit_id,
+    'expires_at', v_expires_at,
+    'mode',       'support'
+  );
+END $$;
+```
+
+### Visual indicator (UI requirement)
+
+The Support Mode banner MUST be:
+- **Sticky at the top** of the viewport (z-index above all content)
+- **High-contrast color** (orange/red — distinct from current Impersonation banner)
+- **Always visible** while Support Mode is active
+- **Show countdown** of time remaining
+- **Show target** (org/user being viewed)
+- **Show "Exit Support Mode" button**
+
+The Impersonation banner (separate concept — actually impersonating a user) MUST remain distinct from Support Mode banner (just elevated read access).
+
+### Forbidden patterns
+
+```typescript
+// ❌ FORBIDDEN: granting Support Mode without audit log
+const enterSupportMode = () => setMode('support')
+
+// ❌ FORBIDDEN: Support Mode without expiration
+const enterSupportMode = (reason) => {
+  setMode('support')
+  // no expiration set — Mode is permanent until manual exit
+}
+
+// ❌ FORBIDDEN: skipping reason validation
+const enterSupportMode = (reason) => {
+  if (!reason) reason = 'support'  // default placeholder — bypasses audit value
+  ...
+}
+
+// ✅ CORRECT: full flow
+const enterSupportMode = async (reason, target, duration) => {
+  if (reason.trim().length < 20) {
+    throw new Error('Reason must be at least 20 chars')
+  }
+  const { audit_id, expires_at } = await rpc('enter_support_mode', {...})
+  setMode({ kind: 'support', audit_id, expires_at, target })
+  scheduleAutoExit(expires_at)
+}
+```
+
+---
+
+## 🛡 ENFORCEMENT MECHANISMS
+
+These principles are enforced through four layers:
+
+### Layer A — Database (most important)
+- Naming convention: `*_anonymous` RPCs for Analytics Mode, `*_support` for Support Mode
+- Support Mode RPCs MUST check `impersonation_audit` has a non-expired `support_mode_enter` entry for the calling user
+- Code review checklist verifies no PII columns in `*_anonymous` return shapes
+
+### Layer B — Service / API
+- `admin-command.service.ts` MUST split into:
+  - `admin-analytics.service.ts` (Privacy-Safe)
+  - `admin-support.service.ts` (PII, requires Support Mode token)
+- Support service functions MUST receive an `auditId` parameter, passed to every RPC for traceability
+
+### Layer C — UI / UX
+- `CommandCenterOverview.tsx` calls Analytics service ONLY (no PII visible)
+- A separate `SupportConsole.tsx` (future) handles Support Mode UI
+- The "View as" button is moved from QuickSearchPalette to SupportConsole (requires Support Mode first)
+- The QuickSearchPalette in Analytics Mode searches against anonymous aggregates (e.g., "orgs with >100 tx") not by name
+
+### Layer D — Audit
+- `impersonation_audit` is the source of truth for who-saw-what-when
+- Compliance review process: monthly extract of all `support_mode_enter` events with reasons
+- If a Support Mode session has no `query_metadata.reason` longer than 20 chars, deployment FAILS pre-prod tests
+
+---
+
+## 📋 IMPLEMENTATION CHECKLIST
+
+When implementing this addendum (planned in upcoming migrations), this checklist MUST be satisfied:
+
+- [ ] Create migration v33+: add tables `user_sessions`, augment `subscriptions` with promo fields
+- [ ] Create RPC `get_retention_metrics_anonymous()` — returns aggregates only
+- [ ] Create RPC `enter_support_mode(reason, target, duration)` — logs to audit
+- [ ] Create RPC `exit_support_mode(audit_id)` — closes the session
+- [ ] Split `admin-command.service.ts` → `admin-analytics.service.ts` + `admin-support.service.ts`
+- [ ] Update `CommandCenterOverview.tsx` to use Analytics service only
+- [ ] Build `SupportConsole.tsx` for PII-required workflows
+- [ ] Build Support Mode entry dialog with reason field (≥20 chars validation)
+- [ ] Build Support Mode banner with countdown timer
+- [ ] Move `QuickSearchPalette` "View as" to SupportConsole only
+- [ ] Pre-prod test suite: verify no PII columns in any `*_anonymous` RPC return
+- [ ] Compliance test: simulate SuperAdmin entering Support Mode, verify audit log entry
+
+---
+
+## 🔍 AUDITABILITY
+
+A SuperAdmin's PII access is itself an auditable property. The following SQL query MUST return all PII access events with full context:
+
+```sql
+SELECT
+  ia.created_at,
+  u.email                          AS admin_email,
+  ia.query_metadata->>'reason'     AS reason,
+  ia.context_org_id,
+  ia.context_user_id,
+  ia.query_metadata->>'ticket_id'  AS ticket_id,
+  ia.query_metadata->>'expires_at' AS expires_at,
+  (ia.query_metadata->>'duration_min')::int AS duration_minutes
+FROM public.impersonation_audit ia
+LEFT JOIN auth.users u ON u.id = ia.actor_user_id
+WHERE ia.action = 'support_mode_enter'
+  AND ia.created_at >= now() - interval '90 days'
+ORDER BY ia.created_at DESC;
+```
+
+This query feeds the monthly compliance review.
+
+---
+
+## 📖 RATIONALE
+
+Why this matters for LedgiProof specifically:
+
+1. **Bookkeeper trust**: Professional bookkeepers handle attorney-client analog data. Knowing the SuperAdmin CANNOT browse their client list at will is a sales differentiator vs QuickBooks.
+
+2. **Regulatory positioning**: SOC 2 Type II requires Principle of Least Privilege. "Admin sees everything always" fails the control. Privacy-Safe Analytics by default + audited Support Mode satisfies the control.
+
+3. **Insider threat reduction**: Bad actors with admin credentials can extract competitive intelligence (e.g., "which restaurants in NYC use LedgiProof and have $X revenue?"). Aggregate-only default makes this impossible. Support Mode requires a reason that creates evidence.
+
+4. **Compliance reporting**: When auditors ask "show us all PII access events in Q4", LedgiProof can produce the query above. Most SaaS platforms cannot.
+
+5. **Customer ROIs**: AL plans to position LedgiProof as audit-grade. The CGC Core hash chain + Privacy-Safe Admin combine into a compelling "we cannot read your books without your knowledge" story.
+
+6. **AI safety future-proofing**: When AI features are added (Customer Service IA, Schedule C explanations), they CANNOT have routine access to PII. Same principle: AI gets aggregates; user-specific context only via Support Mode equivalent.
+
+---
+
+## 🚦 RELATIONSHIP TO ADDENDUM #1 (CHAT GOVERNANCE)
+
+Addendum #2 is layered ON TOP OF Addendum #1:
+
+| Concept | Addendum #1 (Chat) | Addendum #2 (Analytics) |
+|---|---|---|
+| What's protected | Communication content | Operational metadata + identities |
+| Mechanism | Channel isolation + RLS structural rejection | Aggregate-only RPCs + explicit mode switch |
+| SuperAdmin baseline access | Zero (rejected by RLS) | Aggregates only (no PII) |
+| Elevation possible? | NO — workspace chats are NEVER accessible to admin | YES — Support Mode unlocks PII for time-boxed window |
+| Trigger | User-initiated tickets only | Admin self-elevation with reason |
+
+Together they form a defense-in-depth privacy architecture:
+- **Chat content**: protected by Addendum #1 (structural, no escape hatch)
+- **Identity/Metadata**: protected by Addendum #2 (default-deny, time-boxed elevation with audit)
+
+---
+
+**End of Addendum #2** · *Pegate este documento + el Addendum #1 al inicio de futuras conversaciones con Claude para que respete los principios.*

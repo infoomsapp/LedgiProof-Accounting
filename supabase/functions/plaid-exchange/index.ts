@@ -8,6 +8,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { encryptToken } from '../_shared/plaid-crypto.ts'
 
 const PLAID_BASE: Record<string, string> = {
   sandbox:     'https://sandbox.plaid.com',
@@ -97,11 +98,14 @@ Deno.serve(async (req) => {
 
     // ── Store one row per account ─────────────────────────────────────────
     // Plaid can return multiple accounts per institution (checking + savings etc.)
+    // access_token is encrypted at rest (AES-GCM, key never touches Postgres) —
+    // a DB compromise alone shouldn't be enough to reuse it against Plaid.
+    const encryptedAccessToken = await encryptToken(access_token)
     const inserts = metadata.accounts.map(account => ({
       org_id,
       provider:           'plaid',
       plaid_item_id:      item_id,
-      plaid_access_token: access_token,   // same token for all accounts in same item
+      plaid_access_token: encryptedAccessToken,   // same token for all accounts in same item
       institution_id:     metadata.institution.institution_id,
       institution_name:   metadata.institution.name,
       account_id:         account.id,

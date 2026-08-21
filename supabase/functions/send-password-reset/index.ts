@@ -17,6 +17,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { checkRateLimit } from '../_shared/rate-limit.ts'
 
 const ALLOWED_REDIRECT_ORIGINS = new Set([
   'https://app.ledgiproof.com',
@@ -43,17 +44,24 @@ Deno.serve(async (req) => {
       return j({ error: 'Valid email required' }, 400)
     }
 
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    // 3 requests per 15 minutes per email — same "always return success" story
+    // as an unregistered email, so this can't be used to distinguish anything either.
+    const allowed = await checkRateLimit(supabaseAdmin, `password-reset:${email.trim().toLowerCase()}`, 3, 15 * 60)
+    if (!allowed) {
+      return j({ success: true })
+    }
+
     // Derive redirectTo from Origin (validated against allowlist)
     const origin = req.headers.get('Origin') ?? ''
     const safeOrigin = ALLOWED_REDIRECT_ORIGINS.has(origin)
       ? origin
       : 'https://app.ledgiproof.com'
     const redirectTo = `${safeOrigin}/reset-password`
-
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
 
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',

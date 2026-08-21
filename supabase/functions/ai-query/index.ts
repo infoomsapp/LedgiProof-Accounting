@@ -55,6 +55,9 @@ Deno.serve(async (req) => {
     if (!body.org_id || !body.prompt) {
       return respond({ error: 'Missing org_id or prompt' }, 400)
     }
+    if (body.prompt.length > 8000) {
+      return respond({ error: 'Prompt too long (max 8000 characters)' }, 400)
+    }
 
     // 3. 🔒 VERIFY ORG MEMBERSHIP — caller must belong to the org they're querying
     const { data: membership } = await supabase

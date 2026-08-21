@@ -41,7 +41,7 @@ function getSemaphoreColor(conversations: WorkspaceConversation[]): {
 
 export default function GlobalChatBubble({ orgId, clientId }: Props) {
   const panelRef                    = useRef<HTMLDivElement>(null)
-  const { open, focusClientId, openChat, closeChat } = useChatBubbleStore()
+  const { open, focusClientId, focusTab, openChat, closeChat } = useChatBubbleStore()
 
   const chat      = useWorkspaceChat(orgId, clientId ?? null, true)
   const convs     = chat.inbox?.conversations ?? []
@@ -70,6 +70,21 @@ export default function GlobalChatBubble({ orgId, clientId }: Props) {
 
   return (
     <>
+      {/* Shared pulse animation for unread indicators (bubble badge, inbox
+          rows) — same values as SemaphoreSpinner.tsx's lp-sem-pulse, kept
+          local since this component (unlike SemaphoreSpinner) isn't always
+          mounted alongside it. */}
+      <style>{`
+        .lp-chat-pulse {
+          animation: lp-chat-pulse-kf 1.2s ease-in-out infinite;
+          will-change: transform, opacity;
+        }
+        @keyframes lp-chat-pulse-kf {
+          0%, 100% { opacity: 0.55; transform: scale(0.92); }
+          50%      { opacity: 1.00; transform: scale(1.12); }
+        }
+      `}</style>
+
       {/* ── Floating panel ─────────────────────────────────────────────────── */}
       {open && (
         <div
@@ -89,58 +104,18 @@ export default function GlobalChatBubble({ orgId, clientId }: Props) {
             background:   'var(--lp-surface)',
           }}
         >
-          {/* Panel header */}
-          <div style={{
-            padding:      '10px 14px',
-            borderBottom: '0.5px solid var(--lp-border)',
-            display:      'flex',
-            alignItems:   'center',
-            justifyContent: 'space-between',
-            flexShrink:   0,
-            background:   'var(--lp-surface)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {/* Semaphore indicator dot */}
-              <span style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: semaphore.ring,
-                flexShrink: 0,
-                boxShadow: `0 0 5px ${semaphore.glow}`,
-              }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--lp-text)' }}>
-                Messages
-              </span>
-              {unread > 0 && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700,
-                  padding: '1px 6px', borderRadius: 100,
-                  background: semaphore.ring, color: '#fff'
-                }}>
-                  {unread}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => closeChat()}
-              title="Close chat"
-              style={{
-                background: 'none', border: 'none',
-                color: 'var(--lp-text-muted)', cursor: 'pointer',
-                fontSize: 16, lineHeight: 1, padding: '2px 4px',
-                fontFamily: 'inherit',
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Chat panel fills remaining space — bubbleMode uses stacked inbox→conversation */}
+          {/* Header now lives entirely in WorkspaceChatPanel (inbox header
+              when no conversation is open, 2-line client header once one
+              is) — this outer panel no longer renders its own "Messages"
+              bar, so there's one header instead of two stacked ones. */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <WorkspaceChatPanel
               orgId={orgId}
               bubbleMode
+              onClose={closeChat}
               {...(clientId      ? { clientId }      : {})}
               {...(focusClientId && !clientId ? { focusClientId } : {})}
+              {...(focusTab      && !clientId ? { focusTab }      : {})}
             />
           </div>
         </div>
@@ -186,9 +161,10 @@ export default function GlobalChatBubble({ orgId, clientId }: Props) {
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
 
-        {/* Unread badge */}
+        {/* Unread badge — pulses to draw the eye, same animation used on
+            unread inbox rows */}
         {unread > 0 && !open && (
-          <span style={{
+          <span className="lp-chat-pulse" style={{
             position:     'absolute',
             top:          -3,
             right:        -3,

@@ -1,21 +1,34 @@
 // PATH: src/components/layout/GlobalSearch.tsx
 // ⌘K / Ctrl+K search bar in the topbar.
 // Searches: transactions (description/reference), invoices (number/client),
-// clients (name/email) across the active org.
+// clients (name/email), documents (filename) across the active org.
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate }  from 'react-router-dom'
-import { useAuthStore } from '../../store/auth.store'
+import { useScope }     from '../../hooks/useScope'
 import { db }           from '../../lib/supabase'
 import { formatCurrency } from '../../lib/currency'
+import { formatDate }   from '../../lib/dates'
 
 interface SearchResult {
-  type:    'transaction' | 'invoice' | 'client'
+  type:    'transaction' | 'invoice' | 'client' | 'document'
   id:      string
   title:   string
   sub:     string
   icon:    string
   path:    string
+}
+
+// Sanitizes a search term for safe use inside a PostgREST .ilike()/.or() filter
+// string built via template literal. Two distinct hazards:
+//   - "," "(" ")" "." are PostgREST filter-grammar separators — there's no
+//     reliable backslash-escape for them inside a manually-built .or() string,
+//     so they're stripped outright (harmless for a free-text search query).
+//   - "%" "_" are LIKE wildcards — backslash-escaped so literal % or _ in a
+//     search term isn't treated as a wildcard (Postgres's default LIKE escape
+//     character is backslash).
+function escapePostgrestLike(s: string): string {
+  return s.replace(/[,().]/g, '').replace(/[\\%_]/g, '\\$&')
 }
 
 function highlight(text: string, query: string): string {
@@ -40,9 +53,15 @@ function HighlightText({ text, query }: { text: string; query: string }) {
 }
 
 export default function GlobalSearch() {
-  const { membership }   = useAuthStore()
-  const orgId            = membership?.org_id ?? ''
-  const navigate         = useNavigate()
+  // scope.orgId falls back through activeOrg too, unlike membership?.org_id
+  // alone — that was the actual bug here: if membership was ever null/stale
+  // (the same class of issue already fixed on Transactions/BankImports/
+  // Reconciliation this session), orgId silently resolved to '', the early
+  // `!orgId` guard below fired on every keystroke, and search always
+  // returned zero results with no visible error — reading as "doesn't work."
+  const scope             = useScope()
+  const orgId             = scope.orgId
+  const navigate          = useNavigate()
 
   const [open,    setOpen]    = useState(false)
   const [query,   setQuery]   = useState('')
@@ -76,9 +95,9 @@ export default function GlobalSearch() {
     if (!orgId || q.trim().length < 2) { setResults([]); return }
     setLoading(true)
 
-    const term = `%${q.trim()}%`
+    const term = `%${escapePostgrestLike(q.trim())}%`
 
-    const [txRes, invRes, clientRes] = await Promise.all([
+    const [txRes, invRes, clientRes, docRes] = await Promise.all([
       db.from('transactions').select('id, description, reference, amount, currency, transaction_date, semaphore')
         .eq('org_id', orgId).eq('is_current', true)
         .or(`description.ilike.${term},reference.ilike.${term}`)
@@ -92,6 +111,11 @@ export default function GlobalSearch() {
       db.from('clients').select('id, display_name, company_name, email')
         .eq('org_id', orgId).eq('is_active', true)
         .or(`display_name.ilike.${term},company_name.ilike.${term},email.ilike.${term}`)
+        .limit(5),
+
+      db.from('documents').select('id, filename, client_id, created_at, clients(display_name, company_name)')
+        .eq('org_id', orgId).is('deleted_at', null)
+        .ilike('filename', term)
         .limit(5)
     ])
 
@@ -119,6 +143,14 @@ export default function GlobalSearch() {
         sub:   r.company_name ?? r.email ?? '',
         icon:  '🧑‍💼',
         path:  '/clients'
+      })),
+      ...(docRes.data ?? []).map((r: any) => ({
+        type:  'document' as const,
+        id:    r.id,
+        title: r.filename,
+        sub:   `${(r.clients as any)?.company_name ?? (r.clients as any)?.display_name ?? 'Firm'} · ${formatDate(r.created_at)}`,
+        icon:  '📎',
+        path:  r.client_id ? `/clients/${r.client_id}` : '/clients'
       }))
     ]
 
@@ -200,7 +232,7 @@ export default function GlobalSearch() {
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Search transactions, invoices, clients…"
+                placeholder="Search transactions, invoices, clients, documents…"
                 style={{
                   flex: 1, background: 'none', border: 'none', outline: 'none',
                   color: 'var(--lp-text)', fontSize: 14, fontFamily: 'inherit'

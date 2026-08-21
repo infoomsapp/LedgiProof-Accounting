@@ -18,7 +18,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore }    from '../store/auth.store'
-import { useOrgStore }     from '../store/org.store'
 import { useUserRole }     from '../hooks/useUserRole'
 import { db }              from '../lib/supabase'
 import Modal               from '../components/ui/modal'
@@ -51,7 +50,6 @@ interface Invitation {
 
 export default function Team() {
   const { membership, profile, user } = useAuthStore()
-  const { activeOrg } = useOrgStore()
   const orgId  = membership?.org_id ?? ''
   const userId = user?.id ?? profile?.id ?? ''
 
@@ -140,16 +138,13 @@ export default function Team() {
       const inv_data = inv as Invitation & { token: string; expires_at: string }
       const activationUrl = `${window.location.origin}/staff-activate/${inv_data.token}`
 
-      // Send email via Resend — non-blocking; invitation is already created in DB
+      // Send email via Resend — non-blocking; invitation is already created in
+      // DB. Only invitation_id goes across the wire now — the edge function
+      // looks up email/org/role/token itself and RLS decides whether this
+      // caller is actually allowed to send it (was previously a phishing
+      // relay: to_email/org_name/etc. used to be trusted straight from here).
       db.functions.invoke('send-staff-invitation', {
-        body: {
-          to_email:        invEmail.trim().toLowerCase(),
-          activation_url:  activationUrl,
-          org_name:        activeOrg?.name ?? 'your workspace',
-          role:            invRole,
-          ...(profile?.display_name ? { invited_by_name: profile.display_name } : {}),
-          expires_at:      inv_data.expires_at,
-        }
+        body: { invitation_id: inv_data.id }
       }).catch(err => {
         console.warn('[Team] send-staff-invitation email failed (non-fatal):', err)
       })

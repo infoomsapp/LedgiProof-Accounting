@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate }   from 'react-router-dom'
 import { useAuthStore }  from '../store/auth.store'
+import { useScope }      from '../hooks/useScope'
 import {
   openPlaidLink, syncTransactions, getBankConnections, disconnectBank
 } from '../services/plaid.service'
@@ -51,7 +52,14 @@ function AccountTypeIcon({ type }: { type: string }) {
 export default function BankImports() {
   const navigate = useNavigate()
   const { membership }                          = useAuthStore()
-  const orgId                                   = membership?.org_id ?? ''
+  // scope.clientId is set when reached via /clients/:clientId/imports.
+  // Without it, every client's bank connections were combined into one
+  // unfiltered list — the plaid.service.ts functions already fully support
+  // client_id (openPlaidLink/getBankConnections both accept it), the page
+  // just never passed it through.
+  const scope                                   = useScope()
+  const orgId                                   = scope.orgId
+  const clientId                                = scope.clientId
 
   const [connections, setConnections]           = useState<BankConnection[]>([])
   const [loading,     setLoading]               = useState(true)
@@ -66,13 +74,13 @@ export default function BankImports() {
     if (!orgId) return
     setLoading(true)
     try {
-      const data = await getBankConnections(orgId)
+      const data = await getBankConnections({ orgId, clientId })
       setConnections(data as BankConnection[])
     } catch (e: any) {
       setError(e.message)
     }
     setLoading(false)
-  }, [orgId])
+  }, [orgId, clientId])
 
   useEffect(() => { loadConnections() }, [loadConnections])
 
@@ -84,7 +92,7 @@ export default function BankImports() {
     setSyncResult(null)
 
     try {
-      const result = await openPlaidLink(orgId)
+      const result = await openPlaidLink({ orgId, clientId, initiatedBy: 'staff' })
 
       // Auto-sync after connecting
       setSyncing('all')

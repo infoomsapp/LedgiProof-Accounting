@@ -12,6 +12,7 @@ import {
   getWorkspaceMessages,
   sendWorkspaceMessage,
   markWorkspaceMessagesRead,
+  markWorkspaceConversationUnread,
   archiveWorkspaceConversation,
   restoreWorkspaceConversation,
   type WorkspaceInboxResponse,
@@ -49,6 +50,7 @@ export interface UseWorkspaceChat {
 
   archive:          (convId: string) => Promise<void>
   restore:          (convId: string) => Promise<void>
+  markUnread:       (convId: string) => Promise<void>
 
   error:            string | null
 }
@@ -295,6 +297,20 @@ export function useWorkspaceChat(
     }
   }, [refreshInbox])
 
+  // "Mark as unread" (⋮ menu) — a follow-up flag, not a literal per-message
+  // read-state change (see the RPC's own comment). Closes back to the inbox
+  // afterward so the newly-flagged unread badge is actually visible, same
+  // as archiving the active conversation already does.
+  const markUnread = useCallback(async (convId: string) => {
+    try {
+      await markWorkspaceConversationUnread(convId)
+      if (activeConvId === convId) closeConversation()
+      await refreshInbox()
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not mark unread')
+    }
+  }, [activeConvId, closeConversation, refreshInbox])
+
   return {
     inbox,
     inboxLoading,
@@ -319,6 +335,7 @@ export function useWorkspaceChat(
 
     archive,
     restore,
+    markUnread,
 
     error
   }

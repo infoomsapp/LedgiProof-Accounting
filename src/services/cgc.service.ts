@@ -480,7 +480,11 @@ export async function cgcEvaluate(
             org_id:       input.orgId,
             action:       request.action,
             input_data:   request.input_data,
-            user_email:   'service@ledgiproof',
+            // Real acting user, not a shared service identity — the session
+            // was already fetched above for the auth token; CGC Core's
+            // actor-level analytics (Phase 3 internal guard) need a real
+            // per-user email to be anything but a single degenerate actor.
+            user_email:   session.user?.email ?? 'service@ledgiproof',
             data_domains: [detectAreaHint(input)]
           }),
           signal: controller.signal

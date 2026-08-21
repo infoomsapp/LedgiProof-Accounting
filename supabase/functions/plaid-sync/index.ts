@@ -26,6 +26,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { decryptToken } from '../_shared/plaid-crypto.ts'
 
 const PLAID_BASE: Record<string, string> = {
   sandbox:     'https://sandbox.plaid.com',
@@ -148,6 +149,22 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Not a member of this organization' }, { status: 403, headers: cors })
     }
 
+    // ── Verify body_client_id (if supplied) actually belongs to this org ──
+    // Previously trusted the client-supplied value outright; a caller could
+    // attach synced transactions to any client_id, including one in another org.
+    if (body_client_id) {
+      const { data: clientRow } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', body_client_id)
+        .eq('org_id', org_id)
+        .maybeSingle()
+
+      if (!clientRow) {
+        return Response.json({ error: 'client_id does not belong to this organization' }, { status: 400, headers: cors })
+      }
+    }
+
     // Load bank connections
     let q = supabaseAdmin
       .from('bank_connections').select('*')
@@ -224,6 +241,7 @@ Deno.serve(async (req) => {
         let hasMore = true
         const added: any[] = []
         const removed: any[] = []
+        const accessToken = await decryptToken(conn.plaid_access_token)
 
         while (hasMore) {
           const syncRes = await fetch(`${baseUrl}/transactions/sync`, {
@@ -232,7 +250,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({
               client_id:    Deno.env.get('PLAID_CLIENT_ID')!,
               secret:       Deno.env.get('PLAID_SECRET')!,
-              access_token: conn.plaid_access_token,
+              access_token: accessToken,
               cursor:       cursor || undefined,
               count:        100
             })

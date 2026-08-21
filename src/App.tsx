@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useAuthStore } from './store/auth.store'
 import { useOrgStore } from './store/org.store'
+import { useClientPortalStore } from './store/client-portal.store'
 import { useImpersonationStore } from './store/impersonation.store'
 import { useSessionRevocationGuard } from './hooks/useSessionRevocationGuard'
 
@@ -42,6 +43,7 @@ import EstimatePublic from './pages/EstimatePublic'
 import W9Public from './pages/W9Public'
 import InvoicePublic from './pages/InvoicePublic'
 import Clients from './pages/Clients'
+import Notes from './pages/Notes'
 import Vendors from './pages/Vendors'
 import Worksheet1099 from './pages/Worksheet1099'
 import EditClientPage from './pages/EditClientPage'
@@ -73,6 +75,9 @@ import PlaidDisclosurePage  from './pages/legal/PlaidDisclosurePage'
 
 // 🆕 A3.2 (D2): Client portal shell + pages (were never connected to App.tsx)
 import ClientPortalShell    from './components/layout/ClientPortalShell'
+import PortalShell          from './components/layout/PortalShell'
+import PortalOverview       from './pages/portal/PortalOverview'
+import PortalDocuments      from './pages/portal/PortalDocuments'
 import ClientDashboard       from './pages/client/ClientDashboard'
 import ClientConnectBank     from './pages/client/ClientConnectBank'
 import ClientTransactions    from './pages/client/ClientTransactions'
@@ -148,6 +153,7 @@ export default function App() {
   const { initialize, session, profile, loading: authLoading, mfaPending } = useAuthStore()
   const { loadOrgs, loading: orgLoading, orgs, error: orgError } = useOrgStore()
   const { syncActorFromAuth, exitAdminView, isImpersonating } = useImpersonationStore()
+  const { loadMemberships, loading: portalLoading, memberships: portalMemberships } = useClientPortalStore()
 
   // 🆕 Realtime session revocation — active for every authenticated render,
   // staff (AppShell) and client (ClientPortalShell) alike, since this
@@ -162,6 +168,15 @@ export default function App() {
   useEffect(() => {
     if (session?.user?.id) loadOrgs(session.user.id)
   }, [session?.user?.id, loadOrgs])
+
+  // 2b. Load client-portal memberships in parallel — a person invited to a
+  // firm's client portal has zero organization_memberships rows by design
+  // (see client-portal.store.ts), so this is the only way App.tsx can tell
+  // them apart from someone with no access at all vs. someone who belongs
+  // in the portal router instead of OnboardingWizard.
+  useEffect(() => {
+    if (session?.user?.id) loadMemberships(session.user.id)
+  }, [session?.user?.id, loadMemberships])
 
   // 3. Sync impersonation actor + clean if not super_admin
   useEffect(() => {
@@ -183,7 +198,7 @@ export default function App() {
   }
 
   // ── Authenticated: org loading ─────────────────────────────────────────
-  if (orgLoading) return <Spinner label="Loading your workspace…" />
+  if (orgLoading || portalLoading) return <Spinner label="Loading your workspace…" />
 
   if (orgError) {
     return (
@@ -246,6 +261,26 @@ export default function App() {
             {/* Password recovery — accessible from any authenticated state */}
             <Route path="reset-password" element={<ResetPasswordRoute />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </BrowserRouter>
+      )
+    }
+    // A person invited to a firm's client portal never gets an org
+    // membership (that's by design — see client-portal.store.ts), so
+    // without this check they'd fall through to OnboardingWizard, which
+    // tries to walk them through creating an organization — nonsensical
+    // for someone who's just here to view numbers, exchange documents,
+    // and chat with their bookkeeper.
+    if (portalMemberships.length > 0) {
+      return (
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
+            <Route path="/portal" element={<PortalShell />}>
+              <Route index             element={<PortalOverview />} />
+              <Route path="documents"  element={<PortalDocuments />} />
+            </Route>
+            <Route path="reset-password" element={<ResetPasswordRoute />} />
+            <Route path="*" element={<Navigate to="/portal" replace />} />
           </Routes>
         </BrowserRouter>
       )
@@ -316,6 +351,9 @@ export default function App() {
           } />
           <Route path="clients"       element={
             <ErrorBoundary section="clients"><Clients /></ErrorBoundary>
+          } />
+          <Route path="notes"         element={
+            <ErrorBoundary section="notes"><Notes /></ErrorBoundary>
           } />
 
           {/* 1099 Fase 1 — Vendor (payee) management */}

@@ -57,6 +57,21 @@ interface AuthState {
   clearError: () => void
 }
 
+// StrictMode (and Fast Refresh) double-invokes mount effects, so
+// `initialize()` — called from an effect with no cleanup — genuinely runs
+// twice per real mount in dev. Each run used to register its own
+// onAuthStateChange subscription AND make its own redundant getSession()
+// call, so a fresh page load could produce multiple concurrent
+// handleSession() calls. Each one snapshots `isSameUser` independently; any
+// call whose snapshot landed before `user` was first set reads
+// isSameUser=false and nulls out membership on completion. If one of those
+// resolved AFTER org.store's loadOrgs() had already set membership
+// correctly, it silently wiped it back to null — permanently hiding every
+// owner/admin-gated control (e.g. "+ Invite to portal" in Clients.tsx)
+// despite the user genuinely having that role. Guarding initialize() to run
+// once removes the redundant calls entirely instead of trying to out-race them.
+let initialized = false
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
@@ -69,22 +84,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // ── Initialize ──────────────────────────────────────────────────────────
   initialize: async () => {
+    if (initialized) return
+    initialized = true
+
     set({ loading: true })
 
-    const { data: { session } } = await supabase.auth.getSession()
-
-    if (session) {
-      await handleSession(session, set, get)
+    // 🐛 Regression found and reverted: an earlier version of this fix
+    // dropped the direct getSession()+handleSession() call entirely,
+    // reasoning that onAuthStateChange's immediate INITIAL_SESSION fire made
+    // it redundant. Verified live that's not reliably true — supabase-js
+    // emits that one-shot INITIAL_SESSION event based on its own internal
+    // session-hydration timing, not on listener-registration order; if this
+    // subscription attaches even slightly after that internal check
+    // resolves, the event is gone and nothing is ever received — the app
+    // hangs at loading:true forever on a real, valid session (reproduced:
+    // a fresh page load with a valid persisted session never left the
+    // loading screen). The direct call below is the reliable path; the
+    // idempotency guard above (not present in the original code) is what
+    // actually fixes the original race — running this exactly once removes
+    // the redundant *duplicate* calls that raced each other, without
+    // removing the one call this needs to be reliable.
+    const { data: { session: initialSession } } = await supabase.auth.getSession()
+    if (initialSession) {
+      await handleSession(initialSession, set, get)
     } else {
-      set({
-        session: null,
-        user: null,
-        profile: null,
-        membership: null,
-        loading: false,
-        mfaPending: false,
-        mfaFactorId: null
-      })
+      set({ loading: false })
     }
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -288,7 +312,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           account_type: accountType,
           // Stashed in raw_user_meta_data for the trigger handle_new_user
           // to read and persist on the profile + subscription
-          intended_plan: plan
+          intended_plan: plan,
+          // Tells handle_new_user() to skip its org/subscription bootstrap
+          // for this signup — a client accepting a firm's portal invite gets
+          // their access entirely through client_portal_users (set up by
+          // accept_client_portal_invitation right after this), not a
+          // personal org. Without this flag every pyme_client signup — invited
+          // or not — got an auto-created "X's workspace" org + owner
+          // membership regardless, which routed invited clients into the
+          // full staff AppShell (MFA gate included) instead of the portal.
+          ...(options.clientInviteToken ? { is_client_portal_invite: true } : {})
         }
       }
     })

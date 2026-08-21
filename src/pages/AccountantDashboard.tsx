@@ -5,7 +5,7 @@
 // operational queue (that's BookkeeperDashboard.tsx).
 //
 // Data: useAccountantDashboard → accountant-dashboard.service → get_accountant_dashboard RPC.
-// Real differentiator vs. the Bookkeeper dashboard: the Certification Queue
+// Real differentiator vs. the Bookkeeper dashboard: Certification Blue
 // below — the formal "certify" step in the semaphore lifecycle
 // (brain.service.ts) that closes a green transaction for good. It calls the
 // resolve-transaction Edge Function, previously deployed but never invoked
@@ -87,8 +87,6 @@ export default function AccountantDashboard() {
             </h1>
             <p style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 4, margin: 0 }}>
               {formatDateHeadline(now)}
-              {' · '}
-              <span style={{ color: 'var(--sem-cyan)', fontWeight: 600 }}>Accountant Firm</span>
             </p>
           </div>
 
@@ -131,18 +129,18 @@ export default function AccountantDashboard() {
             <FirmInsightsPanel data={insights.data} loading={insights.loading} onNavigate={navigate} currency={orgCurrency} />
           </div>
 
-          {/* ── Row 2: Certification Queue — the Accountant differentiator ── */}
+          {/* ── Row 2: Certification Blue — the Accountant differentiator ── */}
           {orgId && (
             <>
               {onboarding.shouldShow && (
                 <OnboardingHint
-                  title="Certification Queue"
+                  title="Certification Blue"
                   message="Certify the transactions your team already approved — this is the formal close step that permanently locks them."
                   onDismiss={onboarding.dismissAll}
                 />
               )}
               <SectionCard
-                title="Certification Queue"
+                title="Certification Blue"
                 icon={ShieldCheck}
                 accentColor="var(--lp-violet)"
                 accentBg="var(--lp-violet-bg)"

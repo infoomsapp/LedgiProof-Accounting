@@ -6,17 +6,25 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate }         from 'react-router-dom'
 import { useAuthStore }        from '../../store/auth.store'
+import { useChatBubbleStore }  from '../../store/chat-bubble.store'
 import { useNotifications }    from '../../hooks/useNotifications'
 import type { Notification }   from '../../hooks/useNotifications'
+import { db } from '../../lib/supabase'
 
 const TYPE_ICON: Record<string, string> = {
-  review_requested:      '💬',
-  document_requested:    '📎',
-  document_accepted:     '✅',
-  document_rejected:     '❌',
-  review_confirmed:      '✓',
-  transaction_escalated: '🔴',
-  bank_disconnected:     '🏦'
+  review_requested:            '💬',
+  document_requested:          '📎',
+  document_accepted:           '✅',
+  document_rejected:           '❌',
+  review_confirmed:            '✓',
+  transaction_escalated:       '🔴',
+  bank_disconnected:           '🏦',
+  new_message:                 '✉️',
+  note_pending_approval:       '📝',
+  note_approved:               '✅',
+  note_reminder:               '⏰',
+  document_request_fulfilled:  '📤',
+  sensitive_data_flagged:      '🛡️'
 }
 
 function timeAgo(iso: string): string {
@@ -37,6 +45,7 @@ export default function NotificationBell() {
 
   const { items, unread, loading, markRead, markAllRead } =
     useNotifications(userId, orgId)
+  const openChat = useChatBubbleStore(s => s.openChat)
 
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -56,6 +65,16 @@ export default function NotificationBell() {
       navigate('/transactions')
       // Dispatch event so TransactionList can pre-select it
       window.dispatchEvent(new CustomEvent('lp:open-tx', { detail: n.transaction_id }))
+    } else if (n.note_id) {
+      const { data } = await db.from('workspace_notes').select('client_id').eq('id', n.note_id).single()
+      openChat((data as { client_id: string } | null)?.client_id, 'notes')
+    } else if (n.document_request_id) {
+      const { data } = await db.from('document_requests').select('client_id').eq('id', n.document_request_id).single()
+      openChat((data as { client_id: string } | null)?.client_id, 'requests')
+    } else if (n.type === 'new_message') {
+      // No client_id stored on plain-message notifications — opens straight
+      // to the inbox rather than deep-linking to the specific conversation.
+      openChat()
     }
     setOpen(false)
   }

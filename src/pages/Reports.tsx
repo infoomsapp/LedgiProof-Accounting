@@ -113,16 +113,20 @@ function SectionBlock({ title, section, color, bg }: { title: string; section: B
 }
 
 interface ReportsProps {
-  // Lets FirmReportsSummary embed this page for a client picked from its own
-  // selector bar, without navigating to /clients/:clientId/reports (whose
-  // clientId normally comes from the URL via useScope). When set, these
-  // override scope's URL-derived values; everything else about the page
-  // (Balance Sheet/P&L, year/month controls) works exactly the same.
+  // Lets FirmReportsSummary/PortalOverview embed this page for a client
+  // picked outside the normal /clients/:clientId/reports route (whose
+  // orgId/clientId normally come from useScope(), which reads
+  // organization_memberships). A client-portal user has NO org membership
+  // by design (see handle_new_user()'s is_client_portal_invite skip) — for
+  // them scope.orgId resolves to '', so orgIdOverride is required, not
+  // optional, for that caller. Everything else about the page (Balance
+  // Sheet/P&L, year/month controls) works exactly the same.
+  orgIdOverride?:      string
   clientIdOverride?:   string
   entityNameOverride?: string
 }
 
-export default function Reports({ clientIdOverride, entityNameOverride }: ReportsProps = {}) {
+export default function Reports({ orgIdOverride, clientIdOverride, entityNameOverride }: ReportsProps = {}) {
   // scope.clientId is set when this page is reached inside a firm's client
   // workspace (/clients/:clientId/reports) and null for solo/pyme orgs and
   // for a firm's own org-level view — both real cases, not "show everyone".
@@ -130,7 +134,7 @@ export default function Reports({ clientIdOverride, entityNameOverride }: Report
   // journal entries combined into one Balance Sheet/P&L (found and fixed
   // 2026-08-18, before any visual work on this page).
   const scope  = useScope()
-  const orgId  = scope.orgId
+  const orgId  = orgIdOverride ?? scope.orgId
   const clientId = clientIdOverride ?? scope.clientId
   const { activeOrg } = useOrgStore()
   // Letterhead identity: the specific client when scoped to one (a firm's
@@ -162,35 +166,32 @@ export default function Reports({ clientIdOverride, entityNameOverride }: Report
 
   const runPL = useCallback(async () => {
     setLoading(true); setError(null)
-    let q = db
-      .from('journal_entries')
-      .select('account_id, entry_type, amount, accounts!inner(code, name, type, org_id, client_id)')
-      .eq('accounts.org_id', orgId)
-      .eq('period_year', year)
-      .lte('period_month', month)
-      .eq('is_reversed', false)
-    q = clientId ? q.eq('accounts.client_id', clientId) : q.is('accounts.client_id', null)
-    const { data: rows, error: err } = await q
+    // Server-side RPC (SECURITY DEFINER, auth-checked for org staff or the
+    // matching client_portal_users member) — replaces a direct journal_entries
+    // table read, which had no client-portal-aware RLS and would have
+    // silently returned zero rows for an invited client instead of erroring.
+    const { data: rows, error: err } = await db.rpc('get_profit_and_loss', {
+      p_org_id: orgId, p_year: year, p_month: month,
+      ...(clientId ? { p_client_id: clientId } : {})
+    })
 
     if (err) { setError(err.message); setLoading(false); return }
 
     type PlRow = {
       account_id: string
-      entry_type: 'debit' | 'credit'
-      amount:     number
-      accounts:   { code: string; name: string; type: string; org_id: string }
+      code:       string
+      name:       string
+      type:       string
+      debit:      number
+      credit:     number
     }
 
+    // The RPC already aggregates debit/credit per account server-side —
+    // just filter to income/expense and hand the rows straight through.
     const map = new Map<string, { code:string; name:string; type:string; debit:number; credit:number }>()
     for (const row of (rows ?? []) as unknown as PlRow[]) {
-      const acc = row.accounts
-      if (!['income','expense'].includes(acc.type)) continue
-      if (!map.has(row.account_id)) {
-        map.set(row.account_id, { code:acc.code, name:acc.name, type:acc.type, debit:0, credit:0 })
-      }
-      const e = map.get(row.account_id)!
-      if (row.entry_type === 'debit') e.debit += Number(row.amount)
-      else                            e.credit += Number(row.amount)
+      if (!['income','expense'].includes(row.type)) continue
+      map.set(row.account_id, { code:row.code, name:row.name, type:row.type, debit:Number(row.debit), credit:Number(row.credit) })
     }
     setPlData(Array.from(map.values()).sort((a,b) => a.code.localeCompare(b.code)))
     setLoading(false); setHasRun(true)

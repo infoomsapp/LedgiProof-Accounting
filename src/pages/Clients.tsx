@@ -132,7 +132,6 @@ export default function Clients() {
   const [cpInviting,      setCpInviting]      = useState(false)
   const [cpError,         setCpError]         = useState<string | null>(null)
   const [cpResult,        setCpResult]        = useState<string | null>(null)
-  const [orgName,         setOrgName]         = useState<string>('Your accounting firm')
   // Resend / email-failure feedback for the client_invites table — separate
   // from listError (which is red/error-only) since a resend failure still
   // leaves a usable invite link, not just a dead end.
@@ -179,10 +178,6 @@ export default function Clients() {
       console.warn('[Clients] Could not load client portal invitations:', e)
       setClientInvites([])
     }
-
-    // Firm display name for the invitation email body ("X invited you to...").
-    const { data: orgRow } = await db.from('organizations').select('name').eq('id', orgId).maybeSingle()
-    if (orgRow?.name) setOrgName(orgRow.name)
 
     setLoading(false)
   }, [orgId])
@@ -266,19 +261,11 @@ export default function Clients() {
       })
       const url = buildClientPortalInvitationUrl(result.token)
 
-      const client   = clients.find(c => c.id === cpClientId)
-      const clientName = client?.company_name || client?.display_name || 'your account'
-
       // Awaited (not fire-and-forget) — the invitation row is already
       // created either way, but the user needs to know if the email itself
       // didn't go out, since otherwise "Invitation sent" is a false promise.
       const emailResult = await sendClientInvitationEmail({
-        toEmail:       cpEmail.trim().toLowerCase(),
-        invitationUrl: url,
-        clientName,
-        firmName:      orgName,
-        role:          cpRole,
-        expiresAt:     result.expires_at
+        invitationId: result.invitation_id
       })
 
       if (emailResult.sent) {
@@ -316,16 +303,10 @@ export default function Clients() {
     setResendingId(inv.id)
     setCpNotice(null)
     try {
-      const clientName = inv.clients?.company_name || inv.clients?.display_name || 'your account'
       const url = buildClientPortalInvitationUrl(inv.token)
 
       const emailResult = await sendClientInvitationEmail({
-        toEmail:       inv.email,
-        invitationUrl: url,
-        clientName,
-        firmName:      orgName,
-        role:          inv.role,
-        expiresAt:     inv.expires_at
+        invitationId: inv.id
       })
 
       setCpNotice(emailResult.sent

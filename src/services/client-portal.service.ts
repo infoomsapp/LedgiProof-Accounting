@@ -199,13 +199,15 @@ export interface SendInvitationEmailResult {
   error?: string
 }
 
+// SECURITY: this used to accept and forward toEmail/invitationUrl/
+// clientName/firmName straight from the caller into the edge function,
+// which sent them client-controlled into a branded email from LedgiProof's
+// own domain — a phishing relay (any signed-in user could target any
+// address with any link/branding). Now only invitationId is sent; the edge
+// function looks up the real invitation row itself and RLS decides whether
+// the caller is actually allowed to send it.
 export async function sendClientInvitationEmail(params: {
-  toEmail:       string
-  invitationUrl: string
-  clientName:    string
-  firmName:      string
-  role:          ClientPortalRole
-  expiresAt:     string
+  invitationId: string
 }): Promise<SendInvitationEmailResult> {
   const { data: { session } } = await db.auth.getSession()
   if (!session?.access_token) {
@@ -222,12 +224,7 @@ export async function sendClientInvitationEmail(params: {
         'Authorization': `Bearer ${session.access_token}`
       },
       body: JSON.stringify({
-        to_email:       params.toEmail,
-        invitation_url: params.invitationUrl,
-        client_name:    params.clientName,
-        firm_name:      params.firmName,
-        role:           params.role,
-        expires_at:     params.expiresAt
+        invitation_id: params.invitationId
       })
     })
 

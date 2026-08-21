@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/auth.store'
+import { useClientPortalStore } from '../store/client-portal.store'
 import { db } from '../lib/supabase'
 import LogoBrand from '../components/ui/LogoBrand'
 
@@ -22,13 +23,6 @@ interface ClientPortalInvitationRow {
   email: string
   role: 'client_owner' | 'client_contact' | 'client_viewer'
   org_id: string
-  clients?: {
-    display_name: string | null
-    company_name: string | null
-  } | null
-  organizations?: {
-    name: string | null
-  } | null
 }
 
 function portalRoleLabel(role: ClientPortalInvitationRow['role']) {
@@ -66,32 +60,31 @@ export default function AcceptClientPortalInvite() {
   }, [token, session])
 
   async function handleAccept() {
-    const { data: inv, error: invError } = await db
-      .from('client_portal_invitations')
-      .select(`
-        status,
-        expires_at,
-        email,
-        role,
-        org_id,
-        clients(display_name, company_name),
-        organizations(name)
-      `)
-      .eq('token', token!)
-      .single()
+    // RLS on client_portal_invitations only grants org staff SELECT — an
+    // invitee (anonymous, or freshly signed up but not yet accepted) can't
+    // read the row directly. This RPC is the token-gated equivalent (same
+    // pattern as get_document_signed_url elsewhere in the app).
+    const { data: preview, error: invError } = await db.rpc(
+      'get_client_portal_invitation_preview', { p_token: token! }
+    )
 
-    if (invError || !inv) {
+    if (invError || !preview) {
       setStatus('error')
       setMessage('Client portal invitation not found or already unavailable.')
       return
     }
 
-    const invitation = inv as unknown as ClientPortalInvitationRow
-    const org = invitation.organizations?.name ?? 'this workspace'
-    const client =
-      invitation.clients?.display_name ??
-      invitation.clients?.company_name ??
-      'this client account'
+    const invitation = preview as unknown as {
+      status: ClientPortalInvitationRow['status']
+      expires_at: string
+      email: string
+      role: ClientPortalInvitationRow['role']
+      org_id: string
+      client_name: string | null
+      org_name: string | null
+    }
+    const org = invitation.org_name ?? 'this workspace'
+    const client = invitation.client_name ?? 'this client account'
 
     setOrgName(org)
     setClientName(client)
@@ -127,6 +120,13 @@ export default function AcceptClientPortalInvite() {
 
     setStatus('success')
     setMessage(`You now have access to ${client} in ${org}.`)
+
+    // Refresh client-portal memberships now so App.tsx's routing check sees
+    // the new access immediately on redirect, instead of needing a manual
+    // reload to populate client-portal.store.ts for the first time.
+    if (session?.user?.id) {
+      await useClientPortalStore.getState().loadMemberships(session.user.id)
+    }
 
     setTimeout(() => {
       navigate('/', { replace: true })

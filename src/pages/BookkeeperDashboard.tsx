@@ -105,8 +105,6 @@ export default function BookkeeperDashboard() {
               </h1>
               <p style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 4, margin: 0 }}>
                 {formatDateHeadline(now)}
-                {' · '}
-                <span style={{ color: 'var(--sem-amber)', fontWeight: 600 }}>Bookkeeping Practice</span>
               </p>
             </div>
 

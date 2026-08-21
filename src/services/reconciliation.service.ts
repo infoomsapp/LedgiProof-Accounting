@@ -11,6 +11,7 @@ import type { Transaction } from '../types/database.types'
 export interface ReconciliationSession {
   id:                         string
   org_id:                     string
+  client_id:                  string | null
   bank_connection_id:         string | null
   period_start:               string
   period_end:                 string
@@ -37,6 +38,7 @@ export interface ReconciliationItem {
 export interface ReconciliationSummary {
   session_id:                string
   org_id:                    string
+  client_id:                 string | null
   period_start:              string
   period_end:                string
   statement_opening_balance: number
@@ -59,12 +61,14 @@ export async function createSession(input: {
   openingBalance:   number
   closingBalance:   number
   bankConnectionId?: string
+  clientId?:        string | null
   notes?:           string
 }): Promise<ReconciliationSession> {
   const { data, error } = await db
     .from('reconciliation_sessions')
     .insert({
       org_id:                    input.orgId,
+      client_id:                 input.clientId ?? null,
       bank_connection_id:        input.bankConnectionId ?? null,
       period_start:              input.periodStart,
       period_end:                input.periodEnd,
@@ -81,12 +85,16 @@ export async function createSession(input: {
   return data as ReconciliationSession
 }
 
-export async function getSessions(orgId: string): Promise<ReconciliationSummary[]> {
-  const { data, error } = await db
+export async function getSessions(
+  orgId: string,
+  clientId?: string | null
+): Promise<ReconciliationSummary[]> {
+  let q = db
     .from('v_reconciliation_summary')
     .select('*')
     .eq('org_id', orgId)
-    .order('period_end', { ascending: false })
+  q = clientId ? q.eq('client_id', clientId) : q.is('client_id', null)
+  const { data, error } = await q.order('period_end', { ascending: false })
 
   if (error) throw new Error(error.message)
   return (data ?? []) as ReconciliationSummary[]
@@ -141,9 +149,10 @@ export async function loadSessionTransactions(
 export async function loadUnreconciledTransactions(
   orgId:       string,
   periodStart: string,
-  periodEnd:   string
+  periodEnd:   string,
+  clientId?:   string | null
 ): Promise<Transaction[]> {
-  const { data, error } = await db
+  let q = db
     .from('transactions')
     .select('*')
     .eq('org_id', orgId)
@@ -151,7 +160,8 @@ export async function loadUnreconciledTransactions(
     .is('reconciled_at', null)
     .gte('transaction_date', periodStart)
     .lte('transaction_date', periodEnd)
-    .order('transaction_date', { ascending: true })
+  q = clientId ? q.eq('client_id', clientId) : q.is('client_id', null)
+  const { data, error } = await q.order('transaction_date', { ascending: true })
 
   if (error) throw new Error(error.message)
   return (data ?? []) as Transaction[]

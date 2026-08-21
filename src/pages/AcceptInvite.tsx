@@ -26,32 +26,17 @@ export default function AcceptInvite() {
   }, [token, session])
 
   async function handleAccept() {
-    // Load invitation metadata first (public read by token)
-    const { data: inv } = await db
-      .from('invitations')
-      .select('status, expires_at, email, role, org_id, organizations(name)')
-      .eq('token', token!)
-      .single()
+    // Load invitation metadata by token via a SECURITY DEFINER RPC — the invitations
+    // table itself has no public read policy, so a caller must know the exact token.
+    const { data: inv, error: metaErr } = await db.rpc('get_staff_invitation_by_token', { p_token: token! })
 
-    if (!inv) {
+    if (metaErr || !inv) {
       setStatus('error')
       setMessage('Invitation not found or already used.')
       return
     }
 
-    if (inv.status !== 'pending') {
-      setStatus('error')
-      setMessage(`This invitation has already been ${inv.status}.`)
-      return
-    }
-
-    if (new Date(inv.expires_at) < new Date()) {
-      setStatus('error')
-      setMessage('This invitation link has expired. Ask the admin to send a new one.')
-      return
-    }
-
-    const name = (inv as any).organizations?.name ?? 'your workspace'
+    const name = (inv as any).org_name ?? 'your workspace'
     setOrgName(name)
 
     // Not logged in — redirect to dedicated staff activation page

@@ -1,15 +1,22 @@
 // PATH: src/components/workspace-chat/WorkspaceChatPanel.tsx
 
 import { useRef, useState, useEffect, useMemo, useCallback, type KeyboardEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useWorkspaceChat }   from '../../hooks/useWorkspaceChat'
 import WorkspaceChatMessage   from './WorkspaceChatMessage'
 import ContextRefPicker       from './ContextRefPicker'
+import ClientSummaryTab       from './ClientSummaryTab'
+import ClientFilesTab         from './ClientFilesTab'
+import WorkspaceRequestsTab   from './WorkspaceRequestsTab'
+import WorkspaceNotesTab      from './WorkspaceNotesTab'
 import MentionPicker, { getMentionQuery, insertMention } from './MentionPicker'
 import { validateFile, uploadDocument } from '../../services/upload.service'
 import { getClients } from '../../services/invoice.service'
 import type { Client } from '../../types/database.types'
 import type { WorkspaceConversation, WorkspaceInboxResponse, ContextRef } from '../../services/workspace-chat.service'
 import { formatDateShort } from '../../lib/dates'
+
+type ConvTab = 'chat' | 'summary' | 'files' | 'requests' | 'notes'
 
 interface Props {
   orgId:     string
@@ -19,15 +26,44 @@ interface Props {
   searchQuery?: string
   onActiveConversationChange?: (convId: string | null, clientId: string | null) => void
   focusClientId?: string | null
+  /** Tab to land on when auto-opened via focusClientId (e.g. a notification
+   *  click) — applied once per open, then behaves like a normal tab. */
+  focusTab?: ConvTab | null
   /** Stacked inbox→conversation layout for the floating bubble */
   bubbleMode?: boolean
+  /** Closes the whole floating panel (bubbleMode only) — surfaced in the
+   *  inbox header and the conversation's ⋮ menu, replacing the ✕ that used
+   *  to live in GlobalChatBubble's own (now-removed) header. */
+  onClose?: () => void
+}
+
+// Very rough client-side PII pattern check for the "secure send" warning —
+// not a guarantee, just a nudge before something like an SSN or card number
+// gets pasted into a normal chat message.
+const SSN_PATTERN  = /\b\d{3}-?\d{2}-?\d{4}\b/
+const CARD_PATTERN = /\b(?:\d[ -]?){13,19}\b/
+
+function containsSensitivePattern(text: string): boolean {
+  return SSN_PATTERN.test(text) || CARD_PATTERN.test(text)
 }
 
 export default function WorkspaceChatPanel({
   orgId, clientId, firmName, compact = false, searchQuery = '',
-  onActiveConversationChange, focusClientId, bubbleMode = false
+  onActiveConversationChange, focusClientId, focusTab, bubbleMode = false, onClose
 }: Props) {
   const chat = useWorkspaceChat(orgId, clientId, true)
+  const navigate = useNavigate()
+
+  const [activeTab,       setActiveTab]       = useState<ConvTab>('chat')
+  const [menuOpen,        setMenuOpen]        = useState(false)
+  const [secureMode,      setSecureMode]      = useState(false)
+  const [secureBlockedMsg, setSecureBlockedMsg] = useState<string | null>(null)
+  // Ambient PII check (runs on every send, not just with 🛡️ on) — a match
+  // shows a confirm step instead of a silent send; a second Send click with
+  // the same draft goes through. Cleared whenever the draft changes.
+  const [sensitiveConfirmPending, setSensitiveConfirmPending] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const appliedFocusTabRef = useRef(false)
 
   const [draft,          setDraft]          = useState('')
   const [internalOnly,   setInternalOnly]   = useState(false)
@@ -143,12 +179,62 @@ export default function WorkspaceChatPanel({
   }, [isPyme, compact, clientId, chat.inbox, chat.inboxLoading])
 
   // ── Auto-open focusClientId conversation ──────────────────────────────────
+  // Applies once per distinct focusClientId value, tracked via a ref rather
+  // than a bare "is something open" guard — the old guard (`|| chat.
+  // activeConvId`) blocked ever switching once ANY conversation was open,
+  // so clicking "Open in chat" for Client B from the firm-wide Notes page
+  // silently stayed on whatever Client A conversation the bubble already
+  // had open (real bug — the bubble persists mounted across route changes,
+  // so "already open" is the common case, not the exception). Tracking the
+  // last-applied client id instead means a genuinely new openChat(B) call
+  // always switches, while a user's own manual navigation to some other
+  // conversation afterward is never fought by this effect re-firing.
+  const appliedFocusClientIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!focusClientId || !chat.inbox || chat.inboxLoading || chat.activeConvId) return
+    if (!focusClientId || !chat.inbox || chat.inboxLoading) return
+    if (appliedFocusClientIdRef.current === focusClientId) return
     const conv = chat.inbox.conversations.find(c => c.client_id === focusClientId)
-    if (conv) chat.openConversation(conv)
+    if (conv) {
+      chat.openConversation(conv)
+      appliedFocusClientIdRef.current = focusClientId
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusClientId, chat.inbox, chat.inboxLoading])
+
+  // Reset to the Chat tab whenever the open conversation changes — landing
+  // on Summary/Files from a previous client would be confusing. Exception:
+  // the very first conversation this panel instance opens honors focusTab
+  // (e.g. a notification click deep-linking straight to Notes/Requests) —
+  // consumed once via the ref, so browsing to a different conversation
+  // afterward still resets to Chat like normal. Guarded on a truthy
+  // activeConvId specifically: this effect's dep array fires once on mount
+  // with activeConvId still null (before the focusClientId auto-open effect
+  // has run), which would otherwise consume focusTab on that premature null
+  // firing and lose it by the time the real conversation opens a moment
+  // later — a real bug caught live (notification always landed on Chat).
+  useEffect(() => {
+    if (!chat.activeConvId) return
+    if (!appliedFocusTabRef.current && focusTab) {
+      setActiveTab(focusTab)
+      appliedFocusTabRef.current = true
+    } else {
+      setActiveTab('chat')
+    }
+    setMenuOpen(false)
+    setSecureMode(false)
+    setSensitiveConfirmPending(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat.activeConvId])
+
+  // Close the ⋮ menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    function onDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [menuOpen])
 
   // ── Bubble up active conversation ─────────────────────────────────────────
   const activeConv: WorkspaceConversation | undefined =
@@ -188,6 +274,8 @@ export default function WorkspaceChatPanel({
     const val    = e.target.value
     const cursor = e.target.selectionStart ?? val.length
     setDraft(val)
+    if (secureBlockedMsg) setSecureBlockedMsg(null)
+    if (sensitiveConfirmPending) setSensitiveConfirmPending(false)
     if (!isPyme) {
       const q = getMentionQuery(val, cursor)
       setMentionQuery(q)
@@ -290,6 +378,25 @@ export default function WorkspaceChatPanel({
   async function handleSend() {
     const body = draft.trim()
     if ((!body && !contextRef && !pendingFile) || chat.sending) return
+
+    // Secure-send mode (🛡️ on): hard block on an apparent SSN/card-number
+    // pattern — the whole point of this mode is to stop the paste before it
+    // goes out, not just flag it afterward.
+    if (secureMode && containsSensitivePattern(body)) {
+      setSecureBlockedMsg('This looks like it may contain sensitive data (SSN, card number). Remove it before sending, or ask your client to use a secure document request instead.')
+      return
+    }
+    setSecureBlockedMsg(null)
+
+    // Ambient check (🛡️ off): the same pattern still runs on every send —
+    // Fase 1 only checked when the user remembered to turn 🛡️ on first, a
+    // real practical gap. A match here doesn't block, it asks for one
+    // explicit confirm click instead of silently going out.
+    if (!secureMode && containsSensitivePattern(body) && !sensitiveConfirmPending) {
+      setSensitiveConfirmPending(true)
+      return
+    }
+    setSensitiveConfirmPending(false)
 
     const savedDraft    = draft
     const savedRef      = contextRef
@@ -453,6 +560,58 @@ export default function WorkspaceChatPanel({
         />
       )}
 
+      {/* Secure-send warning banner — shown while the 🛡️ toggle is on.
+          Basic client-side pattern check only (see containsSensitivePattern
+          above), not a guarantee — the point is to catch an accidental
+          paste before it goes out, not to certify anything. */}
+      {secureMode && (
+        <div style={{
+          margin: '8px 12px 0', padding: '8px 10px', borderRadius: 7,
+          background: 'var(--sem-amber-bg)', border: '0.5px solid var(--sem-amber-border)',
+          fontSize: 11, color: 'var(--sem-amber)', lineHeight: 1.5,
+        }}>
+          🛡️ Secure send is on — don't send passwords, bank login codes, full card numbers, or SSN/TIN through chat.
+        </div>
+      )}
+      {secureBlockedMsg && (
+        <div style={{
+          margin: '8px 12px 0', padding: '8px 10px', borderRadius: 7,
+          background: 'var(--sem-red-bg)', border: '0.5px solid var(--sem-red-border)',
+          fontSize: 11, color: 'var(--sem-red)', lineHeight: 1.5,
+        }}>
+          ⚠ {secureBlockedMsg}
+        </div>
+      )}
+      {sensitiveConfirmPending && (
+        <div style={{
+          margin: '8px 12px 0', padding: '8px 10px', borderRadius: 7,
+          background: 'var(--sem-amber-bg)', border: '0.5px solid var(--sem-amber-border)',
+          fontSize: 11, color: 'var(--sem-amber)', lineHeight: 1.5,
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        }}>
+          <span style={{ flex: 1 }}>⚠ This looks like it may contain sensitive data (SSN, card number).</span>
+          <button
+            onClick={handleSend}
+            style={{
+              background: 'var(--sem-amber)', border: 'none', borderRadius: 5,
+              color: '#fff', fontSize: 10.5, fontWeight: 600, padding: '3px 8px',
+              cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+            }}
+          >
+            Send anyway
+          </button>
+          <button
+            onClick={() => setSensitiveConfirmPending(false)}
+            style={{
+              background: 'none', border: 'none', color: 'var(--sem-amber)', fontSize: 10.5,
+              cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', whiteSpace: 'nowrap',
+            }}
+          >
+            Edit
+          </button>
+        </div>
+      )}
+
       {/* Chips row: pending file + context ref */}
       {(pendingFile || uploading || contextRef) && (
         <div style={{ padding: '8px 12px 0', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -579,6 +738,23 @@ export default function WorkspaceChatPanel({
           </button>
         )}
 
+        {!isPyme && (
+          <button
+            onClick={() => { setSecureMode(v => !v); setSecureBlockedMsg(null) }}
+            title={secureMode ? 'Turn off secure-send warning' : 'Turn on secure-send warning (checks for SSN/card patterns before sending)'}
+            style={{
+              ...toolBtn,
+              fontSize: 11, padding: '4px 8px', borderRadius: 6,
+              color:      secureMode ? 'var(--sem-amber)' : 'var(--lp-text-muted)',
+              background: secureMode ? 'rgba(245,158,11,0.10)' : 'transparent',
+              border:     secureMode ? '0.5px dashed var(--sem-amber-border)' : '0.5px solid transparent',
+              fontWeight: secureMode ? 600 : 400,
+            }}
+          >
+            {secureMode ? '🛡️ Secure' : '🛡️'}
+          </button>
+        )}
+
         <div style={{ flex: 1 }} />
 
         <button
@@ -618,7 +794,13 @@ export default function WorkspaceChatPanel({
       : (activeConv?.client_name ?? 'Select a conversation')
 
   // ── bubbleMode: stacked (inbox → conversation) ────────────────────────────
-  if (bubbleMode && !isPyme) {
+  // Both roles use the stacked inbox→conversation layout in bubbleMode —
+  // isPyme used to be excluded here and fell through to the "standard grid"
+  // layout below, which has no tabs at all, so the client-side Requests tab
+  // was unreachable no matter what TABS said. The client-only inbox list
+  // this reveals is harmless: get_workspace_inbox already scopes a 'client'
+  // role caller to their own single conversation, same as before.
+  if (bubbleMode) {
     if (!chat.activeConvId && !newConvClient) {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -641,6 +823,7 @@ export default function WorkspaceChatPanel({
             clientsLoading={clientsLoading}
             onClientPick={handleClientPick}
             onCancelNew={exitNewConvMode}
+            {...(onClose ? { onClose } : {})}
           />
         </div>
       )
@@ -654,49 +837,42 @@ export default function WorkspaceChatPanel({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div style={{
-          padding: '8px 14px',
-          borderBottom: '0.5px solid var(--lp-border)',
-          display: 'flex', alignItems: 'center', gap: 8,
-          flexShrink: 0, background: 'var(--lp-surface)',
-        }}>
-          <button
-            onClick={() => {
-              chat.closeConversation()
-              setDraft('')
-              setContextRef(null)
-              setPendingFile(null)
-              setNewConvClient(null)
-            }}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--lp-text-muted)', fontSize: 13, padding: '2px 4px',
-              fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
-              borderRadius: 4,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--lp-text)'; e.currentTarget.style.background = 'var(--lp-surface-2)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--lp-text-muted)'; e.currentTarget.style.background = 'none' }}
-          >
-            ← Back
-          </button>
-          <span style={{
-            fontSize: 13, fontWeight: 600, color: 'var(--lp-text)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-          }}>
-            {convHeaderLabel}
-          </span>
-          {activeConv && (
-            <button
-              onClick={() => activeConv.is_archived ? chat.restore(activeConv.id) : chat.archive(activeConv.id)}
-              style={btnSm}
-            >
-              {activeConv.is_archived ? 'Restore' : 'Archive'}
-            </button>
-          )}
-        </div>
+        <ConversationHeader
+          convHeaderLabel={convHeaderLabel}
+          activeConv={activeConv}
+          isPyme={isPyme}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          menuRef={menuRef}
+          onBack={() => {
+            chat.closeConversation()
+            setDraft('')
+            setContextRef(null)
+            setPendingFile(null)
+            setNewConvClient(null)
+          }}
+          onViewProfile={() => { if (activeConv) navigate(`/clients/${activeConv.client_id}`) }}
+          onMarkUnread={() => { if (activeConv) chat.markUnread(activeConv.id) }}
+          onArchiveToggle={() => activeConv && (activeConv.is_archived ? chat.restore(activeConv.id) : chat.archive(activeConv.id))}
+          {...(onClose ? { onCloseMessages: onClose } : {})}
+        />
 
-        {messagesArea}
-        {composerArea}
+        {activeTab === 'chat' ? (
+          <>
+            {messagesArea}
+            {composerArea}
+          </>
+        ) : activeTab === 'summary' ? (
+          activeConv && <ClientSummaryTab orgId={orgId} clientId={activeConv.client_id} />
+        ) : activeTab === 'files' ? (
+          activeConv && <ClientFilesTab orgId={orgId} clientId={activeConv.client_id} />
+        ) : activeTab === 'notes' ? (
+          activeConv && <WorkspaceNotesTab orgId={orgId} clientId={activeConv.client_id} />
+        ) : activeTab === 'requests' ? (
+          activeConv && <WorkspaceRequestsTab orgId={orgId} clientId={activeConv.client_id} viewerRole={viewerRole} />
+        ) : null}
         {isDraggingOver && <DropOverlay />}
       </div>
     )
@@ -789,6 +965,172 @@ export default function WorkspaceChatPanel({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CONVERSATION HEADER — 2 lines: back/name/⋮, then Chat/Summary/Files/
+// Requests tabs. Replaces the old single-line "← Back / name / Archive"
+// bar plus GlobalChatBubble's separate "Messages" panel header — one header
+// instead of two stacked ones.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ConversationHeader({
+  convHeaderLabel, activeConv, isPyme, activeTab, setActiveTab,
+  menuOpen, setMenuOpen, menuRef, onBack, onViewProfile, onMarkUnread,
+  onArchiveToggle, onCloseMessages
+}: {
+  convHeaderLabel: string
+  activeConv:      WorkspaceConversation | undefined
+  isPyme:          boolean
+  activeTab:       ConvTab
+  setActiveTab:    (t: ConvTab) => void
+  menuOpen:        boolean
+  setMenuOpen:     (v: boolean | ((prev: boolean) => boolean)) => void
+  menuRef:         React.RefObject<HTMLDivElement>
+  onBack:          () => void
+  onViewProfile:   () => void
+  onMarkUnread:    () => void
+  onArchiveToggle: () => void
+  onCloseMessages?: () => void
+}) {
+  // Staff sees all 5 tabs; the client side (isPyme — both self-service PYME
+  // and external client_portal_users contacts collapse to the same role
+  // here) only sees Chat + Requests, since they don't have their own
+  // Summary/Files/Notes surface inside this panel.
+  const TABS: { key: ConvTab; label: string }[] = isPyme
+    ? [
+        { key: 'chat',     label: 'Chat' },
+        { key: 'requests', label: 'Requests' },
+      ]
+    : [
+        { key: 'chat',     label: 'Chat' },
+        { key: 'summary',  label: 'Summary' },
+        { key: 'files',    label: 'Files' },
+        { key: 'requests', label: 'Requests' },
+        { key: 'notes',    label: 'Notes' },
+      ]
+
+  return (
+    <div style={{ flexShrink: 0, background: 'var(--lp-surface)' }}>
+      {/* Line 1 — back / client name / ⋮ */}
+      <div style={{
+        padding: '8px 14px', borderBottom: activeConv ? 'none' : '0.5px solid var(--lp-border)',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        <button
+          onClick={onBack}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--lp-text-muted)', fontSize: 13, padding: '2px 4px',
+            fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+            borderRadius: 4, flexShrink: 0,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = 'var(--lp-text)'; e.currentTarget.style.background = 'var(--lp-surface-2)' }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'var(--lp-text-muted)'; e.currentTarget.style.background = 'none' }}
+        >
+          ← Inbox
+        </button>
+
+        <button
+          onClick={onViewProfile}
+          disabled={!activeConv}
+          title={activeConv ? 'View client profile' : undefined}
+          style={{
+            background: 'none', border: 'none', cursor: activeConv ? 'pointer' : 'default',
+            fontSize: 13, fontWeight: 600, color: 'var(--lp-text)', fontFamily: 'inherit',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+            textAlign: 'left', padding: 0,
+          }}
+        >
+          {convHeaderLabel}
+        </button>
+
+        {activeConv?.is_archived && (
+          <span style={{ fontSize: 10, color: 'var(--chat-sender-label-internal)', flexShrink: 0 }}>
+            Archived
+          </span>
+        )}
+
+        {activeConv && !isPyme && (
+          <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              onClick={() => setMenuOpen(v => !v)}
+              title="More actions"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 15,
+                color: 'var(--lp-text-muted)', padding: '2px 6px', borderRadius: 4,
+                fontFamily: 'inherit', lineHeight: 1,
+              }}
+            >
+              ⋮
+            </button>
+            {menuOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                minWidth: 190, background: 'var(--lp-surface)',
+                border: '0.5px solid var(--lp-border-2)', borderRadius: 10,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 20,
+                overflow: 'hidden', padding: '4px 0',
+              }}>
+                <MenuItem label="View client profile" onClick={() => { onViewProfile(); setMenuOpen(false) }} />
+                <MenuItem label="Mark as unread" onClick={() => { onMarkUnread(); setMenuOpen(false) }} />
+                <MenuItem
+                  label={activeConv.is_archived ? 'Restore conversation' : 'Archive conversation'}
+                  onClick={() => { onArchiveToggle(); setMenuOpen(false) }}
+                />
+                {onCloseMessages && (
+                  <>
+                    <div style={{ borderTop: '0.5px solid var(--lp-border)', margin: '4px 0' }} />
+                    <MenuItem label="Close messages" onClick={() => { onCloseMessages(); setMenuOpen(false) }} />
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Line 2 — tabs (role-aware list; staff gets 5, client gets 2) */}
+      {activeConv && (
+        <div style={{ display: 'flex', borderBottom: '0.5px solid var(--lp-border)', padding: '0 8px' }}>
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              style={{
+                padding: '7px 10px', background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', fontSize: 11.5,
+                fontWeight: activeTab === t.key ? 600 : 400,
+                color: activeTab === t.key ? 'var(--lp-text)' : 'var(--lp-text-muted)',
+                borderBottom: `2px solid ${activeTab === t.key ? 'var(--lp-accent)' : 'transparent'}`,
+                marginBottom: -1, transition: 'all 0.1s',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MenuItem({ label, onClick, danger = false }: { label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: '100%', background: 'none', border: 'none', padding: '8px 14px',
+        textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5,
+        color: danger ? 'var(--sem-red)' : 'var(--lp-text)',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--chat-row-hover)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+    >
+      {label}
+    </button>
+  )
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DROP OVERLAY — shown while dragging a file over an open conversation
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -827,6 +1169,7 @@ function Inbox({
   onNewConversation, newConvMode,
   clientSearch, onClientSearchChange, clientSearchRef,
   filteredClients, clientsLoading, onClientPick, onCancelNew,
+  onClose,
 }: {
   inbox:            WorkspaceInboxResponse | null
   loading:          boolean
@@ -846,6 +1189,8 @@ function Inbox({
   clientsLoading:   boolean
   onClientPick:     (c: import('../../types/database.types').Client) => void
   onCancelNew:      () => void
+  /** Closes the whole floating panel — only passed in bubbleMode. */
+  onClose?:         () => void
 }) {
   return (
     <div style={{
@@ -900,6 +1245,19 @@ function Inbox({
               }}
             >
               +
+            </button>
+          )}
+          {onClose && !newConvMode && (
+            <button
+              onClick={onClose}
+              title="Close messages"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--lp-text-muted)', fontSize: 14, lineHeight: 1,
+                padding: '2px 4px', fontFamily: 'inherit',
+              }}
+            >
+              ✕
             </button>
           )}
         </div>
@@ -1017,7 +1375,7 @@ function Inbox({
                     {c.client_name}
                   </span>
                   {c.my_unread_count > 0 && (
-                    <span style={{
+                    <span className="lp-chat-pulse" style={{
                       fontSize: 10, padding: '1px 6px', borderRadius: 100,
                       background: 'var(--sem-red)', color: '#fff', fontWeight: 700, flexShrink: 0, marginLeft: 6,
                     }}>

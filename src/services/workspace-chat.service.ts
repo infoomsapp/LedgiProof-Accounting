@@ -160,6 +160,15 @@ export async function markWorkspaceMessagesRead(
   return data as unknown as { conversation_id: string; marked_read: number }
 }
 
+export async function markWorkspaceConversationUnread(
+  conversationId: string
+): Promise<void> {
+  const { error } = await db.rpc('mark_workspace_conversation_unread', {
+    p_conversation_id: conversationId
+  })
+  if (error) throw new Error(error.message)
+}
+
 export async function archiveWorkspaceConversation(
   conversationId: string
 ): Promise<void> {

@@ -3,13 +3,28 @@
 // Sends a branded staff activation email via Resend when an owner/admin
 // invites a new team member to their LedgiProof workspace.
 //
-// Called by the frontend (Team.tsx) after creating the invitation record.
+// SECURITY: this function used to accept to_email/activation_url/org_name/
+// role directly from the request body with no check that they corresponded
+// to any real invitation the caller was authorized to send — any signed-in
+// user (any org, any role) could make LedgiProof's own trusted domain send
+// an arbitrarily-branded "invitation" to any email address with any link, a
+// phishing relay. Fixed: the caller now only supplies invitation_id; every
+// other field is looked up server-side from the real invitations row, using
+// a Supabase client scoped to the CALLER's own JWT (not the service role) —
+// RLS (`invitations_select`: is_org_member(org_id) OR invited_by=auth.uid())
+// then does the actual authorization, the same policy the frontend's own
+// reads already rely on. A caller with no access to that invitation's org
+// (and who isn't the one who created it) gets zero rows back.
+//
 // Requires a valid JWT (caller must be authenticated).
 // Reads RESEND_API_KEY from Supabase secrets.
 //
 // Deploy: supabase functions deploy send-staff-invitation
 
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { checkRateLimit } from '../_shared/rate-limit.ts'
+import { reportToGovernance } from '../_shared/cgc-report.ts'
 
 const ROLE_LABEL: Record<string, string> = {
   owner:      'Owner',
@@ -19,6 +34,13 @@ const ROLE_LABEL: Record<string, string> = {
   approver:   'Approver',
   readonly:   'Read-only viewer',
 }
+
+const ALLOWED_ORIGINS = new Set([
+  'https://app.ledgiproof.com',
+  'https://ledgiproof.com',
+  'http://localhost:5173',
+  'http://localhost:4173',
+])
 
 Deno.serve(async (req) => {
   const cors = getCorsHeaders(req)
@@ -31,44 +53,63 @@ Deno.serve(async (req) => {
     })
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) return j({ error: 'Missing Authorization header' }, 401)
+
     const body = await req.json().catch(() => null)
-    const {
-      to_email,
-      activation_url,
-      org_name,
-      role,
-      invited_by_name,
-      expires_at
-    }: {
-      to_email:        string
-      activation_url:  string
-      org_name:        string
-      role:            string
-      invited_by_name?: string
-      expires_at?:     string
-    } = body ?? {}
+    const invitationId: string | undefined = body?.invitation_id
+    if (!invitationId) return j({ error: 'Missing required field: invitation_id' }, 400)
 
-    if (!to_email || !activation_url || !org_name || !role) {
-      return j({ error: 'Missing required fields: to_email, activation_url, org_name, role' }, 400)
+    // Scoped to the CALLER's own JWT — RLS (invitations_select) is what
+    // actually authorizes this lookup, not any check written here.
+    const callerDb = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    )
+
+    const { data: { user } } = await callerDb.auth.getUser()
+    if (!user) return j({ error: 'Unauthorized' }, 401)
+
+    // 10 sends per hour per caller — generous for real onboarding, a backstop
+    // against using this function to spam Resend.
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+    const allowed = await checkRateLimit(supabaseAdmin, `invite:${user.id}`, 10, 60 * 60)
+    if (!allowed) return j({ error: 'Too many invitations sent — please try again later' }, 429)
+
+    const { data: inv, error: invErr } = await callerDb
+      .from('invitations')
+      .select('email, role, token, status, expires_at, invited_by, org_id, organizations(name), profiles!invitations_invited_by_fkey(display_name)')
+      .eq('id', invitationId)
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    if (invErr || !inv) {
+      return j({ error: 'Invitation not found, not pending, or you do not have access to it' }, 404)
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to_email)) {
-      return j({ error: 'Invalid email address' }, 400)
-    }
+    const origin = req.headers.get('Origin') ?? ''
+    const safeOrigin = ALLOWED_ORIGINS.has(origin) ? origin : 'https://app.ledgiproof.com'
+    const activationUrl = `${safeOrigin}/staff-activate/${inv.token}`
+
+    const orgRow     = inv.organizations as unknown as { name: string | null } | null
+    const inviterRow = inv.profiles as unknown as { display_name: string | null } | null
+    const orgName     = orgRow?.name || 'your workspace'
+    const roleLabel    = ROLE_LABEL[inv.role] ?? inv.role
+    const invitedByName = inviterRow?.display_name ?? undefined
+
+    const expiresDate = inv.expires_at
+      ? new Date(inv.expires_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      : '7 days from now'
 
     const resendKey = Deno.env.get('RESEND_API_KEY')
     if (!resendKey) {
       console.error('[send-staff-invitation] RESEND_API_KEY not set')
       return j({ error: 'Email service not configured' }, 500)
     }
-
-    const roleLabel = ROLE_LABEL[role] ?? role
-
-    const expiresDate = expires_at
-      ? new Date(expires_at).toLocaleDateString('en-US', {
-          month: 'long', day: 'numeric', year: 'numeric'
-        })
-      : '7 days from now'
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -78,15 +119,11 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from:    'LedgiProof <support@ledgiproof.com>',
-        to:      [to_email],
-        subject: `${org_name} invited you to join LedgiProof`,
+        to:      [inv.email],
+        subject: `${orgName} invited you to join LedgiProof`,
         html:    buildEmail({
-          to_email,
-          activation_url,
-          org_name,
-          role_label:     roleLabel,
-          invited_by_name,
-          expires_date:   expiresDate
+          to_email: inv.email, activation_url: activationUrl, org_name: orgName,
+          role_label: roleLabel, invited_by_name: invitedByName, expires_date: expiresDate
         })
       })
     })
@@ -96,6 +133,15 @@ Deno.serve(async (req) => {
       console.error('[send-staff-invitation] Resend error:', res.status, errText)
       return j({ error: 'Failed to send invitation email' }, 500)
     }
+
+    // Fire-and-forget visibility report — CGC Core has zero record of
+    // invitation sends today. Never gates the response either way.
+    reportToGovernance({
+      org_id: inv.org_id,
+      action: 'staff_invitation.send',
+      input_data: { invitation_id: invitationId, role: inv.role },
+      user_email: user.email ?? 'unknown@ledgiproof',
+    }).catch(() => {})
 
     return j({ success: true })
 

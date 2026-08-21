@@ -82,27 +82,16 @@ export default function StaffActivatePage() {
   useEffect(() => {
     if (!token) { setMetaError('Invalid invitation link.'); setMetaLoading(false); return }
 
-    db.from('invitations')
-      .select('email, role, status, expires_at, organizations(name, is_accountant_firm)')
-      .eq('token', token)
-      .single()
+    db.rpc('get_staff_invitation_by_token', { p_token: token })
       .then(({ data, error: err }) => {
         setMetaLoading(false)
         if (err || !data) { setMetaError('Invitation not found or already used.'); return }
-        if (data.status !== 'pending') {
-          setMetaError(`This invitation has already been ${data.status}.`)
-          return
-        }
-        if (new Date(data.expires_at) < new Date()) {
-          setMetaError('This invitation link has expired. Ask your firm admin to send a new one.')
-          return
-        }
-        const org = (data as any).organizations
+        const inv = data as any
         setMeta({
-          email:            data.email,
-          role:             data.role,
-          orgName:          org?.name ?? 'your workspace',
-          isAccountantFirm: org?.is_accountant_firm ?? false,
+          email:            inv.email,
+          role:             inv.role,
+          orgName:          inv.org_name ?? 'your workspace',
+          isAccountantFirm: inv.is_accountant_firm ?? false,
         })
       })
   }, [token])

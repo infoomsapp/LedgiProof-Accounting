@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore }  from '../store/auth.store'
+import { useScope }      from '../hooks/useScope'
 import {
   createSession, getSessions, loadSessionTransactions,
   loadUnreconciledTransactions, addTransactionsToSession,
@@ -25,8 +26,8 @@ function fmt(n: number) {
 }
 
 // ── Session setup card ────────────────────────────────────────────────────────
-function NewSessionForm({ orgId, userId, onCreated }: {
-  orgId: string; userId: string; onCreated: () => void
+function NewSessionForm({ orgId, userId, clientId, onCreated }: {
+  orgId: string; userId: string; clientId: string | null; onCreated: () => void
 }) {
   const today  = new Date().toISOString().slice(0,10)
   const first  = today.slice(0,8) + '01'
@@ -42,14 +43,14 @@ function NewSessionForm({ orgId, userId, onCreated }: {
     setCreating(true); setError(null)
     try {
       const session = await createSession({
-        orgId, userId,
+        orgId, userId, clientId,
         periodStart:    start,
         periodEnd:      end,
         openingBalance: parseFloat(opening),
         closingBalance: parseFloat(closing)
       })
       // Auto-load transactions for this period
-      const txns = await loadUnreconciledTransactions(orgId, start, end)
+      const txns = await loadUnreconciledTransactions(orgId, start, end, clientId)
       if (txns.length > 0) {
         await addTransactionsToSession(session.id, txns.map(t => t.id), orgId)
       }
@@ -116,9 +117,17 @@ function NewSessionForm({ orgId, userId, onCreated }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Reconciliation() {
-  const { membership, profile } = useAuthStore()
-  const orgId                   = membership?.org_id ?? ''
-  const userId                  = profile?.id ?? ''
+  const { profile } = useAuthStore()
+  // scope.clientId is set when reached via /clients/:clientId/reconciliation.
+  // Without it, every client's reconciliation sessions and unreconciled
+  // transactions were combined into one unfiltered list regardless of which
+  // client's URL was loaded — same class of bug already fixed on
+  // Transactions.tsx/BankImports.tsx (reconciliation_sessions needed a real
+  // client_id column added first; see the migration).
+  const scope    = useScope()
+  const orgId    = scope.orgId
+  const clientId = scope.clientId
+  const userId   = profile?.id ?? ''
 
   const [sessions,    setSessions]   = useState<ReconciliationSummary[]>([])
   const [activeId,    setActiveId]   = useState<string | null>(null)
@@ -135,10 +144,10 @@ export default function Reconciliation() {
   const loadSessions = useCallback(async () => {
     if (!orgId) return
     setLoading(true)
-    const data = await getSessions(orgId)
+    const data = await getSessions(orgId, clientId)
     setSessions(data)
     setLoading(false)
-  }, [orgId])
+  }, [orgId, clientId])
 
   useEffect(() => { loadSessions() }, [loadSessions])
 
@@ -147,11 +156,11 @@ export default function Reconciliation() {
     if (!activeId || !orgId) return
     const [txns, summary] = await Promise.all([
       loadSessionTransactions(activeId, orgId),
-      getSessions(orgId).then(list => list.find(s => s.session_id === activeId) ?? null)
+      getSessions(orgId, clientId).then(list => list.find(s => s.session_id === activeId) ?? null)
     ])
     setItems(txns)
     setActiveSess(summary)
-  }, [activeId, orgId])
+  }, [activeId, orgId, clientId])
 
   useEffect(() => { if (activeId) loadActive() }, [activeId, loadActive])
 
@@ -299,7 +308,7 @@ export default function Reconciliation() {
         {/* New session form */}
         {showNew && (
           <NewSessionForm
-            orgId={orgId} userId={userId}
+            orgId={orgId} userId={userId} clientId={clientId}
             onCreated={() => { setShowNew(false); loadSessions() }}
           />
         )}

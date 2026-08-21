@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams }   from 'react-router-dom'
 import { useAuthStore }      from '../store/auth.store'
+import { useScope }          from '../hooks/useScope'
 import { useTransactions }   from '../hooks/useTransactions'
 import SemaphoreFilter       from '../components/semaphore/SemaphoreFilter'
 import SemaphoreBadge        from '../components/semaphore/SemaphoreBadge'
@@ -24,7 +25,14 @@ const fmt = (n: number) => formatCurrency(n)
 
 export default function Transactions() {
   const { membership }  = useAuthStore()
-  const orgId           = membership?.org_id ?? ''
+  // scope.clientId is set when reached via /clients/:clientId/transactions
+  // (a firm's client workspace) and null for solo/pyme orgs. Without this,
+  // every client's transactions were combined into one unfiltered list
+  // regardless of which client's URL was loaded — the same class of bug
+  // already found and fixed on Reports.tsx earlier.
+  const scope    = useScope()
+  const orgId    = scope.orgId
+  const clientId = scope.clientId
 
   // Deep-link params (from the Solo dashboard's pending-review CTAs).
   const [searchParams] = useSearchParams()
@@ -59,9 +67,10 @@ export default function Transactions() {
 
   useEffect(() => {
     if (!orgId) return
-    db.from('accounts').select('*').eq('org_id', orgId).eq('is_active', true).order('code')
-      .then(({ data }) => setAccounts((data ?? []) as Account[]))
-  }, [orgId])
+    let q = db.from('accounts').select('*').eq('org_id', orgId).eq('is_active', true).order('code')
+    q = clientId ? q.eq('client_id', clientId) : q.is('client_id', null)
+    q.then(({ data }) => setAccounts((data ?? []) as Account[]))
+  }, [orgId, clientId])
 
   // AI assistant
   const [showAI,    setShowAI]      = useState(false)
@@ -81,6 +90,7 @@ export default function Transactions() {
       ...(semFilter !== 'all' ? { semaphore: semFilter } : {}),
       ...(dateFrom ? { dateFrom } : {}),
       ...(dateTo   ? { dateTo }   : {}),
+      clientId
     },
     tick
   )

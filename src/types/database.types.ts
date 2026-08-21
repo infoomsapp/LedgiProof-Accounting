@@ -1441,6 +1441,117 @@ export type Database = {
           },
         ]
       }
+      document_requests: {
+        Row: {
+          client_id: string
+          conversation_id: string | null
+          created_at: string
+          description: string | null
+          document_id: string | null
+          due_at: string | null
+          id: string
+          is_sensitive: boolean
+          org_id: string
+          requested_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          conversation_id?: string | null
+          created_at?: string
+          description?: string | null
+          document_id?: string | null
+          due_at?: string | null
+          id?: string
+          is_sensitive?: boolean
+          org_id: string
+          requested_by: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          conversation_id?: string | null
+          created_at?: string
+          description?: string | null
+          document_id?: string | null
+          due_at?: string | null
+          id?: string
+          is_sensitive?: boolean
+          org_id?: string
+          requested_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           client_id: string | null
@@ -2805,8 +2916,10 @@ export type Database = {
         Row: {
           body: string
           created_at: string
+          document_request_id: string | null
           id: string
           is_read: boolean
+          note_id: string | null
           org_id: string
           push_ticket: string | null
           read_at: string | null
@@ -2820,8 +2933,10 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string
+          document_request_id?: string | null
           id?: string
           is_read?: boolean
+          note_id?: string | null
           org_id: string
           push_ticket?: string | null
           read_at?: string | null
@@ -2835,8 +2950,10 @@ export type Database = {
         Update: {
           body?: string
           created_at?: string
+          document_request_id?: string | null
           id?: string
           is_read?: boolean
+          note_id?: string | null
           org_id?: string
           push_ticket?: string | null
           read_at?: string | null
@@ -2848,6 +2965,20 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_document_request_id_fkey"
+            columns: ["document_request_id"]
+            isOneToOne: false
+            referencedRelation: "document_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_notes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_org_id_fkey"
             columns: ["org_id"]
@@ -3305,6 +3436,24 @@ export type Database = {
           },
         ]
       }
+      rate_limit_events: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+        }
+        Relationships: []
+      }
       read_model_dirty: {
         Row: {
           dirtied_at: string
@@ -3570,6 +3719,7 @@ export type Database = {
         Row: {
           bank_connection_id: string | null
           cleared_balance: number | null
+          client_id: string | null
           closed_at: string | null
           closed_by: string | null
           created_at: string
@@ -3589,6 +3739,7 @@ export type Database = {
         Insert: {
           bank_connection_id?: string | null
           cleared_balance?: number | null
+          client_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
@@ -3608,6 +3759,7 @@ export type Database = {
         Update: {
           bank_connection_id?: string | null
           cleared_balance?: number | null
+          client_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
@@ -3630,6 +3782,13 @@ export type Database = {
             columns: ["bank_connection_id"]
             isOneToOne: false
             referencedRelation: "bank_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reconciliation_sessions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -4590,22 +4749,8 @@ export type Database = {
             foreignKeyName: "transaction_messages_document_id_fkey"
             columns: ["document_id"]
             isOneToOne: false
-            referencedRelation: "transaction_documents"
+            referencedRelation: "documents"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "transaction_messages_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "v_doc_transaction_id"
-            referencedColumns: ["document_id"]
-          },
-          {
-            foreignKeyName: "transaction_messages_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "v_transaction_with_evidence"
-            referencedColumns: ["document_id"]
           },
           {
             foreignKeyName: "transaction_messages_org_id_fkey"
@@ -5831,6 +5976,7 @@ export type Database = {
           email_status: string | null
           event_type: string | null
           final_hash: string | null
+          flagged_sensitive: boolean
           id: string
           message_kind: string
           org_id: string
@@ -5856,6 +6002,7 @@ export type Database = {
           email_status?: string | null
           event_type?: string | null
           final_hash?: string | null
+          flagged_sensitive?: boolean
           id?: string
           message_kind?: string
           org_id: string
@@ -5881,6 +6028,7 @@ export type Database = {
           email_status?: string | null
           event_type?: string | null
           final_hash?: string | null
+          flagged_sensitive?: boolean
           id?: string
           message_kind?: string
           org_id?: string
@@ -5912,22 +6060,8 @@ export type Database = {
             foreignKeyName: "workspace_messages_document_id_fkey"
             columns: ["document_id"]
             isOneToOne: false
-            referencedRelation: "transaction_documents"
+            referencedRelation: "documents"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "workspace_messages_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "v_doc_transaction_id"
-            referencedColumns: ["document_id"]
-          },
-          {
-            foreignKeyName: "workspace_messages_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "v_transaction_with_evidence"
-            referencedColumns: ["document_id"]
           },
           {
             foreignKeyName: "workspace_messages_org_id_fkey"
@@ -5948,6 +6082,110 @@ export type Database = {
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_notes: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          body: string
+          client_id: string
+          completed_at: string | null
+          context_ref: Json | null
+          conversation_id: string | null
+          created_at: string
+          created_by: string
+          due_at: string | null
+          id: string
+          org_id: string
+          reminder_sent_at: string | null
+          requires_approval: boolean
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          body: string
+          client_id: string
+          completed_at?: string | null
+          context_ref?: Json | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by: string
+          due_at?: string | null
+          id?: string
+          org_id: string
+          reminder_sent_at?: string | null
+          requires_approval?: boolean
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          body?: string
+          client_id?: string
+          completed_at?: string | null
+          context_ref?: Json | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          due_at?: string | null
+          id?: string
+          org_id?: string
+          reminder_sent_at?: string | null
+          requires_approval?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_notes_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_notes_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_notes_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_notes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -6088,6 +6326,7 @@ export type Database = {
         Row: {
           cleared_items: number | null
           cleared_total: number | null
+          client_id: string | null
           difference: number | null
           opened_at: string | null
           org_id: string | null
@@ -6101,6 +6340,13 @@ export type Database = {
           uncleared_items: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "reconciliation_sessions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reconciliation_sessions_org_id_fkey"
             columns: ["org_id"]
@@ -6341,6 +6587,7 @@ export type Database = {
         }
         Returns: string
       }
+      approve_workspace_note: { Args: { p_note_id: string }; Returns: Json }
       archive_member_conversation: {
         Args: { p_conversation_id: string }
         Returns: undefined
@@ -6389,6 +6636,7 @@ export type Database = {
         Args: { p_session_id: string; p_user_id: string }
         Returns: Json
       }
+      complete_workspace_note: { Args: { p_note_id: string }; Returns: Json }
       compute_account_balance: {
         Args: {
           p_account_id: string
@@ -6440,6 +6688,18 @@ export type Database = {
         Args: { p_input: Json }
         Returns: string
       }
+      create_document_request: {
+        Args: {
+          p_client_id: string
+          p_conversation_id?: string
+          p_description?: string
+          p_due_at?: string
+          p_is_sensitive?: boolean
+          p_org_id: string
+          p_title: string
+        }
+        Returns: Json
+      }
       create_estimate: {
         Args: {
           p_client_id: string
@@ -6473,6 +6733,18 @@ export type Database = {
           p_org_id: string
           p_request_note?: string
           p_transaction_id?: string
+        }
+        Returns: Json
+      }
+      create_workspace_note: {
+        Args: {
+          p_body: string
+          p_client_id: string
+          p_context_ref?: Json
+          p_conversation_id?: string
+          p_due_at?: string
+          p_org_id: string
+          p_requires_approval?: boolean
         }
         Returns: Json
       }
@@ -6513,6 +6785,10 @@ export type Database = {
           p_semaphore?: string[]
         }
         Returns: string
+      }
+      fulfill_document_request: {
+        Args: { p_document_id: string; p_request_id: string }
+        Returns: Json
       }
       fulfill_receipt_request: {
         Args: { p_document_id: string; p_request_id: string }
@@ -6566,10 +6842,20 @@ export type Database = {
       }
       get_auditor_workspaces: { Args: never; Returns: Json }
       get_balance_sheet: {
-        Args: { p_as_of_month?: number; p_as_of_year: number; p_client_id?: string; p_org_id: string }
+        Args: {
+          p_as_of_month?: number
+          p_as_of_year: number
+          p_client_id?: string
+          p_org_id: string
+        }
         Returns: Json
       }
       get_bookkeeper_dashboard: { Args: { p_org_id: string }; Returns: Json }
+      get_client_portal_invitation_preview: {
+        Args: { p_token: string }
+        Returns: Json
+      }
+      get_client_portal_memberships: { Args: never; Returns: Json }
       get_clients_admin: {
         Args: { p_org_id?: string }
         Returns: {
@@ -6734,6 +7020,15 @@ export type Database = {
         Args: { p_client_id: string; p_date: string; p_org_id: string }
         Returns: Database["public"]["Enums"]["period_status"]
       }
+      get_profit_and_loss: {
+        Args: {
+          p_client_id?: string
+          p_month?: number
+          p_org_id: string
+          p_year: number
+        }
+        Returns: Json
+      }
       get_pyme_dashboard: { Args: { p_client_id: string }; Returns: Json }
       get_recent_admin_events: { Args: { p_limit?: number }; Returns: Json }
       get_schedule_c_data: {
@@ -6742,6 +7037,10 @@ export type Database = {
       }
       get_solo_dashboard: {
         Args: { p_org_id: string; p_quarter?: number; p_year?: number }
+        Returns: Json
+      }
+      get_staff_invitation_by_token: {
+        Args: { p_token: string }
         Returns: Json
       }
       get_tax_setaside_summary: {
@@ -6949,6 +7248,10 @@ export type Database = {
         Returns: undefined
       }
       mark_transaction_messages_read: {
+        Args: { p_conversation_id: string }
+        Returns: Json
+      }
+      mark_workspace_conversation_unread: {
         Args: { p_conversation_id: string }
         Returns: Json
       }
@@ -7227,6 +7530,10 @@ export type Database = {
       }
       revert_feature_usage: {
         Args: { p_decrement?: number; p_feature_key: string; p_user_id: string }
+        Returns: Json
+      }
+      review_document_request: {
+        Args: { p_approve: boolean; p_request_id: string }
         Returns: Json
       }
       rpc_1099_worksheet: {

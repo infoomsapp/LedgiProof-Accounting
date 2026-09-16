@@ -485,7 +485,13 @@ export async function cgcEvaluate(
             // actor-level analytics (Phase 3 internal guard) need a real
             // per-user email to be anything but a single degenerate actor.
             user_email:   session.user?.email ?? 'service@ledgiproof',
-            data_domains: [detectAreaHint(input)]
+            data_domains: [detectAreaHint(input)],
+            // Required for CGC Core's tenant action-policy enforcement to
+            // apply at all — omitting it makes every decision arrive as
+            // app_source="unknown", which tenant_policy.py treats as "no
+            // policy check" regardless of what's configured for this tenant.
+            app_source:   'ledgiproof',
+            area:         detectAreaHint(input)
           }),
           signal: controller.signal
         })

@@ -24,6 +24,9 @@ interface RequestBody {
   input_data:   Record<string, unknown>
   user_email:   string
   data_domains: string[]
+  app_source?:  string
+  area?:        string
+  agent_id?:    string
 }
 
 Deno.serve(async (req) => {
@@ -79,6 +82,15 @@ Deno.serve(async (req) => {
     form.set('input_data',   JSON.stringify(body.input_data))
     form.set('user_email',   body.user_email ?? 'service@ledgiproof')
     form.set('data_domains', JSON.stringify(body.data_domains ?? []))
+    // Without this, CGC Core's /governance/decision receives no app_source
+    // and defaults to "unknown" -- which silently skips ALL tenant action
+    // policy evaluation (see tenant_policy.py's evaluate_tenant_policy: it
+    // no-ops whenever app_source is "unknown"). "ledgiproof" is already on
+    // CGC Core's ALLOWED_APP_SOURCES allowlist, so this was dead capacity
+    // until now, not a new registration.
+    form.set('app_source',   body.app_source ?? 'ledgiproof')
+    if (body.area)     form.set('area',     body.area)
+    if (body.agent_id) form.set('agent_id', body.agent_id)
 
     const controller = new AbortController()
     const timeout    = setTimeout(() => controller.abort(), CGC_TIMEOUT_MS)

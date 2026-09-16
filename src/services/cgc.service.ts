@@ -251,6 +251,48 @@ function detectAreaHint(tx: CGCEvaluationInput): GovernanceArea {
   return 'FINANCE'
 }
 
+// data_domains must be real tags from CGC Core's own AREA_DATA_MAPPINGS
+// (app/modules/prefilter/PreFilter.py) — PreFilter counts how many of an
+// area's declared sensitive_domains appear in this list, and that count
+// is what cgc_loop.py's _determine_sensitivity_level() buckets into LOW/
+// MEDIUM/HIGH, which in turn picks the approval_threshold/weights row
+// from DECISION_WEIGHTING_MATRIX. This used to send [detectAreaHint(tx)]
+// — the area's own name ("FINANCE", "BANKING"...) — which can never
+// appear in that area's sensitive_domains list (disjoint vocabularies by
+// construction: "FINANCE" is a category label, not a domain tag). Every
+// LedgiProof decision was therefore landing at sensitiveDomainsCount=0,
+// i.e. always LOW sensitivity, always the loosest threshold/weights for
+// its area, regardless of what the transaction actually was.
+function detectDataDomains(tx: CGCEvaluationInput): string[] {
+  const text   = (tx.description ?? '').toLowerCase()
+  const method = (tx.metadata?.['payment_method'] as string | undefined)?.toLowerCase() ?? ''
+  const domains = new Set<string>()
+
+  switch (detectAreaHint(tx)) {
+    case 'BANKING':
+      // Every bank-fed transaction genuinely is a piece of transaction
+      // history — this is the one tag that should always apply here.
+      domains.add('TRANSACTION_HISTORY')
+      if (method.includes('card') || text.includes('card')) domains.add('PAYMENT_CARD')
+      if (text.includes('wire') || text.includes('ach') || text.includes('routing')) domains.add('ACCOUNT_ROUTING')
+      break
+    case 'FINANCE':
+      if (text.includes('invest')) domains.add('INVESTMENT_DATA')
+      if (text.includes('securities') || text.includes('trade') || text.includes('trading')) domains.add('TRADING_DATA')
+      if (text.includes('dividend') || text.includes('portfolio')) domains.add('PORTFOLIO')
+      // A plain, non-investment transaction that only fell through to the
+      // FINANCE default has no FINANCE-specific domain to report — an
+      // empty set (→ LOW) is the correct read, not a bug to paper over.
+      break
+    case 'AUDIT':
+      domains.add('AUDIT_LOGS')
+      if (text.includes('reconcil')) domains.add('COMPLIANCE_REPORTS')
+      break
+  }
+
+  return Array.from(domains)
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  EMBEDDED FALLBACK (when CGC Core remote is unavailable)
 //  Mirrors a minimal subset of cgc_loop logic for offline operation.
@@ -485,7 +527,7 @@ export async function cgcEvaluate(
             // actor-level analytics (Phase 3 internal guard) need a real
             // per-user email to be anything but a single degenerate actor.
             user_email:   session.user?.email ?? 'service@ledgiproof',
-            data_domains: [detectAreaHint(input)],
+            data_domains: detectDataDomains(input),
             // Required for CGC Core's tenant action-policy enforcement to
             // apply at all — omitting it makes every decision arrive as
             // app_source="unknown", which tenant_policy.py treats as "no

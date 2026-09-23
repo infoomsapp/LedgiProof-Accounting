@@ -464,6 +464,50 @@ export type Database = {
           },
         ]
       }
+      api_keys: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          org_id: string
+          revoked_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          org_id: string
+          revoked_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          org_id?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_events: {
         Row: {
           actor_id: string | null
@@ -5543,6 +5587,79 @@ export type Database = {
           },
         ]
       }
+      vendor_bills: {
+        Row: {
+          amount: number
+          bill_number: string | null
+          client_id: string | null
+          created_at: string
+          created_by: string
+          due_date: string
+          id: string
+          notes: string | null
+          org_id: string
+          paid_amount: number | null
+          paid_at: string | null
+          status: Database["public"]["Enums"]["vendor_bill_status"]
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          amount: number
+          bill_number?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          paid_amount?: number | null
+          paid_at?: string | null
+          status?: Database["public"]["Enums"]["vendor_bill_status"]
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          amount?: number
+          bill_number?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          paid_amount?: number | null
+          paid_at?: string | null
+          status?: Database["public"]["Enums"]["vendor_bill_status"]
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_bills_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           address_line1: string | null
@@ -7544,6 +7661,7 @@ export type Database = {
         Returns: Json
       }
       rpc_solo_recurring: { Args: { p_org_id: string }; Returns: Json }
+      safe_uuid: { Args: { input: string }; Returns: string }
       score_to_semaphore: {
         Args: { p_score: number }
         Returns: Database["public"]["Enums"]["semaphore_status"]
@@ -7604,10 +7722,7 @@ export type Database = {
         }
         Returns: Json
       }
-      set_locale: {
-        Args: { p_locale: string }
-        Returns: undefined
-      }
+      set_locale: { Args: { p_locale: string }; Returns: undefined }
       set_workspace_kind: {
         Args: { p_kind: string; p_user_id: string }
         Returns: Json
@@ -7842,6 +7957,7 @@ export type Database = {
         | "invoices"
         | "storage_mb"
       user_type: "staff_user" | "client_user"
+      vendor_bill_status: "pending" | "paid" | "overdue"
       vendor_tax_classification:
         | "individual"
         | "sole_prop"
@@ -7869,12 +7985,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -7898,11 +8014,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -7923,11 +8039,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -7948,11 +8064,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -7965,11 +8081,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8161,6 +8277,7 @@ export const Constants = {
         "storage_mb",
       ],
       user_type: ["staff_user", "client_user"],
+      vendor_bill_status: ["pending", "paid", "overdue"],
       vendor_tax_classification: [
         "individual",
         "sole_prop",
@@ -8177,7 +8294,6 @@ export const Constants = {
     },
   },
 } as const
-
 // ── Convenience aliases ──────────────────────────────────────────────────────
 // Hand-maintained re-exports on top of the generated Database type above —
 // regenerating this file from the live schema (via the Supabase MCP
@@ -8221,6 +8337,13 @@ export type BankImport      = PublicSchema["Tables"]["bank_imports"]["Row"]
 export type AuditEvent      = PublicSchema["Tables"]["audit_events"]["Row"]
 export type RuleDefinition  = PublicSchema["Tables"]["rule_definitions"]["Row"]
 export type InvoicePayment  = PublicSchema["Tables"]["invoice_payments"]["Row"]
+
+// Added 2026-09-23 alongside the vendor_bills / api_keys tables (bill
+// tracking + API access features) -- same PublicSchema["Tables"] pattern.
+export type VendorBill       = PublicSchema["Tables"]["vendor_bills"]["Row"]
+export type InsertVendorBill = PublicSchema["Tables"]["vendor_bills"]["Insert"]
+export type VendorBillStatus = PublicSchema["Enums"]["vendor_bill_status"]
+export type ApiKey           = PublicSchema["Tables"]["api_keys"]["Row"]
 
 // ── Config maps (label/color/bg/border, theme-aware via CSS custom
 // properties) — actual runtime values, not just types, so components can

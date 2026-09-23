@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuthStore } from '../../store/auth.store'
 import { getBranding, updateBranding, uploadLogo, type Branding } from '../../services/branding.service'
+import FeatureGate from './FeatureGate'
 
 interface Props {
   onMessage: (m: { type: 'ok' | 'err'; text: string }) => void
@@ -15,6 +16,18 @@ interface Props {
 const label: React.CSSProperties = { fontSize: 12, color: 'var(--lp-text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }
 
 export default function BrandingTab({ onMessage }: Props) {
+  return (
+    <FeatureGate
+      featureKey="white_label"
+      title="White-label invoicing"
+      description="Put your firm's own logo, brand color, and payment terms on every invoice and estimate your clients see — no LedgiProof branding. Available on the Accountant plan."
+    >
+      <BrandingTabContent onMessage={onMessage} />
+    </FeatureGate>
+  )
+}
+
+function BrandingTabContent({ onMessage }: Props) {
   const { membership } = useAuthStore()
   const orgId = membership?.org_id ?? ''
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -81,7 +94,7 @@ export default function BrandingTab({ onMessage }: Props) {
             }}>
               {b.logo_url
                 ? <img src={b.logo_url} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%' }} />
-                : <span style={{ fontSize: 22 }}>🏢</span>}
+                : <BuildingIcon />}
             </div>
             <button className="lp-btn lp-btn-ghost" onClick={() => fileRef.current?.click()} disabled={uploading}>
               {uploading ? 'Uploading…' : b.logo_url ? 'Replace logo' : 'Upload logo'}
@@ -151,5 +164,16 @@ export default function BrandingTab({ onMessage }: Props) {
         </div>
       </div>
     </div>
+  )
+}
+
+function BuildingIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--lp-text-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16" />
+      <path d="M15 21V9a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v12" />
+      <path d="M4 21h16" />
+      <path d="M8 7h0M8 11h0M8 15h0" />
+    </svg>
   )
 }

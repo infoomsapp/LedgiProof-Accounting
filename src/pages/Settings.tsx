@@ -18,16 +18,18 @@ import TaxInfoTab   from '../components/settings/TaxInfoTab'
 import UsersTab     from '../components/settings/UsersTab'
 import BillingTab   from '../components/settings/BillingTab'
 import BrandingTab  from '../components/settings/BrandingTab'
+import BillsTab      from '../components/settings/BillsTab'
+import ApiAccessTab  from '../components/settings/ApiAccessTab'
 import Vendors        from './Vendors'
 import Worksheet1099  from './Worksheet1099'
 
 import LpUserBadge  from '../components/ui/LpUserBadge'
 import { LP_TIER_CONFIG, type LpRole } from '../types/database.types'
 
-type Tab = 'workspace' | 'account' | 'tax' | 'branding' | 'users' | 'billing' | 'vendors' | 'worksheet1099'
+type Tab = 'workspace' | 'account' | 'tax' | 'branding' | 'users' | 'billing' | 'vendors' | 'worksheet1099' | 'bills' | 'api'
 
 const ALL_TAB_IDS: readonly Tab[] = [
-  'workspace', 'account', 'tax', 'branding', 'users', 'billing', 'vendors', 'worksheet1099'
+  'workspace', 'account', 'tax', 'branding', 'users', 'billing', 'vendors', 'worksheet1099', 'bills', 'api'
 ]
 
 // Vendors/Worksheet1099 are full standalone pages with their own
@@ -80,6 +82,8 @@ export default function Settings() {
       ['vendors',       `🧾 ${t('settings.tabVendors')}`] as [Tab, string],
       ['worksheet1099', `📋 ${t('settings.tabWorksheet1099')}`] as [Tab, string]
     ] : []),
+    ...(role.isBookkeeperFirm || role.isAccountantFirm ? [['bills', '💵 Bills'] as [Tab, string]] : []),
+    ...(role.isAccountantFirm ? [['api', '🔌 API access'] as [Tab, string]] : []),
     ...(role.canViewUsersTab ? [['users', usersLabel] as [Tab, string]] : []),
     ...(role.showBillingTab  ? [['billing', `💳 ${t('settings.tabBilling')}`] as [Tab, string]] : [])
   ]
@@ -240,6 +244,8 @@ export default function Settings() {
       {tab === 'branding'     && <BrandingTab  onMessage={setMsg} />}
       {tab === 'vendors'       && role.isBookkeeperFirm && <EmbeddedPage><Vendors /></EmbeddedPage>}
       {tab === 'worksheet1099' && role.isBookkeeperFirm && <EmbeddedPage><Worksheet1099 /></EmbeddedPage>}
+      {tab === 'bills'         && (role.isBookkeeperFirm || role.isAccountantFirm) && <BillsTab onMessage={setMsg} />}
+      {tab === 'api'           && role.isAccountantFirm && <ApiAccessTab onMessage={setMsg} />}
       {tab === 'users'        && role.canViewUsersTab && <UsersTab onMessage={setMsg} />}
       {tab === 'billing'      && role.showBillingTab  && <BillingTab onMessage={setMsg} />}
     </div>

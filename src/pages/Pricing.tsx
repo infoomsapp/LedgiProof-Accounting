@@ -79,6 +79,7 @@ const BK_PLANS: Plan[] = [
       'Client Portal for PYMEs',
       'Reconciliation workflows',
       'Hash chain audit trail',
+      'Bill tracking & reminders',
       'AI Assistant — 200 queries/mo'
     ],
     cta: 'Try Free 15 Days →'
@@ -100,6 +101,7 @@ const BK_PLANS: Plan[] = [
       'Reconciliation workflows',
       'Hash chain audit trail (compliance-grade)',
       'Up to 5 team members',
+      'Bill tracking & reminders',
       'White-label invoicing',
       'API access',
       'AI Assistant — 1,000 queries/mo'
@@ -419,10 +421,10 @@ function CompareTable() {
     ['Schedule C export',         false,        true,  true,    true],
     ['Quarterly tax estimator',   false,        true,  true,    true],
     ['Accountant guest access',   false,        false, true,    'N/A'],
-    ['Bill pay automation',       false,        false, true,    true],
+    ['Bill tracking & reminders', false,        false, true,    true],
     ['Hash chain audit',          false,        false, true,    true],
-    ['Reconciliation',            false,        false, false,   true],
-    ['Client portal for PYMEs',   false,        false, false,   true],
+    ['Reconciliation',            false,        false, true,    true],
+    ['Client portal for PYMEs',   false,        false, true,    true],
     ['White-label invoicing',     false,        false, false,   true],
     ['API access',                false,        false, false,   true]
   ]

@@ -48,7 +48,10 @@ const FEATURE_LABEL: Record<string, string> = {
   client_portal:       'client portal',
   hash_chain_audit:    'hash chain audit',
   bill_pay:            'bill pay',
-  accountant_access:   'accountant access'
+  accountant_access:   'accountant access',
+  white_label:         'white-label invoicing',
+  bill_tracking:       'bill tracking',
+  api_access:          'API access'
 }
 
 export default function UpgradeModal({

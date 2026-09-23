@@ -153,6 +153,18 @@ export async function reverseJournalEntries(
   // straight from the original, not recomputed -- a reversal must offset
   // the exact USD figure that was actually posted, not whatever today's
   // exchange rate happens to be.
+  //
+  // 🐛 Real bug found and fixed (found live while testing multi-currency,
+  // unrelated to it): get_profit_and_loss/get_balance_sheet/
+  // compute_account_balance all filter `WHERE is_reversed = FALSE`. The
+  // original entry gets marked is_reversed=true below (correctly excluding
+  // it), but this mirror row used to be inserted with is_reversed: false --
+  // so instead of both rows canceling out to zero, only the mirror stayed
+  // active, leaving every reversed transaction's account with the FLIPPED
+  // amount still counted (e.g. reversing a +$100 credit didn't return the
+  // balance to $0, it left it at -$100). The mirror must also be excluded;
+  // together they represent "this never should have counted," not a second
+  // real entry that itself needs to keep affecting the books.
   const reversals = originals.map(e => ({
     transaction_id: e.transaction_id,
     account_id:     e.account_id,
@@ -163,7 +175,7 @@ export async function reverseJournalEntries(
     memo:           `${memo} — ref: ${e.id.slice(0, 8)}`,
     period_year:    e.period_year,
     period_month:   e.period_month,
-    is_reversed:    false
+    is_reversed:    true
   }))
 
   const { data: reversalRows, error: insertErr } = await db

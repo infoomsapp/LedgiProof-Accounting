@@ -26,6 +26,9 @@ import type { LpRole } from '../types/database.types'
 import { ROLE_CONFIG, getAssignableRoles } from '../lib/role-config'
 import { formatDate } from '../lib/dates'
 import { dbError, toSafeMessage } from '../lib/errors'
+import { checkTeamMemberLimit } from '../services/seat-limits.service'
+import UpgradeModal from '../components/billing/UpgradeModal'
+import type { SubscriptionPlan } from '../types/database.types'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +84,10 @@ export default function Team() {
   const [removeError,    setRemoveError]    = useState<string | null>(null)
   const [listError,      setListError]      = useState<string | null>(null)
 
+  // Plan seat limit ("Up to N team members") -- real enforcement,
+  // see seat-limits.service.ts.
+  const [limitModal, setLimitModal] = useState<{ used: number; limit: number; plan: SubscriptionPlan } | null>(null)
+
   useEffect(() => {
     if (showInvite && assignableRoles.length > 0) {
       const fallback = assignableRoles[assignableRoles.length - 1]
@@ -121,6 +128,13 @@ export default function Team() {
     }
 
     setInviting(true); setInvError(null); setInvResult(null)
+
+    const limit = await checkTeamMemberLimit(userId, orgId)
+    if (!limit.allowed) {
+      setInviting(false)
+      setLimitModal(limit)
+      return
+    }
 
     const { data: inv, error } = await db
       .from('invitations')
@@ -549,6 +563,18 @@ export default function Team() {
           </div>
         )}
       </Modal>
+
+      {limitModal && (
+        <UpgradeModal
+          open
+          onClose={() => setLimitModal(null)}
+          feature="team_members"
+          currentPlan={limitModal.plan}
+          reason="limit_exhausted"
+          used={limitModal.used}
+          limit={limitModal.limit}
+        />
+      )}
     </div>
   )
 }

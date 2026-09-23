@@ -26,8 +26,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation }     from 'react-i18next'
 import { useAuthStore }       from '../store/auth.store'
+import { useOrgStore }        from '../store/org.store'
 import { useSoloDashboard }   from '../hooks/useSoloDashboard'
 import { SCHEDULE_C_LINE_LABELS, type ScheduleCData } from '../services/solo-dashboard.service'
+import { generateScheduleCPdf, downloadScheduleCPdf } from '../services/schedule-c-pdf.service'
 import { useMileageSummary, useMileageEntries, useAddMileage } from '../hooks/useMileage'
 
 import QuarterlyTaxCard       from '../components/solo/QuarterlyTaxCard'
@@ -76,6 +78,7 @@ export default function SoloDashboard() {
   const navigate = useNavigate()
   const { t }    = useTranslation()
   const { profile, membership } = useAuthStore()
+  const { activeOrg } = useOrgStore()
   const orgId = membership?.org_id ?? ''
 
   const sd = useSoloDashboard(orgId, true)
@@ -86,6 +89,17 @@ export default function SoloDashboard() {
   const addMileage     = useAddMileage(orgId, sd.year, null)
 
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+
+  async function handleExportScheduleCPdf(sc: ScheduleCData) {
+    setExportingPdf(true)
+    try {
+      const bytes = await generateScheduleCPdf(sc, sd.year, activeOrg?.name ?? null)
+      downloadScheduleCPdf(bytes, sd.year)
+    } finally {
+      setExportingPdf(false)
+    }
+  }
   const [tab, setTab] = useState<'overview' | 'taxes'>('overview')
 
   if (sd.loading) {
@@ -374,6 +388,8 @@ export default function SoloDashboard() {
                 <ScheduleCPreview
                   data={sc}
                   year={sd.year}
+                  onExportPdf={() => handleExportScheduleCPdf(sc)}
+                  pdfLoading={exportingPdf}
                   onExportCsv={() => downloadScheduleCCsv(sc, sd.year)}
                 />
               )}

@@ -15,12 +15,13 @@ interface Props {
   data: ScheduleCData
   year: number
   onExportPdf?: () => void
+  pdfLoading?: boolean
   onExportCsv?: () => void
 }
 
 const fmt = (n: number) => formatCurrency(n, 'USD', { maximumFractionDigits: 0 })
 
-export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv }: Props) {
+export default function ScheduleCPreview({ data, year, onExportPdf, pdfLoading, onExportCsv }: Props) {
   const { t } = useTranslation()
   const [showAll, setShowAll] = useState(false)
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
@@ -66,9 +67,10 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
           {onExportPdf && (
             <button
               onClick={onExportPdf}
-              style={btnPrimary}
+              disabled={pdfLoading}
+              style={{ ...btnPrimary, opacity: pdfLoading ? 0.6 : 1, cursor: pdfLoading ? 'default' : 'pointer' }}
             >
-              {t('solo.exportPdf')}
+              {pdfLoading ? 'Generating…' : t('solo.exportPdf')}
             </button>
           )}
           {onExportCsv && (

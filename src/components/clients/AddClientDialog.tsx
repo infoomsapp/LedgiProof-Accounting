@@ -22,6 +22,9 @@ import { createClient } from '../../services/invoice.service'
 import TemplatePicker      from './TemplatePicker'
 import { useCloneTemplate } from '../../hooks/useAccountTemplates'
 import { toSafeMessage } from '../../lib/errors'
+import { checkClientLimit } from '../../services/seat-limits.service'
+import UpgradeModal from '../billing/UpgradeModal'
+import type { SubscriptionPlan } from '../../types/database.types'
 
 interface Props {
   open:    boolean
@@ -63,6 +66,10 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
   // The client is already in the DB; user can retry the template from CoA page.
   const [partialWarning, setPartialWarning] = useState<{ clientId: string; message: string } | null>(null)
 
+  // Plan seat limit ("Up to N clients") -- real enforcement, see
+  // seat-limits.service.ts for why this isn't the usage_tracking system.
+  const [limitModal, setLimitModal] = useState<{ used: number; limit: number; plan: SubscriptionPlan } | null>(null)
+
   const cloneMut = useCloneTemplate(orgId)
 
   function reset() {
@@ -94,6 +101,14 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
     setSaving(true)
 
     try {
+      // ── Step 0: enforce the plan's client limit ──────────────────────
+      const limit = await checkClientLimit(profile.id, orgId)
+      if (!limit.allowed) {
+        setLimitModal(limit)
+        setSaving(false)
+        return
+      }
+
       // ── Step 1: create client ────────────────────────────────────────
       const c = await createClient({
         org_id:           orgId,
@@ -410,6 +425,18 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
             Got it — close dialog
           </Button>
         </div>
+      )}
+
+      {limitModal && (
+        <UpgradeModal
+          open
+          onClose={() => setLimitModal(null)}
+          feature="clients"
+          currentPlan={limitModal.plan}
+          reason="limit_exhausted"
+          used={limitModal.used}
+          limit={limitModal.limit}
+        />
       )}
     </Modal>
   )

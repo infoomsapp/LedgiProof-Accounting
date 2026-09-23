@@ -33,6 +33,7 @@ import LineItemRow, { LineItemHeader } from '../components/estimates/LineItemRow
 import EstimateStatusBadge             from '../components/estimates/EstimateStatusBadge'
 import EstimatePrint                    from '../components/estimates/EstimatePrint'
 import SendEstimateDialog               from '../components/estimates/SendEstimateDialog'
+import EstimateActivityPanel            from '../components/estimates/EstimateActivityPanel'
 import SemaphoreSpinner                 from '../components/ui/SemaphoreSpinner'
 import { type Estimate } from '../types/estimate'
 import { formatCurrency } from '../lib/currency'
@@ -324,6 +325,8 @@ export default function EstimateEdit() {
           </button>
         </div>
       )}
+
+      <EstimateActivityPanel estimateId={estimate.id} status={estimate.status} />
 
       {/* ── Two-pane content ──────────────────────────────────────────── */}
       <div

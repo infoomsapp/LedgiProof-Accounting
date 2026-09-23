@@ -2673,6 +2673,7 @@ export type Database = {
         Row: {
           account_id: string
           amount: number
+          amount_usd: number | null
           batch_id: string | null
           created_at: string
           currency: string
@@ -2689,6 +2690,7 @@ export type Database = {
         Insert: {
           account_id: string
           amount: number
+          amount_usd?: number | null
           batch_id?: string | null
           created_at?: string
           currency: string
@@ -2705,6 +2707,7 @@ export type Database = {
         Update: {
           account_id?: string
           amount?: number
+          amount_usd?: number | null
           batch_id?: string | null
           created_at?: string
           currency?: string

@@ -318,12 +318,18 @@ export default function Invoices() {
   async function handleSave() {
     if (!editClientId || !editDueDate) return
     setSaving(true)
+    // Real bug found and fixed: the client's own default_currency (set in
+    // AddClientDialog) was collected and stored, but never actually read
+    // here -- every invoice silently defaulted to USD regardless of what
+    // currency the client was configured for.
+    const clientCurrency = clients.find(c => c.id === editClientId)?.default_currency
     const inv = await createInvoice({
       orgId, userId,
       clientId:  editClientId,
       dueDate:   editDueDate,
       ...(editTitle ? { title: editTitle } : {}),
-      ...(editNotes ? { notes: editNotes } : {})
+      ...(editNotes ? { notes: editNotes } : {}),
+      ...(clientCurrency ? { currency: clientCurrency } : {})
     })
     if (editItems.some(i => i.description)) {
       await upsertItems(inv.id, orgId, editItems.filter(i => i.description))
@@ -704,7 +710,7 @@ export default function Invoices() {
                 }}>
                   <div>
                     <div style={{ fontSize: 12.5, color: 'var(--sem-green)', fontWeight: 500 }}>
-                      {formatCurrency(p.amount)}
+                      {formatCurrency(p.amount, detail.currency)}
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)' }}>
                       {p.payment_date} · {p.method ?? 'other'}

@@ -5,8 +5,28 @@
 
 import { db } from '../lib/supabase'
 import { approveTransaction } from './transactions.service'
+import { getExchangeRate } from './exchange-rate.service'
 import type { JournalEntry, EntryTypeEnum } from '../types/database.types'
 import { toSafeMessage } from '../lib/errors'
+
+// ── Multi-currency: normalize every posted line to USD ──────────────────────
+// journal_entries.amount/currency stay exactly as-transacted (audit fidelity
+// -- never rewritten); amount_usd is the figure get_profit_and_loss/
+// get_balance_sheet/compute_account_balance actually sum, added specifically
+// so a EUR line and a USD line stop summing as if they were the same unit.
+// Rate convention (exchange-rate.service.ts): usd_rate = "1 USD = N of this
+// currency", so USD = foreign_amount / usd_rate.
+async function toUsd(amount: number, currency: string): Promise<number> {
+  const code = currency.toUpperCase()
+  if (code === 'USD') return amount
+  const rate = await getExchangeRate(code)
+  if (!rate) {
+    // Unknown/unsupported currency -- fail loudly rather than silently
+    // mis-booking a foreign amount as if it were USD.
+    throw new Error(`[Journal] No exchange rate available for ${code}`)
+  }
+  return Math.round((amount / rate) * 100) / 100
+}
 
 export interface JournalLine {
   accountId:   string
@@ -28,15 +48,19 @@ export async function postJournalEntries(
   // Validate balance before touching the DB
   validateBalance(lines)
 
-  const inserts = lines.map(l => ({
-    transaction_id: transactionId,
-    account_id:     l.accountId,
-    entry_type:     l.entryType,
-    amount:         l.amount,
-    currency:       (l.currency ?? currency).toUpperCase(),
-    memo:           l.memo ?? null,
-    period_year:    periodYear,
-    period_month:   periodMonth
+  const inserts = await Promise.all(lines.map(async l => {
+    const lineCurrency = (l.currency ?? currency).toUpperCase()
+    return {
+      transaction_id: transactionId,
+      account_id:     l.accountId,
+      entry_type:     l.entryType,
+      amount:         l.amount,
+      amount_usd:     await toUsd(l.amount, lineCurrency),
+      currency:       lineCurrency,
+      memo:           l.memo ?? null,
+      period_year:    periodYear,
+      period_month:   periodMonth
+    }
   }))
 
   const { data, error } = await db
@@ -125,12 +149,16 @@ export async function reverseJournalEntries(
     throw new Error('[Journal] One or more entries are already reversed')
   }
 
-  // Insert mirror entries (opposite entry_type)
+  // Insert mirror entries (opposite entry_type). amount_usd is copied
+  // straight from the original, not recomputed -- a reversal must offset
+  // the exact USD figure that was actually posted, not whatever today's
+  // exchange rate happens to be.
   const reversals = originals.map(e => ({
     transaction_id: e.transaction_id,
     account_id:     e.account_id,
     entry_type:     e.entry_type === 'debit' ? 'credit' : 'debit' as EntryTypeEnum,
     amount:         e.amount,
+    amount_usd:     e.amount_usd,
     currency:       e.currency,
     memo:           `${memo} — ref: ${e.id.slice(0, 8)}`,
     period_year:    e.period_year,
@@ -366,17 +394,21 @@ export async function postManualJournalBatch(
   }
 
   // 3. INSERT all journal_entries with batch_id
-  const lineInserts = input.lines.map(l => ({
-    transaction_id: null,
-    batch_id:       batch.id,
-    entry_kind:     input.entryKind,
-    account_id:     l.accountId,
-    entry_type:     l.entryType,
-    amount:         l.amount,
-    currency:       (l.currency ?? 'USD').toUpperCase(),
-    memo:           l.memo ?? null,
-    period_year:    year,
-    period_month:   month
+  const lineInserts = await Promise.all(input.lines.map(async l => {
+    const lineCurrency = (l.currency ?? 'USD').toUpperCase()
+    return {
+      transaction_id: null,
+      batch_id:       batch.id,
+      entry_kind:     input.entryKind,
+      account_id:     l.accountId,
+      entry_type:     l.entryType,
+      amount:         l.amount,
+      amount_usd:     await toUsd(l.amount, lineCurrency),
+      currency:       lineCurrency,
+      memo:           l.memo ?? null,
+      period_year:    year,
+      period_month:   month
+    }
   }))
 
   const { error: linesErr } = await db

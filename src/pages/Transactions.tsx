@@ -23,7 +23,11 @@ import Modal from '../components/ui/modal'
 
 type FilterSem = SemaphoreStatus | 'all'
 
-const fmt = (n: number) => formatCurrency(n)
+// Real bug found and fixed: this ignored tx.currency entirely and always
+// formatted as USD -- a transaction imported with a non-USD currency (CSV
+// bank imports support a currency column) displayed its raw foreign amount
+// with a USD "$" sign, silently misrepresenting the actual value.
+const fmt = (n: number, currency?: string) => formatCurrency(n, currency ?? 'USD')
 
 export default function Transactions() {
   const { t }           = useTranslation()
@@ -638,7 +642,7 @@ export default function Transactions() {
                       style={{ textAlign: 'right', cursor: 'pointer', fontWeight: 500,
                         fontSize: 13, whiteSpace: 'nowrap',
                         color: tx.amount >= 0 ? 'var(--lp-text)' : '#f87171' }}>
-                      {fmt(tx.amount)}
+                      {fmt(tx.amount, tx.currency)}
                     </td>
                     <td style={{ textAlign: 'center', fontSize: 12 }}>
                       {tx.locked_at ? '🔒' : ''}

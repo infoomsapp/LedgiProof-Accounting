@@ -41,6 +41,7 @@ interface AuthState {
 
   initialize: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signUp: (
     email: string,
     password: string,
@@ -129,6 +130,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   // ── Sign in ─────────────────────────────────────────────────────────────
+  // OAuth is a redirect flow -- this call navigates the browser away to
+  // Google and never resolves the resulting session itself. The session
+  // lands back through initialize()'s onAuthStateChange subscription once
+  // Supabase redirects to redirectTo with the auth code exchanged, same
+  // as any other sign-in. Only a failure to even START the redirect (e.g.
+  // Google OAuth not enabled in this Supabase project yet) shows up here.
+  signInWithGoogle: async () => {
+    set({ loading: true, error: null })
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    })
+    if (error) {
+      set({ loading: false, error: error.message })
+    }
+  },
+
   signIn: async (email, password) => {
     set({ loading: true, error: null })
 

@@ -10,6 +10,7 @@ import { useState, type FormEvent } from 'react'
 import { useAuthStore } from '../store/auth.store'
 import LogoBrand from '../components/ui/LogoBrand'
 import BackToSiteLink from '../components/ui/BackToSiteLink'
+import GoogleSignInButton, { AuthDivider } from '../components/ui/GoogleSignInButton'
 
 interface LoginProps {
   onGoToSignUp?:       () => void
@@ -72,6 +73,9 @@ export default function Login({ onGoToSignUp, onGoToForgotPassword }: LoginProps
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 20 }}>
             Sign in to your workspace
           </div>
+
+          <GoogleSignInButton />
+          <AuthDivider />
 
           <form onSubmit={handleSubmit}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

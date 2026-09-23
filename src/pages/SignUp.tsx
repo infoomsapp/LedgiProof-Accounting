@@ -12,6 +12,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useAuthStore } from '../store/auth.store'
 import LogoBrand from '../components/ui/LogoBrand'
 import BackToSiteLink from '../components/ui/BackToSiteLink'
+import GoogleSignInButton, { AuthDivider } from '../components/ui/GoogleSignInButton'
 import PrivacyConsentCheckbox from '../components/consent/PrivacyConsentCheckbox'
 import { recordSignupConsents } from '../services/consent.service'
 import type { AccountType, SubscriptionPlan } from '../types/database.types'
@@ -173,8 +174,8 @@ export default function SignUp({
             marginBottom: 16,
             display: 'flex', alignItems: 'center', gap: 10
           }}>
-            <span style={{ fontSize: 18 }}>
-              {isInvite ? '✉️' : accountType === 'bookkeeper' ? '💼' : accountType === 'accountant' ? '🧮' : '👤'}
+            <span style={{ color: 'var(--lp-accent)', display: 'inline-flex', flexShrink: 0 }}>
+              {isInvite ? <IconMail /> : accountType === 'bookkeeper' ? <IconBriefcase /> : accountType === 'accountant' ? <IconCalculator /> : <IconUser />}
             </span>
             <div style={{ flex: 1, fontSize: 12,
               // CSS-TODO: #93c5fd — blue-300 secondary text, no var() yet
@@ -266,14 +267,16 @@ export default function SignUp({
                   <button
                     type="button"
                     onClick={() => setShowPw(p => !p)}
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
                     style={{
                       position: 'absolute', right: 10, top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none', border: 'none', cursor: 'pointer',
-                      color: 'var(--lp-text-muted)', fontSize: 12, padding: 4
+                      color: 'var(--lp-text-muted)', padding: 4,
+                      display: 'flex', alignItems: 'center'
                     }}
                   >
-                    {showPw ? '👁' : '👁'}
+                    {showPw ? <IconEyeOff /> : <IconEye />}
                   </button>
                 </div>
 
@@ -406,6 +409,78 @@ function Spinner() {
   )
 }
 
+// ── Hand-drawn icons — replace the old emoji set (👤💼🧮✉️👁), same
+// monoline style as the landing page's icons.
+
+function ChoiceIcon({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: `${color}18`, color
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function IconUser() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5" />
+    </svg>
+  )
+}
+
+function IconBriefcase() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="8" width="18" height="12" rx="2" />
+      <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M3 13h18" />
+    </svg>
+  )
+}
+
+function IconCalculator() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M8 7h8" />
+      <path d="M8 12h0M12 12h0M16 12h0M8 16h0M12 16h0M16 16h0" strokeWidth="2.4" />
+    </svg>
+  )
+}
+
+function IconMail({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 7l9 6 9-6" />
+    </svg>
+  )
+}
+
+function IconEye() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function IconEyeOff() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a15.6 15.6 0 0 1-3.3 4.2M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.4-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  )
+}
+
 // ── Sub-screen: Choose account type ──────────────────────────────────────────
 
 function ChooseAccountTypeScreen({
@@ -443,6 +518,9 @@ function ChooseAccountTypeScreen({
             </div>
           </div>
 
+          <GoogleSignInButton label="Sign up with Google" />
+          <AuthDivider />
+
           <button
             onClick={() => onChoose('self_employed')}
             style={{
@@ -461,7 +539,7 @@ function ChooseAccountTypeScreen({
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.12)'}
             onMouseLeave={e => e.currentTarget.style.background = 'rgba(59,130,246,0.06)'}
           >
-            <div style={{ fontSize: 28 }}>👤</div>
+            <ChoiceIcon color="var(--lp-accent)"><IconUser /></ChoiceIcon>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>
                 I'm self-employed
@@ -488,7 +566,7 @@ function ChooseAccountTypeScreen({
             onMouseEnter={e => e.currentTarget.style.background = 'var(--lp-violet-bg-hover)'}
             onMouseLeave={e => e.currentTarget.style.background = 'var(--lp-violet-bg)'}
           >
-            <div style={{ fontSize: 28 }}>💼</div>
+            <ChoiceIcon color="var(--lp-violet)"><IconBriefcase /></ChoiceIcon>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>
                 I'm a bookkeeper
@@ -513,7 +591,7 @@ function ChooseAccountTypeScreen({
               transition: 'all 0.15s'
             }}
           >
-            <div style={{ fontSize: 28 }}>🧮</div>
+            <ChoiceIcon color="var(--sem-green)"><IconCalculator /></ChoiceIcon>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>
                 I'm an accountant / CPA firm
@@ -553,7 +631,13 @@ function ConfirmationSentScreen({ email, onBack }: { email: string; onBack: () =
     }}>
 
       <div style={{ width: 360, padding: '0 16px', textAlign: 'center' }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>✉️</div>
+        <div style={{
+          width: 56, height: 56, borderRadius: 14, margin: '0 auto 16px',
+          background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'
+        }}>
+          <IconMail size={26} />
+        </div>
         <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 10 }}>
           Check your email
         </div>

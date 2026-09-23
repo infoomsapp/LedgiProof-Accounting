@@ -11,6 +11,7 @@ import { useTransactions }   from '../hooks/useTransactions'
 import SemaphoreFilter       from '../components/semaphore/SemaphoreFilter'
 import SemaphoreBadge        from '../components/semaphore/SemaphoreBadge'
 import TransactionDetail     from '../components/transactions/TransactionDetail'
+import NewTransactionDialog  from '../components/transactions/NewTransactionDialog'
 import { exportTransactionsCSV, downloadCSV } from '../services/export.service'
 import { approveTransaction, lockTransaction } from '../services/transactions.service'
 import { postTransactionToLedger } from '../services/journal.service'
@@ -66,6 +67,7 @@ export default function Transactions() {
   const [postCreditId,  setPostCreditId]  = useState('')
   const [postMemo,      setPostMemo]      = useState('')
   const [postSummary,   setPostSummary]   = useState<string | null>(null)
+  const [showNewTx,     setShowNewTx]     = useState(false)
 
   useEffect(() => {
     if (!orgId) return
@@ -329,6 +331,14 @@ export default function Transactions() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* New transaction */}
+            <button
+              onClick={() => setShowNewTx(true)}
+              className="lp-btn lp-btn-primary"
+              style={{ fontSize: 12.5 }}
+            >
+              + New transaction
+            </button>
             {/* AI Assistant toggle */}
             <button
               onClick={() => setShowAI(s => !s)}
@@ -649,6 +659,13 @@ export default function Transactions() {
           onClose={() => setDetail(null)}
         />
       )}
+
+      <NewTransactionDialog
+        open={showNewTx}
+        onClose={() => setShowNewTx(false)}
+        orgId={orgId}
+        clientId={clientId}
+      />
 
       {/* ── Bulk post-to-ledger modal ────────────────────────────────── */}
       <Modal

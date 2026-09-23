@@ -896,6 +896,124 @@ export type Database = {
           },
         ]
       }
+      checklist_run_items: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          description: string | null
+          due_at: string | null
+          id: string
+          org_id: string
+          run_id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          org_id: string
+          run_id: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          org_id?: string
+          run_id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_run_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_run_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_runs: {
+        Row: {
+          client_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          org_id: string
+          recurring_id: string | null
+          run_date: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          org_id: string
+          recurring_id?: string | null
+          run_date: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          org_id?: string
+          recurring_id?: string | null
+          run_date?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_runs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_runs_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_contact_permissions: {
         Row: {
           allow_email: boolean
@@ -3871,6 +3989,124 @@ export type Database = {
           },
           {
             foreignKeyName: "reconciliation_sessions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_checklist_items: {
+        Row: {
+          description: string | null
+          id: string
+          org_id: string
+          recurring_id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          org_id: string
+          recurring_id: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          org_id?: string
+          recurring_id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_checklist_items_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_checklist_items_recurring_id_fkey"
+            columns: ["recurring_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_checklists: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string
+          end_date: string | null
+          frequency: Database["public"]["Enums"]["recurring_frequency"]
+          id: string
+          last_generated_at: string | null
+          last_run_id: string | null
+          max_occurrences: number | null
+          next_run_date: string
+          occurrences_generated: number
+          org_id: string
+          status: Database["public"]["Enums"]["recurring_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          end_date?: string | null
+          frequency?: Database["public"]["Enums"]["recurring_frequency"]
+          id?: string
+          last_generated_at?: string | null
+          last_run_id?: string | null
+          max_occurrences?: number | null
+          next_run_date: string
+          occurrences_generated?: number
+          org_id: string
+          status?: Database["public"]["Enums"]["recurring_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          end_date?: string | null
+          frequency?: Database["public"]["Enums"]["recurring_frequency"]
+          id?: string
+          last_generated_at?: string | null
+          last_run_id?: string | null
+          max_occurrences?: number | null
+          next_run_date?: string
+          occurrences_generated?: number
+          org_id?: string
+          status?: Database["public"]["Enums"]["recurring_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_checklists_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_checklists_last_run_fkey"
+            columns: ["last_run_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_checklists_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -6947,6 +7183,10 @@ export type Database = {
         }
         Returns: Json
       }
+      cron_generate_all_recurring_checklists: {
+        Args: never
+        Returns: undefined
+      }
       cron_generate_all_recurring_invoices: { Args: never; Returns: number }
       current_client_id: { Args: never; Returns: string }
       current_system_role: {
@@ -6993,12 +7233,20 @@ export type Database = {
         Args: { p_document_id: string; p_request_id: string }
         Returns: Json
       }
+      generate_due_recurring_checklists: {
+        Args: { p_org_id: string }
+        Returns: Json
+      }
       generate_due_recurring_invoices: {
         Args: { p_org_id: string }
         Returns: Json
       }
       generate_lp_user_code: {
         Args: { p_tier?: Database["public"]["Enums"]["lp_user_tier"] }
+        Returns: string
+      }
+      generate_recurring_checklist: {
+        Args: { p_recurring_id: string }
         Returns: string
       }
       generate_recurring_invoice: {
@@ -8427,6 +8675,12 @@ export type ApiKey           = PublicSchema["Tables"]["api_keys"]["Row"]
 // Added 2026-09-23 alongside the time_entries table (time tracking feature).
 export type TimeEntry        = PublicSchema["Tables"]["time_entries"]["Row"]
 export type InsertTimeEntry  = PublicSchema["Tables"]["time_entries"]["Insert"]
+
+// Added 2026-09-23 alongside the recurring monthly close checklist feature.
+export type RecurringChecklist      = PublicSchema["Tables"]["recurring_checklists"]["Row"]
+export type RecurringChecklistItem  = PublicSchema["Tables"]["recurring_checklist_items"]["Row"]
+export type ChecklistRun            = PublicSchema["Tables"]["checklist_runs"]["Row"]
+export type ChecklistRunItem        = PublicSchema["Tables"]["checklist_run_items"]["Row"]
 
 // ── Config maps (label/color/bg/border, theme-aware via CSS custom
 // properties) — actual runtime values, not just types, so components can

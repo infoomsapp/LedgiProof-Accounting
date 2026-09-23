@@ -38,7 +38,8 @@ const BASE_NAV_CARDS: NavCard[] = [
   { to: 'accounts',       icon: '📚', titleKey: 'clientWorkspace.cardChartOfAccounts', hintKey: 'clientWorkspace.cardChartOfAccountsHint' },
   { to: 'reconciliation', icon: '⚖️',  titleKey: 'clientWorkspace.cardReconciliation',  hintKey: 'clientWorkspace.cardReconciliationHint' },
   { to: 'reports',        icon: '📊', titleKey: 'clientWorkspace.cardReports',         hintKey: 'clientWorkspace.cardReportsHint' },
-  { to: 'time',           icon: '⏱️', titleKey: 'clientWorkspace.cardTime',            hintKey: 'clientWorkspace.cardTimeHint' }
+  { to: 'time',           icon: '⏱️', titleKey: 'clientWorkspace.cardTime',            hintKey: 'clientWorkspace.cardTimeHint' },
+  { to: 'checklists',     icon: '✅', titleKey: 'clientWorkspace.cardChecklists',      hintKey: 'clientWorkspace.cardChecklistsHint' }
 ]
 
 const PAYROLL_NAV_CARD: NavCard =

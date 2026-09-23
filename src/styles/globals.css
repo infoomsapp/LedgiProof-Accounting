@@ -445,6 +445,17 @@ input, textarea, select, option, button, a, p, span, td, th, label, pre, code,
 .lp-input::placeholder { color: var(--lp-text-muted); }
 .lp-input-disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* Single-digit OTP box (MFA verify / enroll screens). Same background
+   pattern as .lp-input (dark tint on light theme, light tint on dark)
+   instead of a hardcoded rgba(255,255,255,..) overlay, which used to
+   render nearly invisible against the light theme's near-white surface. */
+.lp-otp-box {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: var(--lp-border-2);
+}
+.theme-dark .lp-otp-box { background: rgba(255, 255, 255, 0.04); }
+.lp-otp-box.is-filled { border-color: var(--lp-accent); }
+
 select.lp-input { appearance: none; cursor: pointer; }
 /* Belt-and-suspenders on top of :root's color-scheme fix above: color-scheme
    alone didn't reliably light up every <option> list (still reported invisible

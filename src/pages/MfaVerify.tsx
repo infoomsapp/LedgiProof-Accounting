@@ -99,13 +99,11 @@ export default function MfaVerify() {
                   value={digit}
                   onChange={e => handleDigit(i, e.target.value)}
                   onKeyDown={e => handleKeyDown(i, e)}
+                  className={`lp-otp-box${digit ? ' is-filled' : ''}`}
                   style={{
                     width: 42, height: 48, textAlign: 'center',
                     fontSize: 20, fontWeight: 700, fontFamily: 'monospace',
-                    // CSS-TODO: rgba(255,255,255,0.05) — dark-mode subtle overlay, no var() yet
-                    background: 'rgba(255,255,255,0.05)',
-                    // CSS-TODO: rgba(255,255,255,0.12) — idle border overlay, no var() yet
-                    border: `1.5px solid ${digit ? 'var(--lp-accent)' : 'rgba(255,255,255,0.12)'}`,
+                    borderWidth: 1.5, borderStyle: 'solid',
                     borderRadius: 9, color: 'var(--lp-text)', outline: 'none',
                     transition: 'border-color 0.15s',
                     caretColor: 'transparent'

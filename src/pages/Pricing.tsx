@@ -19,7 +19,6 @@ interface Plan {
   highlight?:   boolean
   features:     string[]
   cta:          string
-  ctaSecondary?: string
 }
 
 const SE_PLANS: Plan[] = [
@@ -82,8 +81,7 @@ const BK_PLANS: Plan[] = [
       'Hash chain audit trail',
       'AI Assistant — 200 queries/mo'
     ],
-    cta: 'Try Free 15 Days →',
-    ctaSecondary: 'Talk to sales'
+    cta: 'Try Free 15 Days →'
   },
   {
     id: 'accountant',
@@ -106,8 +104,7 @@ const BK_PLANS: Plan[] = [
       'API access',
       'AI Assistant — 1,000 queries/mo'
     ],
-    cta: 'Try Free 15 Days →',
-    ctaSecondary: 'Talk to sales'
+    cta: 'Try Free 15 Days →'
   }
 ]
 
@@ -119,10 +116,6 @@ export default function Pricing() {
 
   function handleStart(planId: Plan['id']) {
     navigate(`/signup?plan=${planId}&type=${segment}`)
-  }
-
-  function handleSales() {
-    window.location.href = 'mailto:support@ledgiproof.com?subject=LedgiProof Pro / Enterprise inquiry'
   }
 
   return (
@@ -205,7 +198,6 @@ export default function Pricing() {
               key={plan.id}
               plan={plan}
               onStart={() => handleStart(plan.id)}
-              onSales={handleSales}
             />
           ))}
         </div>
@@ -311,27 +303,29 @@ function SegmentBtn({
 }
 
 function PlanCard({
-  plan, onStart, onSales
-}: { plan: Plan; onStart: () => void; onSales: () => void }) {
+  plan, onStart
+}: { plan: Plan; onStart: () => void }) {
   const isHighlighted = plan.highlight
 
   return (
-    <div style={{
-      position: 'relative',
-      background: isHighlighted
-        ? 'linear-gradient(180deg, #fff 0%, #f0f9ff 100%)'
-        : '#fff',
-      border: isHighlighted
-        ? '2px solid var(--web-primary)'
-        : '1px solid var(--web-border)',
-      borderRadius: 16,
-      padding: '24px 24px 22px',
-      boxShadow: isHighlighted
-        ? '0 12px 30px rgba(59,130,246,0.15)'
-        : '0 1px 3px rgba(15,23,42,0.04)',
-      transition: 'all 0.18s',
-      display: 'flex', flexDirection: 'column'
-    }}>
+    <div
+      className={`web-plan-card${isHighlighted ? ' is-highlighted' : ''}`}
+      style={{
+        position: 'relative',
+        background: isHighlighted
+          ? 'linear-gradient(180deg, #fff 0%, #f0f9ff 100%)'
+          : '#fff',
+        border: isHighlighted
+          ? '2px solid var(--web-primary)'
+          : '1px solid var(--web-border)',
+        borderRadius: 16,
+        padding: '24px 24px 22px',
+        boxShadow: isHighlighted
+          ? '0 12px 30px rgba(59,130,246,0.15)'
+          : '0 1px 3px rgba(15,23,42,0.04)',
+        display: 'flex', flexDirection: 'column'
+      }}
+    >
 
       {plan.badge && (
         <div style={{
@@ -375,20 +369,10 @@ function PlanCard({
       <button
         className={`web-btn ${isHighlighted ? 'web-btn-primary' : 'web-btn-ghost'}`}
         onClick={onStart}
-        style={{ width: '100%', marginBottom: plan.ctaSecondary ? 8 : 18 }}
+        style={{ width: '100%', marginBottom: 18 }}
       >
         {plan.cta}
       </button>
-
-      {plan.ctaSecondary && (
-        <button
-          className="web-btn web-btn-ghost"
-          onClick={onSales}
-          style={{ width: '100%', marginBottom: 18 }}
-        >
-          {plan.ctaSecondary}
-        </button>
-      )}
 
       <ul style={{
         margin: 0, padding: 0, listStyle: 'none',

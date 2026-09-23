@@ -115,7 +115,13 @@ function NavIcon({ d }: { d: string }) {
 }
 
 // Roles that must have MFA. Mirrors WRITE_ROLES from resolve-transaction.
-const MFA_REQUIRED_ROLES = new Set(['owner', 'admin', 'accountant', 'approver'])
+// Temporarily disabled (explicit request, 2026-09-23): forcing MFA on every
+// owner/admin/accountant/approver blocked sign-in for accounts that hadn't
+// enrolled yet, with no skip option besides signing out. Left as an empty
+// set instead of deleting the gate so it's a one-line flip to bring back
+// once the enrollment UX itself is ready to be mandatory. 2FA is still
+// available to any user from Settings -> My account (MfaSetup.tsx).
+const MFA_REQUIRED_ROLES = new Set<string>([])
 
 export default function AppShell() {
   const { t } = useTranslation()

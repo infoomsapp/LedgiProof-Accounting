@@ -72,6 +72,11 @@
   height: 28px;
   object-fit: contain;
   flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.lp-web-page .web-topbar-logo:hover .web-topbar-logo-mark {
+  transform: scale(1.08) rotate(-3deg);
 }
 
 .lp-web-page .web-topbar-nav {
@@ -161,10 +166,17 @@
 }
 
 .lp-web-page .web-hero h1 .accent {
-  background: linear-gradient(135deg, var(--web-primary), var(--web-accent));
+  background: linear-gradient(100deg, var(--web-primary) 20%, var(--web-accent) 50%, var(--web-primary) 80%);
+  background-size: 200% auto;
+  background-position: 0% 50%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  transition: background-position 0.8s ease;
+}
+
+.lp-web-page .web-hero:hover h1 .accent {
+  background-position: 100% 50%;
 }
 
 .lp-web-page .web-hero-subtitle {
@@ -330,6 +342,17 @@
   gap: 18px;
 }
 
+.lp-web-page .web-feature-card {
+  cursor: default;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.lp-web-page .web-feature-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--web-primary);
+  box-shadow: 0 16px 32px -12px rgba(59, 130, 246, 0.28);
+}
+
 .lp-web-page .web-feature-icon {
   width: 44px;
   height: 44px;
@@ -340,6 +363,13 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 14px;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease, color 0.3s ease;
+}
+
+.lp-web-page .web-feature-card:hover .web-feature-icon {
+  transform: scale(1.12) rotate(-4deg);
+  background: linear-gradient(135deg, var(--web-primary), var(--web-accent));
+  color: #fff;
 }
 
 .lp-web-page .web-feature-title {
@@ -348,6 +378,11 @@
   color: var(--web-text);
   margin-bottom: 6px;
   letter-spacing: -0.01em;
+  transition: color 0.25s ease;
+}
+
+.lp-web-page .web-feature-card:hover .web-feature-title {
+  color: var(--web-primary-hover);
 }
 
 .lp-web-page .web-feature-desc {
@@ -366,6 +401,11 @@
 .lp-web-page .web-step {
   position: relative;
   text-align: left;
+  transition: transform 0.25s ease;
+}
+
+.lp-web-page .web-step:hover {
+  transform: translateY(-4px);
 }
 
 .lp-web-page .web-step-number {
@@ -374,6 +414,11 @@
   color: var(--web-primary);
   letter-spacing: 0.05em;
   margin-bottom: 10px;
+  transition: letter-spacing 0.25s ease;
+}
+
+.lp-web-page .web-step:hover .web-step-number {
+  letter-spacing: 0.12em;
 }
 
 .lp-web-page .web-step-title {
@@ -415,6 +460,12 @@
   border: 1px solid var(--web-border);
   border-radius: 18px;
   padding: 32px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.lp-web-page .web-trust-panel:hover {
+  border-color: var(--web-primary);
+  box-shadow: 0 16px 32px -14px rgba(59, 130, 246, 0.25);
 }
 
 .lp-web-page .web-trust-icon {
@@ -427,6 +478,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.lp-web-page .web-trust-panel:hover .web-trust-icon {
+  transform: scale(1.08) rotate(-4deg);
 }
 
 .lp-web-page .web-trust-title {
@@ -473,6 +529,22 @@
   background: #fff;
   color: #1e40af;
   border: none;
+}
+
+/* ── Pricing plan cards ───────────────────────────────────────────── */
+.lp-web-page .web-plan-card {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.lp-web-page .web-plan-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--web-primary) !important;
+  box-shadow: 0 20px 40px -16px rgba(59, 130, 246, 0.35) !important;
+}
+
+.lp-web-page .web-plan-card.is-highlighted:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 24px 48px -14px rgba(59, 130, 246, 0.45) !important;
 }
 
 /* ── Cards (general) ─────────────────────────────────────────────── */

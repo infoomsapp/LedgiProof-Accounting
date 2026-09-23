@@ -4403,6 +4403,82 @@ export type Database = {
           },
         ]
       }
+      time_entries: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          duration_minutes: number
+          ended_at: string | null
+          entry_date: string
+          hourly_rate: number
+          id: string
+          invoice_id: string | null
+          is_billable: boolean
+          org_id: string
+          started_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          duration_minutes?: number
+          ended_at?: string | null
+          entry_date?: string
+          hourly_rate?: number
+          id?: string
+          invoice_id?: string | null
+          is_billable?: boolean
+          org_id: string
+          started_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          duration_minutes?: number
+          ended_at?: string | null
+          entry_date?: string
+          hourly_rate?: number
+          id?: string
+          invoice_id?: string | null
+          is_billable?: boolean
+          org_id?: string
+          started_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transaction_conversations: {
         Row: {
           client_id: string | null
@@ -8344,6 +8420,10 @@ export type VendorBill       = PublicSchema["Tables"]["vendor_bills"]["Row"]
 export type InsertVendorBill = PublicSchema["Tables"]["vendor_bills"]["Insert"]
 export type VendorBillStatus = PublicSchema["Enums"]["vendor_bill_status"]
 export type ApiKey           = PublicSchema["Tables"]["api_keys"]["Row"]
+
+// Added 2026-09-23 alongside the time_entries table (time tracking feature).
+export type TimeEntry        = PublicSchema["Tables"]["time_entries"]["Row"]
+export type InsertTimeEntry  = PublicSchema["Tables"]["time_entries"]["Insert"]
 
 // ── Config maps (label/color/bg/border, theme-aware via CSS custom
 // properties) — actual runtime values, not just types, so components can

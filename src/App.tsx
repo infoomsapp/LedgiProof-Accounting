@@ -58,6 +58,7 @@ import ImportBankTransactions from './pages/import/ImportBankTransactions'
 import BankImports from './pages/BankImports'
 import ChartOfAccounts from './pages/ChartOfAccounts'
 import Payroll from './pages/Payroll'
+import Time from './pages/Time'
 import Reports from './pages/Reports'
 import FirmReportsSummary from './pages/FirmReportsSummary'
 import Settings from './pages/Settings'
@@ -500,6 +501,11 @@ export default function App() {
             </FirmRouteRedirect>
           } />
           <Route path="reports"       element={<ReportsEntry />} />
+          <Route path="time"          element={
+            <FirmRouteRedirect>
+              <ErrorBoundary section="time tracking"><Time /></ErrorBoundary>
+            </FirmRouteRedirect>
+          } />
 
           {/* 🆕 LedgiProof Payroll — VA/MD/DC/PA/DE/WV launch scope, Solo
               profile excluded (RoleGuard omits solo_owner). Bookkeeper/
@@ -571,6 +577,9 @@ export default function App() {
             } />
             <Route path="reports"       element={
               <ErrorBoundary section="client reports"><Reports /></ErrorBoundary>
+            } />
+            <Route path="time"          element={
+              <ErrorBoundary section="client time tracking"><Time /></ErrorBoundary>
             } />
             <Route path="payroll"       element={
               <ErrorBoundary section="client payroll"><Payroll /></ErrorBoundary>

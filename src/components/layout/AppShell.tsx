@@ -59,7 +59,8 @@ const SELF_EMPLOYED_NAV: NavItem[] = [
   { to: '/estimates',    label: 'nav.estimates',        end: false, icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
   { to: '/invoices',     label: 'nav.invoices',         end: false, icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
   { to: '/imports',      label: 'nav.bankConnections', end: false, icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12' },
-  { to: '/reports',      label: 'nav.reports',          end: false, icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' }
+  { to: '/reports',      label: 'nav.reports',          end: false, icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+  { to: '/time',         label: 'nav.time',             end: false, icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' }
 ]
 
 // 🆕 Payroll — NOT baked into BOOKKEEPER_NAV/SELF_EMPLOYED_NAV directly

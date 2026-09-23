@@ -27,6 +27,7 @@ import { lookupSalesTaxRate } from '../services/sales-tax.service'
 import { useOrgStore } from '../store/org.store'
 import { calcLineTotals, calcDocumentTotals } from '../lib/lineItems'
 import { formatCurrency } from '../lib/currency'
+import { listTimeEntries, markEntriesBilled, durationToHours, type TimeEntry } from '../services/time-entry.service'
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
   const c = INVOICE_STATUS_CONFIG[status]
@@ -143,6 +144,10 @@ export default function Invoices() {
   const [saving,       setSaving]       = useState(false)
   const [taxNote,      setTaxNote]      = useState<string | null>(null)
   const [taxResolving, setTaxResolving] = useState(false)
+  // Time entries pulled in via "Add unbilled time" -- marked billed once
+  // the invoice they were added to actually saves.
+  const [pulledTimeIds, setPulledTimeIds] = useState<string[]>([])
+  const [pullingTime,   setPullingTime]   = useState(false)
 
   // Payment modal
   const [showPayment, setShowPayment]   = useState(false)
@@ -243,7 +248,34 @@ export default function Invoices() {
     setEditItems([{ sort_order:0, item_type:'service', description:'',
                     quantity:1, unit_price:0, discount_pct:0, tax_rate:0 }])
     setTaxNote(null)
+    setPulledTimeIds([])
     setShowEditor(true)
+  }
+
+  // ── Pull in unbilled time for the invoice's client ─────────────────────────
+  async function pullUnbilledTime() {
+    if (!editClientId) return
+    setPullingTime(true)
+    try {
+      const unbilled = await listTimeEntries(orgId, { clientId: editClientId, unbilledOnly: true })
+      if (unbilled.length === 0) return
+      setEditItems(prev => {
+        const base = prev.filter(i => i.description) // drop the empty starter row
+        const timeItems: DraftItem[] = unbilled.map((e: TimeEntry, idx) => ({
+          sort_order:   base.length + idx,
+          item_type:    'service',
+          description:  e.description || 'Time',
+          quantity:     durationToHours(e.duration_minutes),
+          unit_price:   e.hourly_rate,
+          discount_pct: 0,
+          tax_rate:     0
+        }))
+        return [...base, ...timeItems]
+      })
+      setPulledTimeIds(prev => [...prev, ...unbilled.map(e => e.id)])
+    } finally {
+      setPullingTime(false)
+    }
   }
 
   async function autoFillSalesTax() {
@@ -295,6 +327,10 @@ export default function Invoices() {
     })
     if (editItems.some(i => i.description)) {
       await upsertItems(inv.id, orgId, editItems.filter(i => i.description))
+    }
+    if (pulledTimeIds.length > 0) {
+      await markEntriesBilled(pulledTimeIds, inv.id)
+      setPulledTimeIds([])
     }
     setSaving(false)
     setShowEditor(false)
@@ -802,14 +838,26 @@ export default function Invoices() {
                 ))}
               </tbody>
             </table>
-            <button onClick={addItem} style={{
-              marginTop: 8, background: 'none',
-              border: '0.5px dashed var(--lp-border)', borderRadius: 7,
-              padding: '6px 14px', cursor: 'pointer', fontSize: 12.5,
-              color: 'var(--lp-text-muted)', fontFamily: 'inherit', width: '100%'
-            }}>
-              + Add line item
-            </button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button onClick={addItem} style={{
+                flex: 1, background: 'none',
+                border: '0.5px dashed var(--lp-border)', borderRadius: 7,
+                padding: '6px 14px', cursor: 'pointer', fontSize: 12.5,
+                color: 'var(--lp-text-muted)', fontFamily: 'inherit'
+              }}>
+                + Add line item
+              </button>
+              {editClientId && (
+                <button onClick={pullUnbilledTime} disabled={pullingTime} style={{
+                  flex: 1, background: 'none',
+                  border: '0.5px dashed var(--lp-accent)', borderRadius: 7,
+                  padding: '6px 14px', cursor: pullingTime ? 'default' : 'pointer', fontSize: 12.5,
+                  color: 'var(--lp-accent)', fontFamily: 'inherit', opacity: pullingTime ? 0.6 : 1
+                }}>
+                  {pullingTime ? 'Loading…' : '⏱ Add unbilled time'}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Running total */}

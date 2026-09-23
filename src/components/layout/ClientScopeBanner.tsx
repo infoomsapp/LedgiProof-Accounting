@@ -33,6 +33,7 @@ const BASE_TABS: WorkspaceTab[] = [
   { to: 'accounts',       label: 'Accounts'       },
   { to: 'reconciliation', label: 'Reconciliation' },
   { to: 'reports',        label: 'Reports'        },
+  { to: 'time',           label: 'Time'           },
 ]
 
 const PAYROLL_TAB: WorkspaceTab = { to: 'payroll', label: 'Payroll'  }

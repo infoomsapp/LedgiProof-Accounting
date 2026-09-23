@@ -9,6 +9,7 @@
 // without any code changes.
 
 import { db } from '../lib/supabase'
+import { toSafeMessage } from '../lib/errors'
 
 // Document versions — bump these when you publish a new version of any doc.
 // The DB stores which version the user accepted; if you change a policy
@@ -43,12 +44,12 @@ export async function recordConsent(
     if (error) {
       // RPC doesn't exist yet (pre-v18) — log warning but don't block UX
       console.warn('[consent] record_consent RPC not yet available:', error.message)
-      return { ok: false, error: error.message }
+      return { ok: false, error: toSafeMessage(error, 'Failed to record consent') }
     }
     return { ok: true }
   } catch (err: any) {
     console.warn('[consent] failed to record:', err?.message)
-    return { ok: false, error: err?.message }
+    return { ok: false, error: toSafeMessage(err, 'Failed to record consent') }
   }
 }
 

@@ -18,6 +18,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe           from 'npm:stripe@17'
+import { safeMessage }  from '../_shared/errors.ts'
 
 const STRIPE_SECRET  = Deno.env.get('STRIPE_SECRET_KEY')          ?? ''
 const WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')      ?? ''
@@ -120,11 +121,11 @@ async function handleCheckoutCompleted(
         recorded_by:  recordedBy,
       })
 
-    if (insertErr) throw new Error(`insert invoice_payment: ${insertErr.message}`)
+    if (insertErr) throw new Error(`insert invoice_payment: ${safeMessage(insertErr, 'database error')}`)
 
     // Recompute totals — sets status to 'paid' when balance_due reaches 0
     const { error: rpcErr } = await db.rpc('compute_invoice_totals', { p_invoice_id: invoiceId })
-    if (rpcErr) throw new Error(`compute_invoice_totals: ${rpcErr.message}`)
+    if (rpcErr) throw new Error(`compute_invoice_totals: ${safeMessage(rpcErr, 'database error')}`)
 
     console.log(`[stripe-webhook] invoice ${invoiceId} payment recorded: ${amountPaid} ${currency}`)
     return
@@ -176,7 +177,7 @@ async function handleCheckoutCompleted(
         { onConflict: 'stripe_subscription_id', ignoreDuplicates: false },
       )
 
-    if (upsertErr) throw new Error(`upsert subscription: ${upsertErr.message}`)
+    if (upsertErr) throw new Error(`upsert subscription: ${safeMessage(upsertErr, 'database error')}`)
 
     console.log(`[stripe-webhook] subscription created for org ${orgId}: plan=${plan}`)
     return
@@ -210,7 +211,7 @@ async function handleSubscriptionUpdated(
     .update({ status, stripe_price_id: priceId, current_period_end: periodEnd })
     .eq('stripe_subscription_id', sub.id)
 
-  if (error) throw new Error(`update subscription (${sub.id}): ${error.message}`)
+  if (error) throw new Error(`update subscription (${sub.id}): ${safeMessage(error, 'database update failed')}`)
   console.log(`[stripe-webhook] subscription ${sub.id} updated → ${status}`)
 }
 
@@ -225,7 +226,7 @@ async function handleSubscriptionDeleted(
     .update({ status: 'canceled', canceled_at: new Date().toISOString() })
     .eq('stripe_subscription_id', sub.id)
 
-  if (error) throw new Error(`cancel subscription (${sub.id}): ${error.message}`)
+  if (error) throw new Error(`cancel subscription (${sub.id}): ${safeMessage(error, 'database update failed')}`)
   console.log(`[stripe-webhook] subscription ${sub.id} canceled`)
 }
 
@@ -246,6 +247,6 @@ async function handleInvoicePaymentFailed(
     .update({ status: 'past_due' })
     .eq('stripe_subscription_id', subId)
 
-  if (error) throw new Error(`mark past_due (${subId}): ${error.message}`)
+  if (error) throw new Error(`mark past_due (${subId}): ${safeMessage(error, 'database update failed')}`)
   console.log(`[stripe-webhook] subscription ${subId} → past_due (payment failed)`)
 }

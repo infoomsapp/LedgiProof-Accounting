@@ -21,6 +21,7 @@
 
 import { db } from '../lib/supabase'
 import type { Account, Database } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 type AccountUpdate = Database['public']['Tables']['accounts']['Update']
 
@@ -92,7 +93,7 @@ export async function getAccounts(
   }
 
   const { data, error } = await q
-  if (error) throw new Error(`[Accounts] Fetch failed: ${error.message}`)
+  if (error) throw new Error(`[Accounts] Fetch failed: ${toSafeMessage(error, 'database error')}`)
   return (data ?? []) as Account[]
 }
 
@@ -108,7 +109,7 @@ export async function getLegacyAccounts(orgId: string): Promise<Account[]> {
     .eq('is_legacy', true)
     .order('code')
 
-  if (error) throw new Error(`[Accounts] Fetch legacy failed: ${error.message}`)
+  if (error) throw new Error(`[Accounts] Fetch legacy failed: ${toSafeMessage(error, 'database error')}`)
   return (data ?? []) as Account[]
 }
 
@@ -153,7 +154,7 @@ export async function getAccount(accountId: string): Promise<Account | null> {
     .eq('id', accountId)
     .maybeSingle()
 
-  if (error) throw new Error(`[Accounts] Get failed: ${error.message}`)
+  if (error) throw new Error(`[Accounts] Get failed: ${toSafeMessage(error, 'database error')}`)
   return data as Account | null
 }
 
@@ -206,7 +207,7 @@ export async function createAccount(input: CreateAccountInput): Promise<Account>
     .select()
     .single()
 
-  if (error) throw new Error(`[Accounts] Create failed: ${error.message}`)
+  if (error) throw new Error(`[Accounts] Create failed: ${toSafeMessage(error, 'database error')}`)
   return data as Account
 }
 
@@ -234,7 +235,7 @@ export async function updateAccount(
     .select()
     .single()
 
-  if (error) throw new Error(`[Accounts] Update failed: ${error.message}`)
+  if (error) throw new Error(`[Accounts] Update failed: ${toSafeMessage(error, 'database error')}`)
   return data as Account
 }
 
@@ -245,7 +246,7 @@ export async function deactivateAccount(accountId: string): Promise<void> {
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq('id', accountId)
 
-  if (error) throw new Error(`[Accounts] Deactivate failed: ${error.message}`)
+  if (error) throw new Error(`[Accounts] Deactivate failed: ${toSafeMessage(error, 'database error')}`)
 }
 
 // ── Legacy operations (Sprint 5 specific) ───────────────────────────────
@@ -272,5 +273,5 @@ export async function assignLegacyToClient(
     p_client_id:  clientId
   })
 
-  if (error) throw new Error(`[Accounts] Assign legacy failed: ${error.message}`)
+  if (error) throw new Error(`[Accounts] Assign legacy failed: ${toSafeMessage(error, 'database error')}`)
 }

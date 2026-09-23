@@ -86,6 +86,33 @@ export function auditActionLabel(action: string): string {
   return AUDIT_ACTION_LABELS[action] ?? action.replace(/[._]/g, ' ')
 }
 
+// ── i18n variant ─────────────────────────────────────────────────────────────
+// Parallel map of the same actions to i18n keys. Kept SEPARATE from
+// AUDIT_ACTION_LABELS above (which stays the untranslated source of truth for
+// any non-React caller) so translating the activity feed can't regress it.
+// Unknown/forward-compat actions fall back to the same prettified string.
+export const AUDIT_ACTION_LABEL_KEYS: Record<string, string> = {
+  'message.sent':              'audit.actions.messageSent',
+  'document.uploaded':         'audit.actions.documentUploaded',
+  'document.deleted':          'audit.actions.documentDeleted',
+  'transaction.categorized':   'audit.actions.transactionCategorized',
+  'transaction.reviewed':      'audit.actions.transactionReviewed',
+  'transaction.approved':      'audit.actions.transactionApproved',
+  'review.opened':             'audit.actions.reviewOpened',
+  'review.resolved':           'audit.actions.reviewResolved',
+  'review.expired':            'audit.actions.reviewExpired',
+  'member.invited':            'audit.actions.memberInvited',
+  'member.role_changed':       'audit.actions.memberRoleChanged'
+}
+
+export function translateAuditAction(
+  action: string,
+  t: (key: string) => string
+): string {
+  const key = AUDIT_ACTION_LABEL_KEYS[action]
+  return key ? t(key) : action.replace(/[._]/g, ' ')
+}
+
 export function auditActionIcon(action: string): string {
   if (action.startsWith('message'))     return '💬'
   if (action.startsWith('document'))    return '📎'

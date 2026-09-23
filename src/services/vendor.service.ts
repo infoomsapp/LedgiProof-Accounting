@@ -10,6 +10,7 @@
 import { db } from '../lib/supabase'
 import { lookupPattern } from './learning.service'
 import type { Database } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 export type Vendor       = Database['public']['Tables']['vendors']['Row']
 export type VendorInsert = Database['public']['Tables']['vendors']['Insert']
@@ -62,13 +63,13 @@ export async function listVendors(
   }
   if (!opts.includeInactive) q = q.eq('is_active', true)
   const { data, error } = await q.order('legal_name')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load vendors')
   return data ?? []
 }
 
 export async function getVendor(id: string): Promise<Vendor | null> {
   const { data, error } = await db.from('vendors').select('*').eq('id', id).maybeSingle()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the vendor')
   return data
 }
 
@@ -81,20 +82,20 @@ export async function createVendor(input: VendorInsert): Promise<Vendor> {
       : {})
   }
   const { data, error } = await db.from('vendors').insert(payload).select().single()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the vendor')
   return data
 }
 
 export async function updateVendor(id: string, patch: VendorUpdate): Promise<Vendor> {
   const { data, error } = await db.from('vendors').update(patch).eq('id', id).select().single()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the vendor')
   return data
 }
 
 /** Soft-delete: nunca borramos vendors con historial de pagos. */
 export async function deactivateVendor(id: string): Promise<void> {
   const { error } = await db.from('vendors').update({ is_active: false }).eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to deactivate the vendor')
 }
 
 // ── Matching / enlace transacción → vendor ──────────────────────────────────
@@ -116,7 +117,7 @@ export async function suggestVendorsForMerchant(
   if (clientId !== undefined && clientId !== null) query = query.eq('client_id', clientId)
   query = query.or(`legal_name.ilike.%${q}%,dba_name.ilike.%${q}%`)
   const { data, error } = await query.limit(10)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load vendor suggestions')
   return data ?? []
 }
 
@@ -129,7 +130,7 @@ export async function assignVendorToTransaction(
     .from('transactions')
     .update({ vendor_id: vendorId })
     .eq('id', transactionId)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to assign the vendor')
 }
 
 // ── Resolución automática vía aprendizaje ──────────────────────────────────

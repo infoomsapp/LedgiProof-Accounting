@@ -10,6 +10,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore }  from '../store/auth.store'
 import { db }            from '../lib/supabase'
 import LogoBrand         from '../components/ui/LogoBrand'
+import { toSafeMessage } from '../lib/errors'
 
 export default function AcceptInvite() {
   const { token }    = useParams<{ token: string }>()
@@ -53,7 +54,7 @@ export default function AcceptInvite() {
 
     if (error) {
       setStatus('error')
-      setMessage(error.message)
+      setMessage(toSafeMessage(error, 'Could not accept the invitation'))
     } else {
       setStatus('success')
       setMessage(`You joined ${name}!`)

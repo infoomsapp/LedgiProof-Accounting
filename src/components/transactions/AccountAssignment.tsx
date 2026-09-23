@@ -123,9 +123,15 @@ export default function AccountAssignment({
     setError(null)
 
     const amount = Math.abs(tx.amount)
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = now.getMonth() + 1
+
+    // 🐛 Real bug fixed (audit 2026-09-22): this used to post to "today's"
+    // period (new Date()) instead of the transaction's own period, unlike
+    // the canonical bulk-posting flow in journal.service.ts's
+    // postTransactionToLedger(), which deliberately uses the transaction's
+    // OWN date "so they land in the P&L period they actually occurred in".
+    // Posting an old transaction here would silently misstate whichever
+    // month it was actually reviewed in instead of the month it happened.
+    const [year, month] = tx.transaction_date.split('-').map(Number) as [number, number]
 
     try {
       // 1. Post the balanced double-entry through the journal ENGINE.

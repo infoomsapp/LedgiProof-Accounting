@@ -36,6 +36,7 @@ import { deleteEstimate }    from '../services/estimate.service'
 import { db }                from '../lib/supabase'
 import { formatCurrency }    from '../lib/currency'
 import { formatDateShort }   from '../lib/dates'
+import { dbError } from '../lib/errors'
 
 const STATUS_FILTERS: Array<{ value: EstimateStatus | 'all'; label: string }> = [
   { value: 'all',             label: 'All' },
@@ -164,7 +165,7 @@ export default function Estimates() {
           .eq('org_id', orgId)
           .limit(1)
 
-        if (clientErr) throw new Error(clientErr.message)
+        if (clientErr) throw dbError(clientErr, 'Could not load clients')
 
         const firstClient = clients?.[0]
         if (!firstClient) {

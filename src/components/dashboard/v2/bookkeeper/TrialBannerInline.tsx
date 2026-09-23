@@ -4,9 +4,11 @@
 // Reuses the same logic as TrialBanner but styled for inline (top of dashboard).
 
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { usePlan } from '../../../../hooks/usePlan.ts'
 
 export default function TrialBannerInline() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { subscription, trialDaysLeft, trialExpired } = usePlan()
 
@@ -44,14 +46,16 @@ export default function TrialBannerInline() {
           textTransform: 'uppercase',
           flexShrink: 0
         }}>
-          {expired ? '⏰ Trial expired' : urgent ? '⏰ Ending soon' : '🎁 Pro Trial'}
+          {expired
+            ? t('dashboard.trialExpiredBadge')
+            : urgent ? t('dashboard.trialEndingSoonBadge') : t('dashboard.proTrialBadge')}
         </span>
         <span style={{ fontWeight: 500 }}>
           {expired
-            ? 'Your trial has ended — upgrade to keep your data'
-            : trialDaysLeft === 0 ? 'Your trial ends today'
-            : trialDaysLeft === 1 ? 'Your trial ends tomorrow'
-            : `${trialDaysLeft} days left in your Pro trial`}
+            ? t('dashboard.trialEndedMessage')
+            : trialDaysLeft === 0 ? t('dashboard.trialEndsToday')
+            : trialDaysLeft === 1 ? t('dashboard.trialEndsTomorrow')
+            : t('dashboard.trialDaysLeft', { count: trialDaysLeft ?? 0 })}
         </span>
       </div>
 
@@ -70,7 +74,7 @@ export default function TrialBannerInline() {
           flexShrink: 0
         }}
       >
-        Upgrade to Pro →
+        {t('dashboard.upgradeToPro')}
       </button>
     </div>
   )

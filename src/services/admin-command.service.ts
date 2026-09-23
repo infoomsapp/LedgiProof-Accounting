@@ -5,6 +5,7 @@
 // only handle network errors and map the JSONB response to typed shapes.
 
 import { db } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types — mirror the JSONB shape returned by get_admin_command_center()
@@ -97,13 +98,13 @@ export interface CommandCenterData {
 
 export async function getCommandCenter(): Promise<CommandCenterData> {
   const { data, error } = await db.rpc('get_admin_command_center')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the command center')
   return data as unknown as CommandCenterData
 }
 
 export async function getRecentAdminEvents(limit = 15): Promise<AdminEvent[]> {
   const { data, error } = await db.rpc('get_recent_admin_events', { p_limit: limit })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load recent admin events')
   return (data ?? []) as unknown as AdminEvent[]
 }
 
@@ -144,6 +145,6 @@ export async function searchAdminEntities(
     p_query: query,
     p_limit: limit
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Search failed')
   return (data ?? { organizations: [], users: [] }) as unknown as SearchResults
 }

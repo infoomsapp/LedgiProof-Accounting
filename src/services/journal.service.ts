@@ -6,6 +6,7 @@
 import { db } from '../lib/supabase'
 import { approveTransaction } from './transactions.service'
 import type { JournalEntry, EntryTypeEnum } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 export interface JournalLine {
   accountId:   string
@@ -44,7 +45,7 @@ export async function postJournalEntries(
     .select()
 
   if (error || !data) {
-    throw new Error(`[Journal] Post failed: ${error?.message}`)
+    throw new Error(`[Journal] Post failed: ${toSafeMessage(error, 'database error')}`)
   }
 
   return data
@@ -115,7 +116,7 @@ export async function reverseJournalEntries(
     .in('id', originalEntryIds)
 
   if (fetchErr || !originals?.length) {
-    throw new Error(`[Journal] Originals not found: ${fetchErr?.message}`)
+    throw new Error(`[Journal] Originals not found: ${toSafeMessage(fetchErr, 'database error')}`)
   }
 
   // Check none are already reversed
@@ -143,7 +144,7 @@ export async function reverseJournalEntries(
     .select()
 
   if (insertErr || !reversalRows) {
-    throw new Error(`[Journal] Reversal insert failed: ${insertErr?.message}`)
+    throw new Error(`[Journal] Reversal insert failed: ${toSafeMessage(insertErr, 'database error')}`)
   }
 
   // Mark originals as reversed and link to their reversal
@@ -169,7 +170,7 @@ export async function getJournalEntries(transactionId: string): Promise<JournalE
     .eq('transaction_id', transactionId)
     .order('created_at')
 
-  if (error) throw new Error(`[Journal] Fetch failed: ${error.message}`)
+  if (error) throw new Error(`[Journal] Fetch failed: ${toSafeMessage(error, 'database error')}`)
   return data ?? []
 }
 
@@ -184,7 +185,7 @@ export async function getJournalBalance(
     .eq('transaction_id', transactionId)
     .single()
 
-  if (error) throw new Error(`[Journal] Balance fetch failed: ${error.message}`)
+  if (error) throw new Error(`[Journal] Balance fetch failed: ${toSafeMessage(error, 'database error')}`)
 
   const totalDebit  = Number(data?.total_debit  ?? 0)
   const totalCredit = Number(data?.total_credit ?? 0)
@@ -213,7 +214,7 @@ export async function getPeriodSummary(
   if (month) q = q.eq('period_month', month)
 
   const { data, error } = await q
-  if (error) throw new Error(`[Journal] Period summary failed: ${error.message}`)
+  if (error) throw new Error(`[Journal] Period summary failed: ${toSafeMessage(error, 'database error')}`)
 
   const map = new Map<string, {
     accountId:   string
@@ -361,7 +362,7 @@ export async function postManualJournalBatch(
     .single()
 
   if (batchErr || !batch) {
-    throw new Error(`[Journal] Batch create failed: ${batchErr?.message}`)
+    throw new Error(`[Journal] Batch create failed: ${toSafeMessage(batchErr, 'database error')}`)
   }
 
   // 3. INSERT all journal_entries with batch_id
@@ -385,7 +386,7 @@ export async function postManualJournalBatch(
   if (linesErr) {
     // Best-effort cleanup: drop the draft batch (CASCADE will handle any partial inserts)
     await db.from('manual_journal_batches').delete().eq('id', batch.id)
-    throw new Error(`[Journal] Batch lines insert failed: ${linesErr.message}`)
+    throw new Error(`[Journal] Batch lines insert failed: ${toSafeMessage(linesErr, 'database error')}`)
   }
 
   // 4. UPDATE batch → posted (triggers run at COMMIT)
@@ -401,7 +402,7 @@ export async function postManualJournalBatch(
     .single()
 
   if (postErr || !posted) {
-    throw new Error(`[Journal] Batch post failed: ${postErr?.message}`)
+    throw new Error(`[Journal] Batch post failed: ${toSafeMessage(postErr, 'database error')}`)
   }
 
   return posted as ManualJournalBatch
@@ -427,7 +428,7 @@ export async function reverseManualJournalBatch(
     .single()
 
   if (fetchErr || !original) {
-    throw new Error(`[Journal] Original batch not found: ${fetchErr?.message}`)
+    throw new Error(`[Journal] Original batch not found: ${toSafeMessage(fetchErr, 'database error')}`)
   }
 
   if (original.status !== 'posted') {
@@ -441,7 +442,7 @@ export async function reverseManualJournalBatch(
     .eq('batch_id', batchId)
 
   if (linesErr || !originalLines?.length) {
-    throw new Error(`[Journal] Original lines not found: ${linesErr?.message}`)
+    throw new Error(`[Journal] Original lines not found: ${toSafeMessage(linesErr, 'database error')}`)
   }
 
   // Build mirror lines (flip entry_type)
@@ -506,7 +507,7 @@ export async function approveManualJournalBatch(
     .single()
 
   if (fetchErr || !batch) {
-    throw new Error(`[Journal] Batch not found: ${fetchErr?.message}`)
+    throw new Error(`[Journal] Batch not found: ${toSafeMessage(fetchErr, 'database error')}`)
   }
   if (batch.status !== 'posted') {
     throw new Error(`[Journal] Only 'posted' batches can be approved (current: ${batch.status})`)
@@ -529,7 +530,7 @@ export async function approveManualJournalBatch(
     .single()
 
   if (updateErr || !approved) {
-    throw new Error(`[Journal] Approval update failed: ${updateErr?.message}`)
+    throw new Error(`[Journal] Approval update failed: ${toSafeMessage(updateErr, 'database error')}`)
   }
 
   return approved as ManualJournalBatch
@@ -564,6 +565,6 @@ export async function listManualJournalBatches(
   q = q.limit(options?.limit ?? 50)
 
   const { data, error } = await q
-  if (error) throw new Error(`[Journal] List batches failed: ${error.message}`)
+  if (error) throw new Error(`[Journal] List batches failed: ${toSafeMessage(error, 'database error')}`)
   return (data ?? []) as ManualJournalBatch[]
 }

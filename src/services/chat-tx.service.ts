@@ -12,6 +12,7 @@
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
 import type { ReviewQuestionType } from '../types/reviews'
+import { dbError } from '../lib/errors'
 
 // ── Shared types (kept compatible with workspace-chat.service.ts) ───────────
 
@@ -72,7 +73,7 @@ export async function openOrGetTransactionConversation(
       p_review_id:      reviewId ?? undefined
     })
   )
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to open the conversation')
   return data as string   // returns UUID
 }
 
@@ -94,7 +95,7 @@ export async function sendTransactionMessage(input: {
     p_message_kind:    input.messageKind   ?? undefined,    // undefined lets RPC infer
     p_client_visible:  input.clientVisible ?? true
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to send the message')
   return data as unknown as SendMessageResult
 }
 
@@ -106,7 +107,7 @@ export async function markTransactionMessagesRead(
   const { data, error } = await db.rpc('mark_transaction_messages_read', {
     p_conversation_id: conversationId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to mark messages as read')
   return data as unknown as { conversation_id: string; marked_read: number; as_role: string }
 }
 
@@ -122,7 +123,7 @@ export async function getTransactionMessages(
     p_limit:           Math.min(Math.max(limit, 1), 200),
     p_before:          before ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load messages')
   return data as unknown as TransactionMessagesResponse
 }
 
@@ -154,7 +155,7 @@ export async function openReviewWithMessage(input: {
     p_opened_by:      input.openedBy     ?? undefined,
     p_expires_hours:  input.expiresHours ?? 72
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to open the review')
   // RPC returns just the review_id (uuid). The old declared return type
   // (conversation_id/message_id) was never actually produced by the RPC.
   return { review_id: data as unknown as string }

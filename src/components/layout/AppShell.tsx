@@ -2,6 +2,7 @@
 import type { CSSProperties } from 'react'
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation, matchPath } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore }       from '../../store/auth.store'
 import MfaRequired            from '../../pages/MfaRequired'
 import { useOrgStore }        from '../../store/org.store'
@@ -33,13 +34,17 @@ interface NavItem {
 // The real per-client versions still work fine from inside a client's own
 // workspace (Clients → client → tab bar). Vendors (1099) and 1099 Worksheet
 // move into Settings (see Settings.tsx's isBookkeeperFirm-gated tabs).
+// NOTE: `label` holds an i18n KEY (e.g. 'nav.home'), not display text —
+// these arrays are module-level constants evaluated once at import time,
+// long before any component (or i18next) renders, so they can't call t()
+// themselves. Every render site below calls t(item.label) instead.
 const BOOKKEEPER_NAV: NavItem[] = [
-  { to: '/',         label: 'Home', end: true,  icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-  { to: '/clients',  label: 'Clients',   end: false, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-  { to: '/notes',    label: 'Notes',     end: false, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
-  { to: '/team',     label: 'Team',      end: false, icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z' },
-  { to: '/reports',  label: 'Reports',   end: false, icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
-  { to: '/settings', label: 'Settings',  end: false, icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z' }
+  { to: '/',         label: 'nav.home', end: true,  icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+  { to: '/clients',  label: 'nav.clients',   end: false, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+  { to: '/notes',    label: 'nav.notes',     end: false, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
+  { to: '/team',     label: 'nav.team',      end: false, icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z' },
+  { to: '/reports',  label: 'nav.reports',   end: false, icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+  { to: '/settings', label: 'nav.settings',  end: false, icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z' }
 ]
 
 // ── Accountant firm nav — same 5 firm-level destinations as bookkeeper.
@@ -49,12 +54,12 @@ const ACCOUNTANT_NAV: NavItem[] = BOOKKEEPER_NAV
 
 // ── Self-employed / Solo simplified nav ──────────────────────────────────────
 const SELF_EMPLOYED_NAV: NavItem[] = [
-  { to: '/',             label: 'Home',        end: true,  icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-  { to: '/transactions', label: 'Transactions',     end: false, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-  { to: '/estimates',    label: 'Estimates',        end: false, icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
-  { to: '/invoices',     label: 'Invoices',         end: false, icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-  { to: '/imports',      label: 'Bank Connections', end: false, icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12' },
-  { to: '/reports',      label: 'Reports',          end: false, icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' }
+  { to: '/',             label: 'nav.home',        end: true,  icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+  { to: '/transactions', label: 'nav.transactions',     end: false, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+  { to: '/estimates',    label: 'nav.estimates',        end: false, icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
+  { to: '/invoices',     label: 'nav.invoices',         end: false, icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+  { to: '/imports',      label: 'nav.bankConnections', end: false, icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12' },
+  { to: '/reports',      label: 'nav.reports',          end: false, icon: 'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' }
 ]
 
 // 🆕 Payroll — NOT baked into BOOKKEEPER_NAV/SELF_EMPLOYED_NAV directly
@@ -65,7 +70,7 @@ const SELF_EMPLOYED_NAV: NavItem[] = [
 // rather than checking raw roles here.
 const PAYROLL_NAV: NavItem = {
   to:    '/payroll',
-  label: 'Payroll',
+  label: 'nav.payroll',
   end:   false,
   icon:  'M17 9V7a4 4 0 00-8 0v2M5 9h14l1 11H4L5 9zm7 3v4'
 }
@@ -73,7 +78,7 @@ const PAYROLL_NAV: NavItem = {
 // Special nav item for super admins
 const ADMIN_NAV: NavItem = {
   to:    '/admin',
-  label: 'Super Admin',
+  label: 'nav.superAdmin',
   end:   false,
   icon:  'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'
 }
@@ -87,9 +92,9 @@ const ADMIN_NAV: NavItem = {
 // Trim to the few links that are genuinely firm-level: home, switch client,
 // team.
 const CLIENT_WORKSPACE_NAV: NavItem[] = [
-  { to: '/',        label: 'Home', end: true,  icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-  { to: '/clients', label: 'Clients',   end: false, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-  { to: '/team',    label: 'Team',      end: false, icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z' },
+  { to: '/',        label: 'nav.home', end: true,  icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+  { to: '/clients', label: 'nav.clients',   end: false, icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+  { to: '/team',    label: 'nav.team',      end: false, icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z' },
 ]
 
 // Compact icon button for the top-right account cluster.
@@ -113,6 +118,7 @@ function NavIcon({ d }: { d: string }) {
 const MFA_REQUIRED_ROLES = new Set(['owner', 'admin', 'accountant', 'approver'])
 
 export default function AppShell() {
+  const { t } = useTranslation()
   const { profile, membership, signOut, getMfaFactors } = useAuthStore()
   const { activeOrg }        = useOrgStore()
   const { mode: themeMode, toggle: toggleTheme } = useThemeStore()
@@ -319,7 +325,7 @@ export default function AppShell() {
                 className={({ isActive }) => `lp-nav-item${isActive ? ' active' : ''}`}
               >
                 <NavIcon d={item.icon} />
-                {item.label}
+                {t(item.label)}
               </NavLink>
             ))}
 
@@ -350,7 +356,7 @@ export default function AppShell() {
                   })}
                 >
                   <NavIcon d={ADMIN_NAV.icon} />
-                  {ADMIN_NAV.label}
+                  {t(ADMIN_NAV.label)}
                 </NavLink>
               </>
             )}

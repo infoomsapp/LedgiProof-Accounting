@@ -11,6 +11,7 @@
 // Schedule: See cron note in supabase/sql/multimoneda.sql (00:05 UTC daily)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { safeMessage } from '../_shared/errors.ts'
 
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')                ?? ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')   ?? ''
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
       .from('exchange_rates')
       .upsert(rows, { onConflict: 'currency' })
 
-    if (error) throw new Error(error.message)
+    if (error) throw new Error(safeMessage(error, 'Failed to save exchange rates'))
 
     console.log(`[fetch-exchange-rates] Updated ${rows.length} rates for ${payload.date}`)
 
@@ -61,10 +62,9 @@ Deno.serve(async (req) => {
       { headers: { 'Content-Type': 'application/json' } },
     )
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[fetch-exchange-rates]', msg)
+    console.error('[fetch-exchange-rates]', err)
     return new Response(
-      JSON.stringify({ ok: false, error: msg }),
+      JSON.stringify({ ok: false, error: safeMessage(err, 'Failed to fetch exchange rates') }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },
     )
   }

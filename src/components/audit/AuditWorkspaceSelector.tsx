@@ -3,6 +3,7 @@
 // Visual style mirrors OrgSelector for consistency.
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AuditorWorkspace } from '../../services/auditor.service'
 
 interface Props {
@@ -15,7 +16,11 @@ interface Props {
 export default function AuditWorkspaceSelector({
   workspaces, selectedOrgId, onSelect, loading = false
 }: Props) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+
+  const clientCount = (n: number) =>
+    n === 1 ? t('audit.clientCountOne', { count: n }) : t('audit.clientCountOther', { count: n })
 
   const selected = selectedOrgId
     ? workspaces.find(w => w.org_id === selectedOrgId)
@@ -30,7 +35,7 @@ export default function AuditWorkspaceSelector({
         fontSize: 12, color: '#64748b', fontStyle: 'italic',
         minWidth: 240
       }}>
-        Loading workspaces…
+        {t('audit.loadingWorkspaces')}
       </div>
     )
   }
@@ -44,7 +49,7 @@ export default function AuditWorkspaceSelector({
         fontSize: 12, color: '#ef4444',
         minWidth: 240
       }}>
-        No workspaces accessible
+        {t('audit.noWorkspaces')}
       </div>
     )
   }
@@ -68,9 +73,9 @@ export default function AuditWorkspaceSelector({
             {selected.name}
           </div>
           <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2 }}>
-            {selected.client_count} client{selected.client_count === 1 ? '' : 's'}
+            {clientCount(selected.client_count)}
             {' · '}
-            {selected.tx_count_30d} tx (30d)
+            {t('audit.txCount30d', { count: selected.tx_count_30d })}
           </div>
         </div>
       </div>
@@ -100,13 +105,13 @@ export default function AuditWorkspaceSelector({
             fontSize: 12.5, fontWeight: 500, color: '#e2e8f0',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
           }}>
-            {selected?.name ?? 'Select a workspace…'}
+            {selected?.name ?? t('audit.selectWorkspacePlaceholder')}
           </div>
           {selected && (
             <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 1 }}>
-              {selected.client_count} client{selected.client_count === 1 ? '' : 's'}
+              {clientCount(selected.client_count)}
               {' · '}
-              {selected.tx_count_30d} tx (30d)
+              {t('audit.txCount30d', { count: selected.tx_count_30d })}
             </div>
           )}
         </div>
@@ -137,7 +142,9 @@ export default function AuditWorkspaceSelector({
               fontSize: 10.5, color: '#64748b',
               textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600
             }}>
-              {workspaces.length} workspace{workspaces.length === 1 ? '' : 's'} accessible
+              {workspaces.length === 1
+                ? t('audit.workspacesAccessibleOne',   { count: workspaces.length })
+                : t('audit.workspacesAccessibleOther', { count: workspaces.length })}
             </div>
 
             <div style={{ overflowY: 'auto', maxHeight: 330 }}>
@@ -169,11 +176,11 @@ export default function AuditWorkspaceSelector({
                         {ws.name}
                       </div>
                       <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2 }}>
-                        {ws.client_count} client{ws.client_count === 1 ? '' : 's'}
+                        {clientCount(ws.client_count)}
                         {' · '}
-                        {ws.tx_count_30d} tx (30d)
+                        {t('audit.txCount30d', { count: ws.tx_count_30d })}
                         {' · '}
-                        <span style={{ color: '#a78bfa' }}>role: {ws.my_role}</span>
+                        <span style={{ color: '#a78bfa' }}>{t('audit.roleLabel', { role: ws.my_role })}</span>
                       </div>
                     </div>
                     {active && <span style={{ fontSize: 12, color: '#22c55e' }}>✓</span>}

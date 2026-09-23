@@ -27,6 +27,7 @@
 
 import { useState, useMemo }      from 'react'
 import { useNavigate }            from 'react-router-dom'
+import { useTranslation }         from 'react-i18next'
 import { BarChart3, CreditCard, Gauge, MessageCircle } from 'lucide-react'
 import { useAuthStore }           from '../store/auth.store'
 import { useChatBubbleStore }     from '../store/chat-bubble.store'
@@ -51,6 +52,7 @@ const fmtCur = (n: number, ccy = 'USD') => formatCurrency(n, ccy, { maximumFract
 
 export default function PymeDashboard() {
   const navigate     = useNavigate()
+  const { t }        = useTranslation()
   const { openChat } = useChatBubbleStore()
   const { profile }  = useAuthStore()
 
@@ -90,19 +92,19 @@ export default function PymeDashboard() {
       return {
         key:   tx.tx_id,
         color: color as ActivityItem['color'],
-        text:  `${tx.merchant ?? tx.description ?? 'Transaction'}`,
+        text:  `${tx.merchant ?? tx.description ?? t('dashboard.transactionFallback')}`,
         sub:   `${sign}${amountStr}${tx.has_message_thread ? ' · 💬' : ''}`,
         at:    tx.transaction_date,
         onClick: () => navigate(`/transactions?id=${tx.tx_id}`)
       }
     })
-  }, [recentTxSafe, navigate])
+  }, [recentTxSafe, navigate, t])
 
   // ── Loading / error ────────────────────────────────────────────────────
   if (!clientId) {
     return (
       <div style={{ padding: 48, textAlign: 'center', color: 'var(--sem-red)', fontSize: 13 }}>
-        No client linked to your account. Please contact your firm.
+        {t('pyme.noClientLinked')}
       </div>
     )
   }
@@ -110,7 +112,7 @@ export default function PymeDashboard() {
   if (pd.loading) {
     return (
       <div style={{ padding: 48, textAlign: 'center', color: 'var(--lp-text-muted)', fontSize: 13 }}>
-        Loading your dashboard…
+        {t('pyme.loadingDashboard')}
       </div>
     )
   }
@@ -125,14 +127,14 @@ export default function PymeDashboard() {
           borderRadius: 10,
           color: 'var(--sem-red)', fontSize: 13
         }}>
-          ⚠ {pd.error ?? 'Could not load dashboard'}
+          ⚠ {pd.error ?? t('pyme.couldNotLoad')}
           <button onClick={pd.refresh} style={{
             marginLeft: 14, padding: '4px 10px', borderRadius: 6,
             background: 'var(--sem-red-bg-strong)',
             border: '0.5px solid rgba(239,68,68,0.4)',
             color: 'var(--sem-red)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5
           }}>
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       </div>
@@ -157,13 +159,13 @@ export default function PymeDashboard() {
   // recentTxSafe already declared above (before early returns) — reuse it
 
   // ── Greeting ───────────────────────────────────────────────────────────
-  const hourNow = new Date().getHours()
-  const greeting =
-    hourNow < 12 ? 'Good morning' :
-    hourNow < 18 ? 'Good afternoon' : 'Good evening'
+  const hourNow   = new Date().getHours()
+  const timeOfDay = hourNow < 12 ? 'Morning' : hourNow < 18 ? 'Afternoon' : 'Evening'
   const firstName = profile?.display_name?.split(' ')[0]
     ?? profile?.email?.split('@')[0]
-    ?? 'there'
+  const greeting  = firstName
+    ? t(`dashboard.greeting${timeOfDay}`, { name: firstName })
+    : t(`dashboard.greeting${timeOfDay}NoName`)
 
   // KPI deltas
   const incomeDelta = vsLastMonthPct(kpisThisMonth.income,     kpisLastMonth.income)
@@ -187,13 +189,13 @@ export default function PymeDashboard() {
                 fontSize: 22, fontWeight: 600, color: 'var(--lp-text)',
                 letterSpacing: '-0.01em', margin: 0
               }}>
-                {greeting}, {firstName} <span style={{ opacity: 0.5 }}>👋</span>
+                {greeting} <span style={{ opacity: 0.5 }}>👋</span>
               </h1>
               <p style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 4, margin: 0 }}>
-                Your firm: <strong style={{ color: 'var(--lp-violet)', fontWeight: 600 }}>{d.firm.name}</strong>
+                {t('pyme.yourFirm')} <strong style={{ color: 'var(--lp-violet)', fontWeight: 600 }}>{d.firm.name}</strong>
                 {pd.refreshing && (
                   <span style={{ marginLeft: 8, color: 'var(--lp-accent)' }}>
-                    ⏳ refreshing…
+                    {t('pyme.refreshing')}
                   </span>
                 )}
               </p>
@@ -203,7 +205,7 @@ export default function PymeDashboard() {
               {/* 🆕 P4 Fase 2.C (B3) — Direct chat with the firm's bookkeeper */}
               <button
                 onClick={() => openChat()}
-                title="Open chat with your bookkeeper"
+                title={t('pyme.chatWithBookkeeperTitle')}
                 style={{
                   padding:      '7px 14px',
                   borderRadius: 8,
@@ -220,13 +222,13 @@ export default function PymeDashboard() {
                 onMouseEnter={e => { e.currentTarget.style.opacity = '0.9' }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
               >
-                💬 Chat with bookkeeper
+                {t('pyme.chatWithBookkeeper')}
               </button>
 
               {/* 🆕 P4 Fase 2.D — Customer management page */}
               <button
                 onClick={() => navigate('/pyme/clients')}
-                title="Manage your billing customers"
+                title={t('pyme.myCustomersTitle')}
                 style={{
                   padding:      '7px 14px',
                   borderRadius: 8,
@@ -243,7 +245,7 @@ export default function PymeDashboard() {
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
               >
-                👥 My customers
+                {t('pyme.myCustomers')}
               </button>
 
               <button
@@ -258,7 +260,7 @@ export default function PymeDashboard() {
                   fontFamily: 'inherit', whiteSpace: 'nowrap'
                 }}
               >
-                + New estimate
+                {t('pyme.newEstimate')}
               </button>
 
               <button
@@ -281,7 +283,7 @@ export default function PymeDashboard() {
                 onMouseEnter={e => { e.currentTarget.style.opacity = '0.9' }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
               >
-                📥 Send receipt
+                {t('pyme.sendReceipt')}
               </button>
             </div>
           </div>
@@ -291,13 +293,13 @@ export default function PymeDashboard() {
           <CriticalAlertBanner
             count={criticalCount}
             severity="critical"
-            label={criticalCount === 1 ? 'item' : 'items'}
+            label={criticalCount === 1 ? t('pyme.itemOne') : t('pyme.itemOther')}
             sub={
               pending.red_count > 0 && pendingReceiptCount > 0
-                ? `${pending.red_count} red · ${pendingReceiptCount} receipt requests`
+                ? t('pyme.alertRedAndReceipts', { red: pending.red_count, receipts: pendingReceiptCount })
                 : pending.red_count > 0
-                ? 'transactions need urgent review'
-                : 'receipt requests waiting for you'
+                ? t('pyme.alertRedOnly')
+                : t('pyme.alertReceiptsOnly')
             }
             onView={() => {
               if (pendingReceiptCount > 0) {
@@ -319,11 +321,13 @@ export default function PymeDashboard() {
 
             {/* ── Row 2: Financial Summary (KPIs) ──────────────────────── */}
             <SectionCard
-              title="This Month So Far"
+              title={t('pyme.thisMonthSoFar')}
               icon={BarChart3}
               right={
                 <span style={{ fontSize: 10, color: 'var(--lp-text-muted)' }}>
-                  {kpisThisMonth.tx_count} verified {kpisThisMonth.tx_count === 1 ? 'transaction' : 'transactions'}
+                  {kpisThisMonth.tx_count === 1
+                    ? t('pyme.verifiedTxOne',   { count: kpisThisMonth.tx_count })
+                    : t('pyme.verifiedTxOther', { count: kpisThisMonth.tx_count })}
                 </span>
               }
               style={{ marginBottom: 14 }}
@@ -334,23 +338,23 @@ export default function PymeDashboard() {
                 gap: '14px 16px'
               }}>
                 <KpiTile
-                  label="Income"
+                  label={t('pyme.income')}
                   value={fmtCur(kpisThisMonth.income, ccy)}
-                  sub={`${incomeDelta >= 0 ? '↑' : '↓'} ${Math.abs(incomeDelta)}% vs last month`}
+                  sub={t(incomeDelta >= 0 ? 'pyme.vsLastMonthUp' : 'pyme.vsLastMonthDown', { pct: Math.abs(incomeDelta) })}
                   color="var(--sem-green)"
                   subColor={incomeDelta >= 0 ? 'var(--sem-green)' : 'var(--sem-red)'}
                 />
                 <KpiTile
-                  label="Expenses"
+                  label={t('pyme.expenses')}
                   value={fmtCur(kpisThisMonth.expenses, ccy)}
-                  sub={`${expDelta >= 0 ? '↑' : '↓'} ${Math.abs(expDelta)}% vs last month`}
+                  sub={t(expDelta >= 0 ? 'pyme.vsLastMonthUp' : 'pyme.vsLastMonthDown', { pct: Math.abs(expDelta) })}
                   color="var(--sem-red)"
                   subColor={expDelta <= 0 ? 'var(--sem-green)' : 'var(--sem-red)'}
                 />
                 <KpiTile
-                  label="Net Profit"
+                  label={t('pyme.netProfit')}
                   value={fmtCur(kpisThisMonth.net_profit, ccy)}
-                  sub={`${netDelta >= 0 ? '↑' : '↓'} ${Math.abs(netDelta)}% vs last month`}
+                  sub={t(netDelta >= 0 ? 'pyme.vsLastMonthUp' : 'pyme.vsLastMonthDown', { pct: Math.abs(netDelta) })}
                   color={kpisThisMonth.net_profit >= 0 ? 'var(--sem-green)' : 'var(--sem-red)'}
                   subColor={netDelta >= 0 ? 'var(--sem-green)' : 'var(--sem-red)'}
                 />
@@ -375,7 +379,7 @@ export default function PymeDashboard() {
 
             {/* ── Row 4: Recent Transactions ───────────────────────────── */}
             <SectionCard
-              title="Recent Transactions"
+              title={t('pyme.recentTransactions')}
               icon={CreditCard}
               right={
                 <button
@@ -385,7 +389,7 @@ export default function PymeDashboard() {
                     color: 'var(--lp-accent)', fontSize: 10.5, fontFamily: 'inherit'
                   }}
                 >
-                  View all →
+                  {t('common.viewAll')}
                 </button>
               }
             >
@@ -394,7 +398,7 @@ export default function PymeDashboard() {
                   padding: 24, textAlign: 'center',
                   fontSize: 12, color: 'var(--lp-text-muted)', fontStyle: 'italic'
                 }}>
-                  No transactions yet
+                  {t('pyme.noTransactionsYet')}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -425,13 +429,13 @@ export default function PymeDashboard() {
                           fontSize: 12, color: 'var(--lp-text)',
                           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                         }}>
-                          {tx.merchant ?? tx.description ?? 'Transaction'}
+                          {tx.merchant ?? tx.description ?? t('dashboard.transactionFallback')}
                         </div>
                         <div style={{ fontSize: 10, color: 'var(--lp-text-muted)', marginTop: 2 }}>
                           {tx.transaction_date}
                           {tx.requires_review && (
                             <span style={{ marginLeft: 6, color: 'var(--sem-amber)' }}>
-                              · Was this for business?
+                              {t('pyme.wasThisForBusiness')}
                             </span>
                           )}
                           {tx.has_message_thread && (
@@ -460,7 +464,7 @@ export default function PymeDashboard() {
           <>
             {/* Semaphore Donut (small) */}
             <SectionCard
-              title="Transaction Health"
+              title={t('pyme.transactionHealth')}
               icon={Gauge}
               style={{ marginBottom: 12 }}
               compact
@@ -474,7 +478,7 @@ export default function PymeDashboard() {
 
             {/* Chat with firm (key feature for PYME) */}
             <SectionCard
-              title="Talk With Your Firm"
+              title={t('pyme.talkWithYourFirm')}
               icon={MessageCircle}
               style={{ marginBottom: 12 }}
               compact
@@ -503,7 +507,7 @@ export default function PymeDashboard() {
                       color: 'var(--lp-accent)', fontSize: 10, fontFamily: 'inherit'
                     }}
                   >
-                    View all →
+                    {t('common.viewAll')}
                   </button>
                 ) : undefined
               }

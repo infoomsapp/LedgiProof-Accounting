@@ -13,6 +13,7 @@
 // counts after a certify action changes them.
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   getCertificationQueue,
   certifyTransaction,
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export default function CertificationQueue({ orgId, onCertified }: Props) {
+  const { t } = useTranslation()
   const [items,    setItems]    = useState<CertificationQueueItem[]>([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState<string | null>(null)
@@ -43,11 +45,11 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
       setItems(data)
       setSelected(prev => new Set([...prev].filter(id => data.some(d => d.id === id))))
     } catch (e: any) {
-      setError(e?.message ?? 'Could not load the certification queue')
+      setError(e?.message ?? t('dashboard.couldNotLoadCertQueue'))
     } finally {
       setLoading(false)
     }
-  }, [orgId])
+  }, [orgId, t])
 
   useEffect(() => { load() }, [load])
 
@@ -74,8 +76,8 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
     if (failed > 0) {
       setBusyError(
         failed === ids.length
-          ? `Certification failed for all ${failed} selected transactions.`
-          : `Certified ${ids.length - failed} of ${ids.length} — ${failed} failed. Retry the remaining ones below.`
+          ? t('dashboard.certAllFailed', { count: failed })
+          : t('dashboard.certPartialFailed', { ok: ids.length - failed, total: ids.length, failed })
       )
     }
     await load()
@@ -85,7 +87,7 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
   if (loading) {
     return (
       <div style={{ padding: '28px 14px', fontSize: 12.5, color: 'var(--lp-text-muted)', textAlign: 'center' }}>
-        Loading certification queue…
+        {t('dashboard.loadingCertQueue')}
       </div>
     )
   }
@@ -98,7 +100,7 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
         borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10
       }}>
         <span>{error}</span>
-        <button className="lp-btn-outline" onClick={load}>Retry</button>
+        <button className="lp-btn-outline" onClick={load}>{t('common.retry')}</button>
       </div>
     )
   }
@@ -109,7 +111,7 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
         padding: '28px 14px', fontSize: 12.5, color: 'var(--lp-text-muted)',
         textAlign: 'center', fontStyle: 'italic'
       }}>
-        ✓ Nothing waiting for certification — the team is caught up.
+        {t('dashboard.nothingWaitingCert')}
       </div>
     )
   }
@@ -131,7 +133,9 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
             ref={el => { if (el) el.indeterminate = selected.size > 0 && selected.size < items.length }}
             onChange={toggleAll}
           />
-          {selected.size > 0 ? `${selected.size} selected` : `Select all · ${items.length} waiting`}
+          {selected.size > 0
+            ? t('dashboard.selectedCount',    { count: selected.size })
+            : t('dashboard.selectAllWaiting', { count: items.length })}
         </label>
 
         <button
@@ -140,7 +144,11 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
           onClick={certifySelected}
           style={{ opacity: selected.size === 0 || busy ? 0.5 : 1 }}
         >
-          {busy ? 'Certifying…' : `Certify ${selected.size > 0 ? `(${selected.size})` : ''}`}
+          {busy
+            ? t('dashboard.certifying')
+            : selected.size > 0
+              ? t('dashboard.certifyWithCount', { count: selected.size })
+              : t('dashboard.certify')}
         </button>
       </div>
 
@@ -184,7 +192,7 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
               border: '0.5px solid var(--sem-green-border)',
               flexShrink: 0
             }}>
-              green
+              {t('dashboard.semaphoreGreenTag')}
             </span>
 
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -192,10 +200,10 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
                 fontSize: 13, color: 'var(--lp-text)', fontWeight: 500,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
               }}>
-                {tx.description || tx.merchant_name || 'Untitled transaction'}
+                {tx.description || tx.merchant_name || t('dashboard.untitledTransaction')}
               </div>
               <div style={{ fontSize: 11, color: 'var(--lp-text-muted)' }}>
-                {tx.clients?.display_name ?? 'Unassigned'} · {formatDate(tx.transaction_date)}
+                {tx.clients?.display_name ?? t('dashboard.unassigned')} · {formatDate(tx.transaction_date)}
               </div>
             </div>
 

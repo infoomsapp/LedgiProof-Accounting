@@ -5,6 +5,7 @@
 
 import { db } from '../lib/supabase'
 import type { Transaction } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +82,7 @@ export async function createSession(input: {
     .select()
     .single()
 
-  if (error || !data) throw new Error(error?.message ?? 'Session creation failed')
+  if (error || !data) throw dbError(error, 'Failed to create the reconciliation session')
   return data as ReconciliationSession
 }
 
@@ -96,7 +97,7 @@ export async function getSessions(
   q = clientId ? q.eq('client_id', clientId) : q.is('client_id', null)
   const { data, error } = await q.order('period_end', { ascending: false })
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load reconciliation sessions')
   return (data ?? []) as ReconciliationSummary[]
 }
 
@@ -117,7 +118,7 @@ export async function closeSession(
     p_session_id: sessionId,
     p_user_id:    userId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to close the reconciliation session')
   return {
     balanced:   (data as any).balanced,
     difference: (data as any).difference
@@ -137,7 +138,7 @@ export async function loadSessionTransactions(
     .eq('org_id', orgId)
     .order('created_at')
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the session transactions')
 
   return (data ?? []).map((item: any) => ({
     ...item.transactions,
@@ -163,7 +164,7 @@ export async function loadUnreconciledTransactions(
   q = clientId ? q.eq('client_id', clientId) : q.is('client_id', null)
   const { data, error } = await q.order('transaction_date', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load unreconciled transactions')
   return (data ?? []) as Transaction[]
 }
 
@@ -185,7 +186,7 @@ export async function addTransactionsToSession(
     .from('reconciliation_items')
     .upsert(inserts, { onConflict: 'session_id,transaction_id' })
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to add transactions to the session')
 }
 
 // ── Toggle cleared state ─────────────────────────────────────────────────────
@@ -202,7 +203,7 @@ export async function toggleCleared(
     })
     .eq('id', itemId)
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the cleared status')
 }
 
 export async function clearAll(sessionId: string): Promise<void> {
@@ -211,7 +212,7 @@ export async function clearAll(sessionId: string): Promise<void> {
     .update({ is_cleared: true, cleared_at: new Date().toISOString() })
     .eq('session_id', sessionId)
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to clear all transactions')
 }
 
 export async function unclearAll(sessionId: string): Promise<void> {
@@ -220,7 +221,7 @@ export async function unclearAll(sessionId: string): Promise<void> {
     .update({ is_cleared: false, cleared_at: null })
     .eq('session_id', sessionId)
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to unclear all transactions')
 }
 
 // ── Auto-match ───────────────────────────────────────────────────────────────
@@ -248,7 +249,7 @@ export async function autoMatch(sessionId: string, orgId: string): Promise<numbe
     .eq('session_id', sessionId)
     .eq('is_cleared', false)
 
-  if (iErr) throw new Error(iErr.message)
+  if (iErr) throw dbError(iErr, 'Failed to auto-match transactions')
   if (!items?.length) return 0
 
   let matched = 0
@@ -271,7 +272,7 @@ export async function autoMatch(sessionId: string, orgId: string): Promise<numbe
       .update({ is_cleared: true, cleared_at: now })
       .in('id', toUpdate)
 
-    if (error) throw new Error(error.message)
+    if (error) throw dbError(error, 'Failed to auto-match transactions')
   }
 
   return matched

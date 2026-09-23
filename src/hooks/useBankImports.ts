@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getImports, processBankImport } from '../services/bank-import.service'
 import { db } from '../lib/supabase'
 import type { BankImport, TxSource } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 export const importKeys = {
   all:  (orgId: string) => ['bank_imports', orgId] as const,
@@ -30,7 +31,7 @@ async function uploadImport(input: UploadImportInput): Promise<BankImport> {
     })
     .select()
     .single()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the bank import')
   return data
 }
 

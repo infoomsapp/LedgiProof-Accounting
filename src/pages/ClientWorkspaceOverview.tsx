@@ -17,36 +17,40 @@
 // Constitution: this is pure presentation + navigation. No business logic.
 
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useScope }    from '../hooks/useScope'
 import { useUserRole } from '../hooks/useUserRole'
 
+// `titleKey`/`hintKey` hold i18n KEYS (module scope can't call hooks) —
+// resolved with t() at the render site below.
 interface NavCard {
-  to:    string
-  icon:  string
-  title: string
-  hint:  string
+  to:       string
+  icon:     string
+  titleKey: string
+  hintKey:  string
 }
 
 const BASE_NAV_CARDS: NavCard[] = [
-  { to: 'transactions',   icon: '💳', title: 'Transactions',     hint: 'Review, categorize, reconcile' },
-  { to: 'invoices',       icon: '📄', title: 'Invoices',         hint: 'AR, billing, payments' },
-  { to: 'estimates',      icon: '📋', title: 'Estimates',        hint: 'Quotes, proposals, conversion' },
-  { to: 'imports',        icon: '🏦', title: 'Bank connections', hint: 'Plaid feeds for this client' },
-  { to: 'accounts',       icon: '📚', title: 'Chart of accounts', hint: 'Client-specific accounting structure' },
-  { to: 'reconciliation', icon: '⚖️',  title: 'Reconciliation',   hint: 'Match bank to ledger' },
-  { to: 'reports',        icon: '📊', title: 'Reports',          hint: 'P&L, Balance Sheet, Cash Flow' }
+  { to: 'transactions',   icon: '💳', titleKey: 'clientWorkspace.cardTransactions',    hintKey: 'clientWorkspace.cardTransactionsHint' },
+  { to: 'invoices',       icon: '📄', titleKey: 'clientWorkspace.cardInvoices',        hintKey: 'clientWorkspace.cardInvoicesHint' },
+  { to: 'estimates',      icon: '📋', titleKey: 'clientWorkspace.cardEstimates',       hintKey: 'clientWorkspace.cardEstimatesHint' },
+  { to: 'imports',        icon: '🏦', titleKey: 'clientWorkspace.cardBankConnections', hintKey: 'clientWorkspace.cardBankConnectionsHint' },
+  { to: 'accounts',       icon: '📚', titleKey: 'clientWorkspace.cardChartOfAccounts', hintKey: 'clientWorkspace.cardChartOfAccountsHint' },
+  { to: 'reconciliation', icon: '⚖️',  titleKey: 'clientWorkspace.cardReconciliation',  hintKey: 'clientWorkspace.cardReconciliationHint' },
+  { to: 'reports',        icon: '📊', titleKey: 'clientWorkspace.cardReports',         hintKey: 'clientWorkspace.cardReportsHint' }
 ]
 
 const PAYROLL_NAV_CARD: NavCard =
-  { to: 'payroll', icon: '🧾', title: 'Payroll', hint: 'Employees, pay runs, pay stubs' }
+  { to: 'payroll', icon: '🧾', titleKey: 'clientWorkspace.cardPayroll', hintKey: 'clientWorkspace.cardPayrollHint' }
 
 const JOURNAL_NAV_CARD: NavCard =
-  { to: 'journal', icon: '📒', title: 'Journal Entries', hint: 'Accruals, deferrals, depreciation, closing entries' }
+  { to: 'journal', icon: '📒', titleKey: 'clientWorkspace.cardJournal', hintKey: 'clientWorkspace.cardJournalHint' }
 
 const PERIODS_NAV_CARD: NavCard =
-  { to: 'periods', icon: '🔒', title: 'Period Controls', hint: 'Lock and close accounting periods' }
+  { to: 'periods', icon: '🔒', titleKey: 'clientWorkspace.cardPeriods', hintKey: 'clientWorkspace.cardPeriodsHint' }
 
 export default function ClientWorkspaceOverview() {
+  const { t }    = useTranslation()
   const scope    = useScope()
   const navigate = useNavigate()
   const { canViewPayroll, canPostJournalEntries, canClosePeriods } = useUserRole()
@@ -80,11 +84,11 @@ export default function ClientWorkspaceOverview() {
           borderRadius:  8,
           marginBottom:  14
         }}>
-          <MetaItem label="Email"    value={client.email     ?? '—'} />
-          <MetaItem label="Phone"    value={client.phone     ?? '—'} />
-          <MetaItem label="Tax ID"   value={client.tax_id    ?? '—'} mono />
-          <MetaItem label="Currency" value={client.default_currency ?? 'USD'} />
-          <MetaItem label="Terms"    value={`Net ${client.payment_terms ?? 30}`} />
+          <MetaItem label={t('clientWorkspace.email')}    value={client.email     ?? '—'} />
+          <MetaItem label={t('clientWorkspace.phone')}    value={client.phone     ?? '—'} />
+          <MetaItem label={t('clientWorkspace.taxId')}    value={client.tax_id    ?? '—'} mono />
+          <MetaItem label={t('clientWorkspace.currency')} value={client.default_currency ?? 'USD'} />
+          <MetaItem label={t('clientWorkspace.terms')}    value={t('clientWorkspace.netTerms', { days: client.payment_terms ?? 30 })} />
 
           <div style={{ flex: 1, minWidth: 8 }} />
 
@@ -105,7 +109,7 @@ export default function ClientWorkspaceOverview() {
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
-            ✏ Edit client details
+            {t('clientWorkspace.editClientDetails')}
           </button>
         </div>
       )}
@@ -147,14 +151,14 @@ export default function ClientWorkspaceOverview() {
               color:       'var(--lp-text)',
               marginBottom: 2
             }}>
-              {card.title}
+              {t(card.titleKey)}
             </div>
             <div style={{
               fontSize:    11,
               color:       'var(--lp-text-muted)',
               lineHeight:  1.4
             }}>
-              {card.hint}
+              {t(card.hintKey)}
             </div>
           </button>
         ))}

@@ -5,6 +5,7 @@
 // Ahorro, no tax-prep — no pisa la app de impuestos. (Futuro: "Entrepreneur".)
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   useSetAsideSummary, useSetAsideEntries, useAddSetAside, useUpdateSetAsideRate
 } from '../../hooks/useSetAside'
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function TaxSetAsideCard({ orgId, year, userId, netProfitYTD }: Props) {
+  const { t } = useTranslation()
   const summary = useSetAsideSummary(orgId, year)
   const entries = useSetAsideEntries(orgId, year)
   const addMut  = useAddSetAside(orgId, year)
@@ -40,8 +42,8 @@ export default function TaxSetAsideCard({ orgId, year, userId, netProfitYTD }: P
 
   async function handleAdd() {
     const amt = parseFloat(amount)
-    if (!userId)         { setError('Not signed in.'); return }
-    if (!amt || amt <= 0) { setError('Enter an amount.'); return }
+    if (!userId)         { setError(t('solo.notSignedIn')); return }
+    if (!amt || amt <= 0) { setError(t('solo.enterAnAmount')); return }
     setError(null)
     try {
       await addMut.mutateAsync({
@@ -49,7 +51,7 @@ export default function TaxSetAsideCard({ orgId, year, userId, netProfitYTD }: P
       })
       setAmount('')
     } catch (e: any) {
-      setError(e?.message ?? 'Could not save.')
+      setError(e?.message ?? t('solo.couldNotSave'))
     }
   }
 
@@ -63,9 +65,9 @@ export default function TaxSetAsideCard({ orgId, year, userId, netProfitYTD }: P
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap'
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp-text)' }}>🐷 Tax set-aside</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp-text)' }}>{t('solo.taxSetAside')}</div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 3 }}>
-            Stash a slice of profit so tax season doesn't sting
+            {t('solo.taxSetAsideSub')}
           </div>
         </div>
         {/* Rate selector */}
@@ -90,10 +92,10 @@ export default function TaxSetAsideCard({ orgId, year, userId, netProfitYTD }: P
         {/* Progreso */}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 6 }}>
           <span style={{ color: 'var(--lp-text)' }}>
-            Set aside <strong>{fmt(setAside)}</strong> of {fmt(target)}
+            {t('solo.setAsidePrefix')} <strong>{fmt(setAside)}</strong> {t('solo.setAsideOf', { target: fmt(target) })}
           </span>
           <span style={{ color: onTrack ? 'var(--sem-green)' : 'var(--lp-text-muted)' }}>
-            {onTrack ? '✓ On track' : `${fmt(gap)} to go`}
+            {onTrack ? t('solo.onTrack') : t('solo.toGo', { amount: fmt(gap) })}
           </span>
         </div>
         <div style={{ height: 9, borderRadius: 100, background: 'var(--lp-surface-2)', overflow: 'hidden' }}>
@@ -103,15 +105,15 @@ export default function TaxSetAsideCard({ orgId, year, userId, netProfitYTD }: P
           }} />
         </div>
         <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', marginTop: 6 }}>
-          Recommended: {Math.round(rate * 100)}% of your {fmt(Math.max(0, netProfitYTD))} YTD net profit.
+          {t('solo.recommendedRate', { pct: Math.round(rate * 100), amount: fmt(Math.max(0, netProfitYTD)) })}
         </div>
 
         {/* Log aporte */}
         <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-          <input className="lp-input" inputMode="decimal" placeholder="Amount you moved to savings"
+          <input className="lp-input" inputMode="decimal" placeholder={t('solo.amountPlaceholder')}
                  value={amount} onChange={e => setAmount(e.target.value)} style={{ flex: 1 }} />
           <button className="lp-btn lp-btn-primary" onClick={handleAdd} disabled={addMut.isPending}>
-            {addMut.isPending ? '…' : 'Log set-aside'}
+            {addMut.isPending ? '…' : t('solo.logSetAside')}
           </button>
         </div>
         {error && <div style={{ fontSize: 11.5, color: 'var(--sem-red)', marginTop: 6 }}>⚠ {error}</div>}
@@ -121,7 +123,9 @@ export default function TaxSetAsideCard({ orgId, year, userId, netProfitYTD }: P
           <div style={{ marginTop: 10 }}>
             <button type="button" onClick={() => setExpanded(e => !e)}
               style={{ background: 'none', border: 'none', color: 'var(--lp-accent)', fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
-              {expanded ? 'Hide' : 'Show'} contributions ({entries.data!.length}) {expanded ? '▲' : '▼'}
+              {expanded
+                ? t('solo.hideContributions', { count: entries.data!.length })
+                : t('solo.showContributions', { count: entries.data!.length })} {expanded ? '▲' : '▼'}
             </button>
             {expanded && (
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>

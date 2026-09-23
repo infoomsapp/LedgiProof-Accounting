@@ -150,6 +150,21 @@ export function useUserRole(): UserRoleInfo {
         // is_personal or unknown → solo view (safest read-only default)
         kind = 'solo_owner'
       }
+    } else if (activeOrg?.is_personal === true) {
+      // 🐛 Real bug fixed (audit 2026-09-22): a bookkeeper/accountant firm
+      // owner whose ACTIVE org is their OWN personal workspace used to keep
+      // kind='bookkeeper_owner'/'accountant_owner' here, because this branch
+      // only ever looked at the actor's profile (accountType/systemRole),
+      // never at which org is currently active. That let firm-only
+      // capabilities (canRunPayroll/canViewPayroll via isPayrollEligibleOrgKind,
+      // canViewUsersTab, RoleGuard allowlists, Estimates.tsx's isBookkeeper
+      // category split, USER_KIND_LABELS) leak into Personal mode — e.g.
+      // src/pages/Payroll.tsx guards purely on canViewPayroll and has no
+      // additional org-flag check, so it was directly reachable. This
+      // mirrors the isImpersonating branch above, which already resolves a
+      // personal target org to a solo_owner kind — same fix, applied to the
+      // real (non-impersonating) session.
+      kind = 'solo_owner'
     } else if (accountType === 'self_employed' || workspaceKind === 'solo') {
       kind = 'solo_owner'
     } else if (accountType === 'pyme_client') {

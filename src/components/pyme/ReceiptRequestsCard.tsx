@@ -3,6 +3,7 @@
 // Each row: what merchant/amount/date is needed + Upload action.
 
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { PymeReceiptRequest } from '../../services/pyme-dashboard.service'
 import { formatDateShort } from '../../lib/dates'
 
@@ -21,6 +22,7 @@ const fmt = (n: number | null) => {
 }
 
 export default function ReceiptRequestsCard({ requests, onUploadRequest }: Props) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   if (requests.length === 0) return null
@@ -40,12 +42,12 @@ export default function ReceiptRequestsCard({ requests, onUploadRequest }: Props
         textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
       }}>
-        <span>🧾 Receipts requested by your firm</span>
+        <span>{t('pyme.receiptsRequestedTitle')}</span>
         <span style={{
           fontSize: 11, color: '#3b82f6', textTransform: 'none',
           letterSpacing: 0, fontWeight: 500
         }}>
-          {requests.length} pending
+          {t('pyme.pendingCount', { count: requests.length })}
         </span>
       </div>
 
@@ -66,7 +68,7 @@ export default function ReceiptRequestsCard({ requests, onUploadRequest }: Props
                 fontSize: 13, color: 'var(--lp-text)', fontWeight: 500,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
               }}>
-                {req.merchant_hint ?? 'Receipt requested'}
+                {req.merchant_hint ?? t('pyme.receiptRequested')}
                 {req.amount_hint != null && (
                   <span style={{
                     fontFamily: 'monospace', fontSize: 12,
@@ -111,7 +113,7 @@ export default function ReceiptRequestsCard({ requests, onUploadRequest }: Props
                 whiteSpace: 'nowrap'
               }}
             >
-              Upload →
+              {t('pyme.uploadArrow')}
             </button>
           </div>
         ))}
@@ -128,7 +130,7 @@ export default function ReceiptRequestsCard({ requests, onUploadRequest }: Props
               textAlign: 'center'
             }}
           >
-            View {requests.length - 5} more →
+            {t('pyme.viewMoreRequests', { count: requests.length - 5 })}
           </button>
         )}
       </div>

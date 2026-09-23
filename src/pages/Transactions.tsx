@@ -4,6 +4,7 @@
 //
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams }   from 'react-router-dom'
+import { useTranslation }    from 'react-i18next'
 import { useAuthStore }      from '../store/auth.store'
 import { useScope }          from '../hooks/useScope'
 import { useTransactions }   from '../hooks/useTransactions'
@@ -24,6 +25,7 @@ type FilterSem = SemaphoreStatus | 'all'
 const fmt = (n: number) => formatCurrency(n)
 
 export default function Transactions() {
+  const { t }           = useTranslation()
   const { membership }  = useAuthStore()
   // scope.clientId is set when reached via /clients/:clientId/transactions
   // (a firm's client workspace) and null for solo/pyme orgs. Without this,
@@ -144,7 +146,7 @@ export default function Transactions() {
     )
     if (!targets.length) return
     if (!membership?.user_id) {
-      setBulkError('No authenticated user — cannot approve.')
+      setBulkError(t('transactions.noAuthUserApprove'))
       return
     }
     setBulkWorking(true)
@@ -162,10 +164,11 @@ export default function Transactions() {
       (r): r is PromiseRejectedResult => r.status === 'rejected'
     )
     if (failures.length) {
-      setBulkError(
-        `${failures.length} of ${targets.length} approval(s) failed: ` +
-        failures.map(f => (f.reason as Error)?.message ?? String(f.reason)).join('; ')
-      )
+      setBulkError(t('transactions.approvalsFailed', {
+        failed:  failures.length,
+        total:   targets.length,
+        details: failures.map(f => (f.reason as Error)?.message ?? String(f.reason)).join('; ')
+      }))
     }
 
     setSelected(new Set())
@@ -195,10 +198,11 @@ export default function Transactions() {
       (r): r is PromiseRejectedResult => r.status === 'rejected'
     )
     if (failures.length) {
-      setBulkError(
-        `${failures.length} of ${targets.length} lock attempt(s) failed: ` +
-        failures.map(f => (f.reason as Error)?.message ?? String(f.reason)).join('; ')
-      )
+      setBulkError(t('transactions.locksFailed', {
+        failed:  failures.length,
+        total:   targets.length,
+        details: failures.map(f => (f.reason as Error)?.message ?? String(f.reason)).join('; ')
+      }))
     }
 
     setSelected(new Set())
@@ -218,7 +222,7 @@ export default function Transactions() {
     const targets = selectedRows.filter(r => r.semaphore !== 'blue')
     if (!targets.length || !postDebitId || !postCreditId) return
     if (!membership?.user_id) {
-      setBulkError('No authenticated user — cannot post.')
+      setBulkError(t('transactions.noAuthUserPost'))
       return
     }
 
@@ -243,10 +247,14 @@ export default function Transactions() {
     const succeeded = targets.length - failures.length
 
     setPostSummary(
-      `Posted ${succeeded} of ${targets.length}.` +
-      (alreadyPosted.length ? ` ${alreadyPosted.length} already had ledger entries.` : '') +
-      (realFailures.length ? ` ${realFailures.length} failed: ` +
-        realFailures.map(f => (f.reason as Error)?.message ?? String(f.reason)).join('; ') : '')
+      t('transactions.postedSummary', { ok: succeeded, total: targets.length }) +
+      (alreadyPosted.length ? t('transactions.postedAlready', { count: alreadyPosted.length }) : '') +
+      (realFailures.length
+        ? t('transactions.postedFailed', {
+            count:   realFailures.length,
+            details: realFailures.map(f => (f.reason as Error)?.message ?? String(f.reason)).join('; ')
+          })
+        : '')
     )
 
     setSelected(new Set())
@@ -261,7 +269,7 @@ export default function Transactions() {
   // ── AI Accounting Assistant ──────────────────────────────────────────
   async function askAI() {
     if (!aiQuery.trim()) return
-    if (!orgId) { setAiAnswer('No workspace selected.'); return }
+    if (!orgId) { setAiAnswer(t('transactions.noWorkspaceSelected')); return }
     setAiLoading(true); setAiAnswer('')
 
     // Compact context for the assistant. Routed through OUR ai-query Edge
@@ -292,7 +300,7 @@ export default function Transactions() {
     } catch (e) {
       // askAi throws QuotaExceededError (message = upgrade prompt) or a generic
       // Error; both carry a user-readable message.
-      setAiAnswer(e instanceof Error ? e.message : 'Unable to reach AI assistant.')
+      setAiAnswer(e instanceof Error ? e.message : t('transactions.aiUnreachable'))
     }
     setAiLoading(false)
   }
@@ -310,12 +318,12 @@ export default function Transactions() {
         <div style={{ display: 'flex', alignItems: 'flex-start',
           justifyContent: 'space-between', marginBottom: 14, gap: 10, flexWrap: 'wrap' }}>
           <div>
-            <h1 className="lp-page-title">Transactions</h1>
+            <h1 className="lp-page-title">{t('transactions.title')}</h1>
             <p className="lp-page-sub">
-              {visible.length} entries
+              {t('transactions.entriesCount', { count: visible.length })}
               {someSelected && (
                 <span style={{ color: 'var(--lp-accent)', marginLeft: 8 }}>
-                  · {selected.size} selected
+                  {t('transactions.selectedSuffix', { count: selected.size })}
                 </span>
               )}
             </p>
@@ -331,7 +339,7 @@ export default function Transactions() {
                 color:       showAI ? 'var(--lp-violet)' : undefined
               }}
             >
-              ✨ AI Assistant
+              {t('transactions.aiAssistant')}
             </button>
             {/* Filters toggle */}
             <button
@@ -343,13 +351,13 @@ export default function Transactions() {
                 color:       hasDateFilter ? 'var(--lp-accent)' : undefined
               }}
             >
-              ⚙ Filters{hasDateFilter ? ' ●' : ''}
+              {t('transactions.filtersButton')}{hasDateFilter ? ' ●' : ''}
             </button>
             {/* Search */}
             <input
               className="lp-input"
               style={{ width: 190, fontSize: 12.5 }}
-              placeholder="Search…"
+              placeholder={t('transactions.searchPlaceholder')}
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -363,7 +371,7 @@ export default function Transactions() {
                 className="lp-btn lp-btn-ghost"
                 style={{ fontSize: 12.5 }}
               >
-                ⬇ CSV
+                {t('transactions.csv')}
               </button>
             )}
           </div>
@@ -376,14 +384,14 @@ export default function Transactions() {
             background: 'rgba(59,130,246,0.05)', border: '0.5px solid rgba(59,130,246,0.15)' }}>
             <div>
               <label style={{ fontSize: 11, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 4 }}>
-                From
+                {t('transactions.from')}
               </label>
               <input type="date" className="lp-input" style={{ fontSize: 12.5 }}
                 value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
             </div>
             <div>
               <label style={{ fontSize: 11, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 4 }}>
-                To
+                {t('transactions.to')}
               </label>
               <input type="date" className="lp-input" style={{ fontSize: 12.5 }}
                 value={dateTo} onChange={e => setDateTo(e.target.value)} />
@@ -394,7 +402,7 @@ export default function Transactions() {
                 className="lp-btn lp-btn-ghost"
                 style={{ fontSize: 12, color: 'var(--sem-red)', borderColor: 'rgba(239,68,68,0.25)' }}
               >
-                Clear dates
+                {t('transactions.clearDates')}
               </button>
             )}
           </div>
@@ -405,13 +413,13 @@ export default function Transactions() {
           <div style={{ marginBottom: 12, padding: '14px', borderRadius: 10,
             background: 'var(--lp-violet-bg)', border: '0.5px solid rgba(167,139,250,0.2)' }}>
             <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--lp-violet)', marginBottom: 10 }}>
-              ✨ AI Accounting Assistant
+              {t('transactions.aiPanelTitle')}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 className="lp-input"
                 style={{ flex: 1, fontSize: 12.5 }}
-                placeholder="Ask anything… e.g. 'Which expenses should I review before closing the month?'"
+                placeholder={t('transactions.aiPlaceholder')}
                 value={aiQuery}
                 onChange={e => setAiQuery(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && askAI()}
@@ -422,7 +430,7 @@ export default function Transactions() {
                 className="lp-btn lp-btn-primary"
                 style={{ fontSize: 12.5, padding: '0 14px' }}
               >
-                {aiLoading ? '…' : 'Ask'}
+                {aiLoading ? '…' : t('transactions.ask')}
               </button>
             </div>
             {aiAnswer && (
@@ -447,14 +455,14 @@ export default function Transactions() {
         {pendingOnly && (
           <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 12, color: 'var(--lp-text-muted)' }}>
-              Showing pending only — 🟡 amber + 🔴 red
+              {t('transactions.showingPendingOnly')}
             </span>
             <button
               onClick={() => setPendingOnly(false)}
               className="lp-btn lp-btn-ghost"
               style={{ fontSize: 11.5 }}
             >
-              Show all
+              {t('transactions.showAll')}
             </button>
           </div>
         )}
@@ -465,7 +473,7 @@ export default function Transactions() {
             padding: '8px 12px', borderRadius: 8, marginBottom: 8,
             background: 'var(--sem-blue-bg)', border: '0.5px solid rgba(59,130,246,0.2)' }}>
             <span style={{ fontSize: 12.5, color: 'var(--lp-accent)', fontWeight: 500 }}>
-              {selected.size} selected
+              {t('transactions.selectedCount', { count: selected.size })}
             </span>
             <div style={{ height: 14, width: 1, background: 'rgba(59,130,246,0.3)' }} />
             <button
@@ -475,17 +483,17 @@ export default function Transactions() {
                 background: 'rgba(34,197,94,0.1)', border: '0.5px solid rgba(34,197,94,0.3)',
                 color: 'var(--sem-green)', fontFamily: 'inherit' }}
             >
-              ✓ Approve → Blue
+              {t('transactions.approveToBlue')}
             </button>
             <button
               onClick={() => { setPostSummary(null); setShowPostModal(true) }}
               disabled={bulkWorking}
-              title="Assign debit/credit accounts and post these to the ledger — required for them to appear on P&L / Balance Sheet"
+              title={t('transactions.postToLedgerTitle')}
               style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
                 background: 'var(--lp-violet-bg)', border: '0.5px solid var(--lp-violet-border)',
                 color: 'var(--lp-violet)', fontFamily: 'inherit' }}
             >
-              📒 Post to Ledger
+              {t('transactions.postToLedger')}
             </button>
             <button
               onClick={bulkLock}
@@ -494,7 +502,7 @@ export default function Transactions() {
                 background: 'rgba(59,130,246,0.1)', border: '0.5px solid rgba(59,130,246,0.3)',
                 color: 'var(--lp-accent)', fontFamily: 'inherit' }}
             >
-              🔒 Lock
+              {t('transactions.lock')}
             </button>
             <button
               onClick={() => setSelected(new Set())}
@@ -502,7 +510,7 @@ export default function Transactions() {
                 background: 'none', border: '0.5px solid var(--lp-border)',
                 color: 'var(--lp-text-muted)', fontFamily: 'inherit', marginLeft: 'auto' }}
             >
-              Clear
+              {t('transactions.clear')}
             </button>
           </div>
         )}
@@ -517,25 +525,25 @@ export default function Transactions() {
                 background: 'none', border: '0.5px solid var(--lp-border)',
                 color: 'var(--lp-text-muted)', fontFamily: 'inherit', marginLeft: 'auto' }}
             >
-              Dismiss
+              {t('common.dismiss')}
             </button>
           </div>
         )}
 
         {/* Table */}
         {isLoading ? (
-          <div style={{ color: 'var(--lp-text-muted)', fontSize: 13 }}>Loading…</div>
+          <div style={{ color: 'var(--lp-text-muted)', fontSize: 13 }}>{t('common.loading')}</div>
         ) : visible.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 10 }}>📄</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>
-                No transactions
+                {t('transactions.noTransactions')}
               </div>
               <div style={{ fontSize: 13, color: 'var(--lp-text-muted)' }}>
                 {hasDateFilter || search || semFilter !== 'all'
-                  ? 'No transactions match the current filters.'
-                  : 'Connect a bank account to start importing transactions.'}
+                  ? t('transactions.noMatchFilters')
+                  : t('transactions.connectBankPrompt')}
               </div>
             </div>
           </div>
@@ -553,12 +561,12 @@ export default function Transactions() {
                       style={{ cursor: 'pointer', accentColor: 'var(--lp-accent)' }}
                     />
                   </th>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th>Reference</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Amount</th>
-                  <th style={{ textAlign: 'center' }}>Locked</th>
+                  <th>{t('transactions.colDate')}</th>
+                  <th>{t('transactions.colDescription')}</th>
+                  <th>{t('transactions.colReference')}</th>
+                  <th>{t('transactions.colStatus')}</th>
+                  <th style={{ textAlign: 'right' }}>{t('transactions.colAmount')}</th>
+                  <th style={{ textAlign: 'center' }}>{t('transactions.colLocked')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -646,8 +654,11 @@ export default function Transactions() {
       <Modal
         open={showPostModal}
         onClose={() => { if (!bulkWorking) { setShowPostModal(false); setPostSummary(null) } }}
-        title="Post to ledger"
-        subtitle={`${selectedRows.filter(r => r.semaphore !== 'blue').length} of ${selected.size} selected can be posted (already-verified transactions are skipped)`}
+        title={t('transactions.postModalTitle')}
+        subtitle={t('transactions.postModalSubtitle', {
+          postable: selectedRows.filter(r => r.semaphore !== 'blue').length,
+          selected: selected.size
+        })}
         width={440}
         footer={
           <>
@@ -656,7 +667,7 @@ export default function Transactions() {
               className="lp-btn lp-btn-ghost"
               disabled={bulkWorking}
             >
-              {postSummary ? 'Close' : 'Cancel'}
+              {postSummary ? t('common.close') : t('common.cancel')}
             </button>
             {!postSummary && (
               <button
@@ -665,8 +676,10 @@ export default function Transactions() {
                 className="lp-btn lp-btn-primary"
               >
                 {bulkWorking
-                  ? 'Posting…'
-                  : `Post ${selectedRows.filter(r => r.semaphore !== 'blue').length} to ledger`}
+                  ? t('transactions.posting')
+                  : t('transactions.postNToLedger', {
+                      count: selectedRows.filter(r => r.semaphore !== 'blue').length
+                    })}
               </button>
             )}
           </>
@@ -687,11 +700,7 @@ export default function Transactions() {
               padding: '8px 12px', borderRadius: 7,
               background: 'var(--lp-surface-2)', border: '0.5px solid var(--lp-border)'
             }}>
-              Every selected transaction gets its own balanced debit/credit
-              entry against these two accounts, for its own amount — this
-              doesn't merge them into one entry. Use this when a batch of
-              transactions all belong to the same category (e.g. a month of
-              the same recurring vendor).
+              {t('transactions.postModalExplain')}
             </div>
 
             {postDebitId === postCreditId && postDebitId !== '' && (

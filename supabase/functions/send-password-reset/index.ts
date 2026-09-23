@@ -18,6 +18,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
 import { checkRateLimit } from '../_shared/rate-limit.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 const ALLOWED_REDIRECT_ORIGINS = new Set([
   'https://app.ledgiproof.com',
@@ -107,7 +108,7 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[send-password-reset] Unexpected error:', err)
-    return j({ error: String(err) }, 500)
+    return j({ error: safeMessage(err, 'Failed to send the reset email') }, 500)
   }
 })
 

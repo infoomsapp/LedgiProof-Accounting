@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query'
 import { db }       from '../lib/supabase'
 
 import type { Transaction, SemaphoreStatus } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 const clientTxKeys = {
   all: (clientId: string) => ['client-transactions', clientId] as const,
@@ -56,7 +57,7 @@ export function useClientTransactions(
       if (filters?.dateTo)    q = q.lte('transaction_date', filters.dateTo)
 
       const { data, error } = await q
-      if (error) throw new Error(error.message)
+      if (error) throw dbError(error, 'Failed to load transactions')
 
       return (data ?? []) as Transaction[]
     },

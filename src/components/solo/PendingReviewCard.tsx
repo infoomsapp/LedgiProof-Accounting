@@ -2,6 +2,7 @@
 // Shows amber + red transactions needing classification, with CTA to swipe mode.
 
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { SoloPending, SoloRecentTx } from '../../services/solo-dashboard.service'
 import { formatCurrency } from '../../lib/currency'
 
@@ -13,6 +14,7 @@ interface Props {
 const fmt = (n: number) => formatCurrency(n)
 
 export default function PendingReviewCard({ pending, recentTx }: Props) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const items = recentTx
     .filter(t => t.semaphore === 'amber' || t.semaphore === 'red')
@@ -31,10 +33,10 @@ export default function PendingReviewCard({ pending, recentTx }: Props) {
         <div style={{ fontSize: 24 }}>✓</div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#22c55e' }}>
-            All caught up
+            {t('solo.allCaughtUp')}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 2 }}>
-            No transactions needing review right now.
+            {t('solo.noTxNeedingReview')}
           </div>
         </div>
       </div>
@@ -66,26 +68,28 @@ export default function PendingReviewCard({ pending, recentTx }: Props) {
             textTransform: 'uppercase', letterSpacing: '0.07em',
             fontWeight: 600, marginBottom: 4
           }}>
-            ⚠ Needs your review
+            {t('solo.needsYourReview')}
           </div>
           <div style={{
             fontSize: 20, fontWeight: 700, color: 'var(--lp-text)',
             letterSpacing: '-0.02em'
           }}>
-            {pending.total} transaction{pending.total === 1 ? '' : 's'}
+            {pending.total === 1
+              ? t('solo.transactionCountOne',   { count: pending.total })
+              : t('solo.transactionCountOther', { count: pending.total })}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 3 }}>
             {pending.red > 0 && (
               <>
                 <span style={{ color: '#ef4444', fontWeight: 600 }}>
-                  {pending.red} 🔴 urgent
+                  {t('solo.urgentCount', { count: pending.red })}
                 </span>
                 {pending.amber > 0 && <span style={{ color: '#475569' }}> · </span>}
               </>
             )}
             {pending.amber > 0 && (
               <span style={{ color: '#f59e0b' }}>
-                {pending.amber} 🟡 review
+                {t('solo.reviewCount', { count: pending.amber })}
               </span>
             )}
           </div>
@@ -103,7 +107,7 @@ export default function PendingReviewCard({ pending, recentTx }: Props) {
             boxShadow: '0 2px 8px rgba(59,130,246,0.25)'
           }}
         >
-          Review pending →
+          {t('solo.reviewPending')}
         </button>
       </div>
 
@@ -135,11 +139,11 @@ export default function PendingReviewCard({ pending, recentTx }: Props) {
                 fontSize: 12.5, color: 'var(--lp-text)', fontWeight: 500,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
               }}>
-                {tx.merchant ?? tx.description ?? 'Transaction'}
+                {tx.merchant ?? tx.description ?? t('dashboard.transactionFallback')}
               </div>
               <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2 }}>
                 {tx.transaction_date}
-                {tx.requires_review && ' · Personal or business?'}
+                {tx.requires_review && ` · ${t('solo.personalOrBusiness')}`}
               </div>
             </div>
 
@@ -165,7 +169,7 @@ export default function PendingReviewCard({ pending, recentTx }: Props) {
               textAlign: 'center'
             }}
           >
-            View all {pending.total} pending →
+            {t('solo.viewAllPending', { count: pending.total })}
           </button>
         )}
       </div>

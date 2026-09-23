@@ -3,6 +3,7 @@
 // Read-only by definition. No edit/approve actions.
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   getAuditTransactionActivity,
   type AuditTransaction,
@@ -27,6 +28,7 @@ const semIcon = (s: string): string =>
 export default function AuditTransactionsTable({
   transactions, loading, loadingMore, hasMore, onLoadMore
 }: Props) {
+  const { t } = useTranslation()
 
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null)
   const [activityMap, setActivityMap]   = useState<Record<string, AuditTransactionActivity>>({})
@@ -63,7 +65,7 @@ export default function AuditTransactionsTable({
         borderRadius: 11,
         color: '#64748b', fontSize: 13, fontStyle: 'italic'
       }}>
-        Loading transactions…
+        {t('audit.loadingTransactions')}
       </div>
     )
   }
@@ -79,10 +81,10 @@ export default function AuditTransactionsTable({
       }}>
         <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.4 }}>📋</div>
         <div style={{ fontSize: 13, color: '#cbd5e1', marginBottom: 4, fontWeight: 500 }}>
-          No transactions match the current filters
+          {t('audit.noTransactionsMatch')}
         </div>
         <div style={{ fontSize: 11.5, color: '#64748b' }}>
-          Try adjusting the date range or removing filters.
+          {t('audit.tryAdjustingFilters')}
         </div>
       </div>
     )
@@ -107,12 +109,12 @@ export default function AuditTransactionsTable({
         textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600
       }}>
         <span></span>
-        <span>Date</span>
-        <span>Client / Merchant</span>
-        <span style={{ textAlign: 'right' }}>Amount</span>
-        <span>Created by</span>
-        <span>Approved by</span>
-        <span>Status</span>
+        <span>{t('audit.colDate')}</span>
+        <span>{t('audit.colClientMerchant')}</span>
+        <span style={{ textAlign: 'right' }}>{t('audit.colAmount')}</span>
+        <span>{t('audit.colCreatedBy')}</span>
+        <span>{t('audit.colApprovedBy')}</span>
+        <span>{t('audit.colStatus')}</span>
         <span></span>
       </div>
 
@@ -157,7 +159,7 @@ export default function AuditTransactionsTable({
                     fontSize: 12.5, color: 'var(--lp-text)', fontWeight: 500,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                   }}>
-                    {tx.merchant_name ?? tx.description ?? 'Transaction'}
+                    {tx.merchant_name ?? tx.description ?? t('dashboard.transactionFallback')}
                   </div>
                   {tx.client_name && (
                     <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2,
@@ -195,7 +197,7 @@ export default function AuditTransactionsTable({
                   color: statusColor(tx.review_status),
                   whiteSpace: 'nowrap'
                 }}>
-                  {tx.review_status}
+                  {t(`audit.reviewStatus.${tx.review_status}`, { defaultValue: tx.review_status })}
                 </span>
 
                 <span style={{
@@ -215,13 +217,13 @@ export default function AuditTransactionsTable({
                 }}>
                   {isLoading ? (
                     <div style={{ fontSize: 11.5, color: '#64748b', fontStyle: 'italic' }}>
-                      Loading activity…
+                      {t('audit.loadingActivity')}
                     </div>
                   ) : activity ? (
                     <ActivityTimeline activity={activity} tx={tx} />
                   ) : (
                     <div style={{ fontSize: 11.5, color: '#ef4444' }}>
-                      Could not load activity log.
+                      {t('audit.couldNotLoadActivity')}
                     </div>
                   )}
                 </div>
@@ -246,7 +248,7 @@ export default function AuditTransactionsTable({
             fontFamily: 'inherit', fontWeight: 500
           }}
         >
-          {loadingMore ? 'Loading more…' : 'Load more →'}
+          {loadingMore ? t('audit.loadingMore') : t('audit.loadMore')}
         </button>
       )}
 
@@ -257,8 +259,10 @@ export default function AuditTransactionsTable({
         background: 'rgba(255,255,255,0.01)',
         fontSize: 10.5, color: '#64748b', textAlign: 'right'
       }}>
-        Showing {transactions.length.toLocaleString()} transaction{transactions.length === 1 ? '' : 's'}
-        {hasMore ? ' (more available)' : ''}
+        {transactions.length === 1
+          ? t('audit.showingCountOne',   { count: transactions.length })
+          : t('audit.showingCountOther', { count: transactions.length })}
+        {hasMore ? t('audit.moreAvailable') : ''}
       </div>
     </div>
   )
@@ -274,13 +278,14 @@ function ActivityTimeline({
   activity: AuditTransactionActivity
   tx: AuditTransaction
 }) {
+  const { t } = useTranslation()
   return (
     <div>
       <div style={{
         fontSize: 10, color: '#64748b', fontWeight: 600,
         textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 9
       }}>
-        Activity log
+        {t('audit.activityLog')}
       </div>
 
       {/* Stats row */}
@@ -288,16 +293,22 @@ function ActivityTimeline({
         display: 'flex', gap: 16, marginBottom: 12,
         fontSize: 11, color: 'var(--lp-text-muted)'
       }}>
-        <span>v{activity.current_version} (current)</span>
-        <span>{activity.versions_count} version{activity.versions_count === 1 ? '' : 's'}</span>
-        <span>📎 {activity.documents_count} document{activity.documents_count === 1 ? '' : 's'}</span>
-        <span>💬 {activity.messages_count} message{activity.messages_count === 1 ? '' : 's'}</span>
+        <span>{t('audit.versionCurrent', { version: activity.current_version })}</span>
+        <span>{activity.versions_count === 1
+          ? t('audit.versionsCountOne',   { count: activity.versions_count })
+          : t('audit.versionsCountOther', { count: activity.versions_count })}</span>
+        <span>{activity.documents_count === 1
+          ? t('audit.documentsCountOne',   { count: activity.documents_count })
+          : t('audit.documentsCountOther', { count: activity.documents_count })}</span>
+        <span>{activity.messages_count === 1
+          ? t('audit.messagesCountOne',   { count: activity.messages_count })
+          : t('audit.messagesCountOther', { count: activity.messages_count })}</span>
       </div>
 
       {/* Timeline */}
       {activity.activity.length === 0 ? (
         <div style={{ fontSize: 11.5, color: '#64748b', fontStyle: 'italic' }}>
-          No activity events recorded.
+          {t('audit.noActivityEvents')}
         </div>
       ) : (
         <div style={{
@@ -328,9 +339,9 @@ function ActivityTimeline({
                   color: eventColor(event.event), fontWeight: 600,
                   textTransform: 'uppercase', letterSpacing: '0.04em'
                 }}>
-                  {event.event}
+                  {t(`audit.events.${event.event}`, { defaultValue: event.event })}
                 </span>
-                <span>by {event.by_name ?? '—'}</span>
+                <span>{t('audit.byActor', { name: event.by_name ?? '—' })}</span>
               </div>
 
               <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2 }}>
@@ -361,7 +372,7 @@ function ActivityTimeline({
         fontSize: 10.5, color: '#475569',
         paddingTop: 10, borderTop: '0.5px dashed rgba(255,255,255,0.05)'
       }}>
-        Transaction ID: <span style={{ fontFamily: 'monospace' }}>{tx.tx_id}</span>
+        {t('audit.transactionIdLabel')} <span style={{ fontFamily: 'monospace' }}>{tx.tx_id}</span>
       </div>
     </div>
   )

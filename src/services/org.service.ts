@@ -19,6 +19,7 @@
 
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
+import { dbError } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ export async function createPersonalOrgForBookkeeper(
   // Resolve user_id client-side so we can pass it explicitly (the RPC also
   // defaults to auth.uid() but being explicit makes the call site clearer).
   const { data: { user }, error: authErr } = await db.auth.getUser()
-  if (authErr) throw new Error(authErr.message)
+  if (authErr) throw dbError(authErr, 'Failed to verify your session')
   if (!user)   throw new Error('Not authenticated')
 
   const { data, error } = await db.rpc('create_personal_org_for_bookkeeper', pruneRpcArgs({
@@ -60,7 +61,7 @@ export async function createPersonalOrgForBookkeeper(
     p_display_name: displayName ?? undefined
   }))
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the workspace')
   if (!data) throw new Error('RPC returned no org_id')
 
   return data as unknown as string
@@ -81,7 +82,7 @@ export async function createPersonalOrgForBookkeeper(
 export async function getUserOrgsByCategory(): Promise<UserOrgsByCategory> {
   const { data, error } = await db.rpc('get_user_orgs_by_category')
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load your workspaces')
 
   // RPC returns JSONB { personal: [], firm: [], client: [] } — types are
   // looser than we'd like, so we coerce defensively.

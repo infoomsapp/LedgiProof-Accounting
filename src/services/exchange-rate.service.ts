@@ -10,6 +10,7 @@
 
 import { db }                  from '../lib/supabase'
 import type { ExchangeRates }  from '../lib/currency'
+import { dbError } from '../lib/errors'
 
 export interface ExchangeRateRow {
   currency:   string
@@ -37,7 +38,7 @@ export interface FxGainLossRow {
 export async function getAllExchangeRates(): Promise<ExchangeRateRow[]> {
   // `as any` until supabase gen types runs and exchange_rates appears in Database
   const { data, error } = await (db as any).from('exchange_rates').select('*').order('currency')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load exchange rates')
   return (data ?? []) as ExchangeRateRow[]
 }
 
@@ -68,7 +69,7 @@ export async function snapshotFxRate(currency: string): Promise<number | null> {
 
 export async function getFxGainsLosses(orgId: string): Promise<FxGainLossRow[]> {
   const { data, error } = await (db as any).rpc('get_fx_gains_losses', { p_org_id: orgId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load FX gains and losses')
   return (data ?? []) as FxGainLossRow[]
 }
 
@@ -76,5 +77,5 @@ export async function getFxGainsLosses(orgId: string): Promise<FxGainLossRow[]> 
 
 export async function refreshExchangeRates(): Promise<void> {
   const { error } = await db.functions.invoke('fetch-exchange-rates', { body: {} })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to refresh exchange rates')
 }

@@ -11,6 +11,7 @@
 // around it, since the bookkeeper's real work is the day's operational queue.
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   getCertificationQueue,
   certifyTransaction,
@@ -21,6 +22,7 @@ import { formatCurrency } from '../../../../lib/currency'
 const VISIBLE_CAP = 5
 
 export default function CertifyChip({ orgId, onCertified }: { orgId: string; onCertified?: () => void }) {
+  const { t } = useTranslation()
   const [items,   setItems]   = useState<CertificationQueueItem[]>([])
   const [open,    setOpen]    = useState(false)
   const [busyId,  setBusyId]  = useState<string | null>(null)
@@ -48,7 +50,7 @@ export default function CertifyChip({ orgId, onCertified }: { orgId: string; onC
       await load()
       onCertified?.()
     } catch (e: any) {
-      setError(e?.message ?? 'Certification failed')
+      setError(e?.message ?? t('dashboard.certificationFailed'))
     } finally {
       setBusyId(null)
     }
@@ -65,9 +67,9 @@ export default function CertifyChip({ orgId, onCertified }: { orgId: string; onC
         className="lp-btn-outline"
         onClick={() => setOpen(o => !o)}
         style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-        title="Green transactions ready to certify"
+        title={t('dashboard.certifyChipTitle')}
       >
-        🔏 Certify
+        🔏 {t('dashboard.certify')}
         <span style={{
           fontSize: 10.5, fontWeight: 700, color: 'var(--sem-blue)',
           padding: '1px 7px', borderRadius: 100,
@@ -92,7 +94,7 @@ export default function CertifyChip({ orgId, onCertified }: { orgId: string; onC
             textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600,
             borderBottom: '0.5px solid var(--lp-border)'
           }}>
-            Ready to certify
+            {t('dashboard.readyToCertify')}
           </div>
 
           {error && (
@@ -109,10 +111,10 @@ export default function CertifyChip({ orgId, onCertified }: { orgId: string; onC
                   fontSize: 12, color: 'var(--lp-text)', fontWeight: 500,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
                 }}>
-                  {tx.description || tx.merchant_name || 'Untitled transaction'}
+                  {tx.description || tx.merchant_name || t('dashboard.untitledTransaction')}
                 </div>
                 <div style={{ fontSize: 10.5, color: 'var(--lp-text-muted)' }}>
-                  {tx.clients?.display_name ?? 'Unassigned'} · {formatCurrency(tx.amount, tx.currency)}
+                  {tx.clients?.display_name ?? t('dashboard.unassigned')} · {formatCurrency(tx.amount, tx.currency)}
                 </div>
               </div>
               <button
@@ -121,7 +123,7 @@ export default function CertifyChip({ orgId, onCertified }: { orgId: string; onC
                 onClick={() => certify(tx.id)}
                 style={{ fontSize: 11, padding: '4px 10px', flexShrink: 0 }}
               >
-                {busyId === tx.id ? '…' : 'Certify'}
+                {busyId === tx.id ? '…' : t('dashboard.certify')}
               </button>
             </div>
           ))}
@@ -131,7 +133,7 @@ export default function CertifyChip({ orgId, onCertified }: { orgId: string; onC
               padding: '8px 12px', fontSize: 11, color: 'var(--lp-text-muted)',
               textAlign: 'center', fontStyle: 'italic'
             }}>
-              +{overflow} more waiting
+              {t('dashboard.moreWaiting', { count: overflow })}
             </div>
           )}
         </div>

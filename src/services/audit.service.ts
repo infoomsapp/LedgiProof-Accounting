@@ -6,6 +6,7 @@ import { db } from '../lib/supabase'
 import { verifyHashChain } from '../lib/hash'
 import type { AuditEventType, AuditEvent } from '../types/database.types'
 import type { AuditActivityItem } from '../types/audit'
+import { toSafeMessage } from '../lib/errors'
 
 // ── Append a single event to the chain ───────────────────────────────────────
 
@@ -42,7 +43,7 @@ export async function appendAuditEvent(input: AppendAuditEventInput): Promise<Au
     .single()
 
   if (error || !data) {
-    throw new Error(`[Audit] Append failed: ${error?.message}`)
+    throw new Error(`[Audit] Append failed: ${toSafeMessage(error, 'database error')}`)
   }
 
   return data
@@ -61,7 +62,7 @@ export async function getAuditTrail(
     .eq('org_id', orgId)
     .order('created_at', { ascending: true })
 
-  if (error) throw new Error(`[Audit] Fetch failed: ${error.message}`)
+  if (error) throw new Error(`[Audit] Fetch failed: ${toSafeMessage(error, 'database error')}`)
   return data ?? []
 }
 
@@ -79,7 +80,7 @@ export async function verifyOrgChain(
     .order('created_at', { ascending: true })
     .limit(limit)
 
-  if (error) throw new Error(`[Audit] Chain fetch failed: ${error.message}`)
+  if (error) throw new Error(`[Audit] Chain fetch failed: ${toSafeMessage(error, 'database error')}`)
 
   const entries = data ?? []
   const valid   = await verifyHashChain(entries)
@@ -110,7 +111,7 @@ export async function getLatestAuditHash(orgId: string): Promise<string | null> 
     .limit(1)
     .maybeSingle()
 
-  if (error) throw new Error(`[Audit] Latest hash fetch failed: ${error.message}`)
+  if (error) throw new Error(`[Audit] Latest hash fetch failed: ${toSafeMessage(error, 'database error')}`)
   return data?.entry_hash ?? null
 }
 
@@ -127,7 +128,7 @@ export async function getRecentEvents(
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) throw new Error(`[Audit] Recentevents failed: ${error.message}`)
+  if (error) throw new Error(`[Audit] Recentevents failed: ${toSafeMessage(error, 'database error')}`)
   return data ?? []
 }
 
@@ -145,6 +146,6 @@ export async function getOrgActivityFeed(
     p_org_id: orgId,
     p_limit:  limit
   })
-  if (error) throw new Error(`[Audit] Activity feed failed: ${error.message}`)
+  if (error) throw new Error(`[Audit] Activity feed failed: ${toSafeMessage(error, 'database error')}`)
   return (data as unknown as AuditActivityItem[]) ?? []
 }

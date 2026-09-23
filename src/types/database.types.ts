@@ -3363,6 +3363,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          locale: string
           lp_user_code: string | null
           onboarding_hints_seen: Json
           phone: string | null
@@ -3382,6 +3383,7 @@ export type Database = {
           email?: string | null
           id: string
           is_active?: boolean
+          locale?: string
           lp_user_code?: string | null
           onboarding_hints_seen?: Json
           phone?: string | null
@@ -3401,6 +3403,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          locale?: string
           lp_user_code?: string | null
           onboarding_hints_seen?: Json
           phone?: string | null
@@ -7600,6 +7603,10 @@ export type Database = {
           p_state: string
         }
         Returns: Json
+      }
+      set_locale: {
+        Args: { p_locale: string }
+        Returns: undefined
       }
       set_workspace_kind: {
         Args: { p_kind: string; p_user_id: string }

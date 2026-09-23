@@ -4,6 +4,7 @@
 // Hook to ControlMiles when GPS tracking is integrated.
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { businessMileageRateForDate } from '../../lib/tax-tables-2026'
 
 interface Props {
@@ -24,6 +25,7 @@ const fmtMiles = (n: number) => new Intl.NumberFormat('en-US', {
 }).format(n)
 
 export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, entries = [], saving = false, onAddMileage }: Props) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [miles, setMiles]       = useState('')
   const [date, setDate]         = useState(new Date().toISOString().slice(0, 10))
@@ -62,7 +64,7 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
             textTransform: 'uppercase', letterSpacing: '0.07em',
             fontWeight: 600, marginBottom: 4
           }}>
-            🚗 Mileage · YTD
+            {t('solo.mileageYtd')}
           </div>
           <div style={{
             fontSize: 22, fontWeight: 700, color: 'var(--lp-text)',
@@ -70,10 +72,10 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
           }}>
             {fmtMiles(totalMilesYTD)} <span style={{
               fontSize: 12, color: 'var(--lp-text-muted)', fontWeight: 400
-            }}>miles</span>
+            }}>{t('solo.milesUnit')}</span>
           </div>
           <div style={{ fontSize: 12, color: '#22c55e', marginTop: 4 }}>
-            Saves <strong>{fmt(totalDeduction)}</strong> in deductions
+            {t('solo.savesPrefix')} <strong>{fmt(totalDeduction)}</strong> {t('solo.savesSuffix')}
           </div>
         </div>
 
@@ -87,7 +89,7 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
             cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap'
           }}
         >
-          {expanded ? '× Cancel' : '+ Log miles'}
+          {expanded ? t('solo.cancelMiles') : t('solo.logMiles')}
         </button>
       </div>
 
@@ -101,18 +103,18 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
             <div>
-              <label style={lbl}>Miles driven</label>
+              <label style={lbl}>{t('solo.milesDriven')}</label>
               <input
                 type="number" step="0.1" min="0"
                 className="lp-input"
                 value={miles}
                 onChange={e => setMiles(e.target.value)}
-                placeholder="e.g. 24.5"
+                placeholder={t('solo.milesPlaceholder')}
                 autoFocus
               />
             </div>
             <div>
-              <label style={lbl}>Date</label>
+              <label style={lbl}>{t('solo.dateLabel')}</label>
               <input
                 type="date"
                 className="lp-input"
@@ -123,13 +125,13 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
           </div>
 
           <div style={{ marginBottom: 10 }}>
-            <label style={lbl}>Purpose (optional)</label>
+            <label style={lbl}>{t('solo.purposeOptional')}</label>
             <input
               type="text"
               className="lp-input"
               value={purpose}
               onChange={e => setPurpose(e.target.value)}
-              placeholder="e.g. Client meeting in Tampa"
+              placeholder={t('solo.purposePlaceholder')}
             />
           </div>
 
@@ -142,10 +144,9 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
               display: 'flex', justifyContent: 'space-between', alignItems: 'baseline'
             }}>
               <span>
-                <strong>{fmtMiles(previewMiles)}</strong> miles × $
-                {rate.toFixed(3)}/mi
+                <strong>{fmtMiles(previewMiles)}</strong> {t('solo.milesTimesRate', { rate: rate.toFixed(3) })}
               </span>
-              <strong>= {fmt(previewDeduction)} deduction</strong>
+              <strong>{t('solo.deductionResult', { amount: fmt(previewDeduction) })}</strong>
             </div>
           )}
 
@@ -165,7 +166,11 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
               opacity: previewMiles > 0 && !saving ? 1 : 0.5
             }}
           >
-            {saving ? 'Saving…' : previewMiles > 0 ? `Add ${fmtMiles(previewMiles)} miles` : 'Enter miles'}
+            {saving
+              ? t('solo.savingMiles')
+              : previewMiles > 0
+                ? t('solo.addMiles', { miles: fmtMiles(previewMiles) })
+                : t('solo.enterMiles')}
           </button>
         </div>
       )}
@@ -184,7 +189,7 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
               }}
             >
               <span style={{ color: 'var(--lp-text-muted)' }}>
-                <span style={{ fontFamily: 'monospace', color: 'var(--lp-text)' }}>{fmtMiles(e.miles)} mi</span>
+                <span style={{ fontFamily: 'monospace', color: 'var(--lp-text)' }}>{t('solo.mileageEntryMiles', { miles: fmtMiles(e.miles) })}</span>
                 <span style={{ color: '#475569', marginLeft: 8 }}>{e.entry_date}</span>
                 {e.purpose && <span style={{ color: '#475569', marginLeft: 8 }}>· {e.purpose}</span>}
               </span>
@@ -198,7 +203,7 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
           as a floating tooltip (native title), instead of a permanent banner. */}
       {!expanded && (
         <div
-          title="Coming soon: automatic GPS mileage logging via ControlMiles — capture your trips straight from your phone."
+          title={t('solo.mileageTooltip')}
           style={{
             padding: '8px 10px', borderRadius: 7,
             background: 'rgba(255,255,255,0.03)',
@@ -207,7 +212,7 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
             cursor: 'help'
           }}
         >
-          Deduction uses the official mileage rate in effect on each trip&apos;s date.
+          {t('solo.mileageDisclaimer')}
         </div>
       )}
     </div>

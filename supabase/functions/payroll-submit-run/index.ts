@@ -31,6 +31,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 const CHECK_ENV      = Deno.env.get('CHECK_ENV') ?? 'sandbox' // 'sandbox' | 'production'
 const CHECK_BASE_URL = CHECK_ENV === 'production'
@@ -128,7 +129,7 @@ Deno.serve(async (req) => {
     // this returns an error, the caller has no standing on this run at all.
     const { data: statusData, error: statusErr } = await supabaseUser.rpc('payroll_get_run_status', { p_run_id: runId })
     if (statusErr) {
-      return Response.json({ error: statusErr.message }, { status: 500, headers: cors })
+      return Response.json({ error: safeMessage(statusErr, 'Failed to update the run status') }, { status: 500, headers: cors })
     }
     if (statusData?.error) {
       return Response.json({ error: statusData.error }, { status: 403, headers: cors })
@@ -166,7 +167,7 @@ Deno.serve(async (req) => {
       .rpc('payroll_get_run_for_submission', { p_run_id: runId }) as { data: SubmissionPayload | null, error: any }
 
     if (subErr || !submission) {
-      return Response.json({ error: subErr?.message ?? 'Could not load run for submission' }, { status: 500, headers: cors })
+      return Response.json({ error: safeMessage(subErr, 'Could not load run for submission') }, { status: 500, headers: cors })
     }
 
     // ── Hard prerequisite guard — employer/employee Check sync ──────────
@@ -271,6 +272,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[payroll-submit-run] Unexpected error:', err)
-    return Response.json({ error: String(err) }, { status: 500, headers: cors })
+    return Response.json({ error: safeMessage(err, 'Failed to submit the payroll run') }, { status: 500, headers: cors })
   }
 })

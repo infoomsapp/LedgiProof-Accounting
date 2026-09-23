@@ -3,6 +3,7 @@
 // Collapsible panel with: date range, semaphore status (multi), amount range, free search.
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AuditFilters } from '../../services/auditor.service'
 
 interface Props {
@@ -12,19 +13,21 @@ interface Props {
   loading?: boolean
 }
 
+// `labelKey` holds an i18n KEY — resolved with t() at the render site.
 const SEMAPHORES: Array<{
   key: 'blue' | 'green' | 'amber' | 'red'
-  label: string
+  labelKey: string
   color: string
   emoji: string
 }> = [
-  { key: 'blue',  label: 'Verified',     color: '#3b82f6', emoji: '🔵' },
-  { key: 'green', label: 'Reconciled',   color: '#22c55e', emoji: '🟢' },
-  { key: 'amber', label: 'Needs review', color: '#f59e0b', emoji: '🟡' },
-  { key: 'red',   label: 'Urgent',       color: '#ef4444', emoji: '🔴' }
+  { key: 'blue',  labelKey: 'audit.semVerified',    color: '#3b82f6', emoji: '🔵' },
+  { key: 'green', labelKey: 'audit.semReconciled',  color: '#22c55e', emoji: '🟢' },
+  { key: 'amber', labelKey: 'audit.semNeedsReview', color: '#f59e0b', emoji: '🟡' },
+  { key: 'red',   labelKey: 'audit.semUrgent',      color: '#ef4444', emoji: '🔴' }
 ]
 
 export default function AuditFilters({ value, onChange, onReset, loading }: Props) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   const hasFilters =
@@ -67,7 +70,7 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
           type="search"
           value={value.search ?? ''}
           onChange={e => updateField('search', e.target.value || undefined)}
-          placeholder="Search by merchant, description, or reference…"
+          placeholder={t('audit.searchPlaceholder')}
           disabled={loading}
           style={{
             padding: '6px 12px',
@@ -93,7 +96,7 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
           }}
         >
           <span style={{ fontSize: 11 }}>{expanded ? '▲' : '▼'}</span>
-          Filters
+          {t('audit.filters')}
           {hasFilters && (
             <span style={{
               fontSize: 9, padding: '0 5px', borderRadius: 100,
@@ -118,7 +121,7 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
             fontFamily: 'inherit', whiteSpace: 'nowrap'
           }}
         >
-          Reset
+          {t('audit.reset')}
         </button>
       </div>
 
@@ -134,7 +137,7 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
         }}>
 
           {/* Date range */}
-          <FilterBlock label="Date range">
+          <FilterBlock label={t('audit.dateRange')}>
             <div style={{ display: 'flex', gap: 6 }}>
               <input
                 type="date"
@@ -153,7 +156,7 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
           </FilterBlock>
 
           {/* Semaphore status */}
-          <FilterBlock label="Status">
+          <FilterBlock label={t('audit.status')}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
               {SEMAPHORES.map(s => {
                 const active = (value.semaphore ?? []).includes(s.key)
@@ -172,7 +175,7 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
                       transition: 'all 0.12s'
                     }}
                   >
-                    {s.emoji} {s.label}
+                    {s.emoji} {t(s.labelKey)}
                   </button>
                 )
               })}
@@ -180,7 +183,7 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
           </FilterBlock>
 
           {/* Amount range */}
-          <FilterBlock label="Amount range">
+          <FilterBlock label={t('audit.amountRange')}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <input
                 type="number"
@@ -188,7 +191,7 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
                 onChange={e => updateField('min_amount',
                   e.target.value === '' ? undefined : Number(e.target.value)
                 )}
-                placeholder="Min"
+                placeholder={t('audit.min')}
                 style={{ ...amountInputStyle, flex: 1 }}
               />
               <span style={{ color: '#475569', fontSize: 11 }}>→</span>
@@ -198,19 +201,19 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
                 onChange={e => updateField('max_amount',
                   e.target.value === '' ? undefined : Number(e.target.value)
                 )}
-                placeholder="Max"
+                placeholder={t('audit.max')}
                 style={{ ...amountInputStyle, flex: 1 }}
               />
             </div>
           </FilterBlock>
 
           {/* Client filter (optional - shown only if client list is available externally) */}
-          <FilterBlock label="Client">
+          <FilterBlock label={t('audit.client')}>
             <input
               type="text"
               value={value.client_id ?? ''}
               onChange={e => updateField('client_id', e.target.value || undefined)}
-              placeholder="(client ID, optional)"
+              placeholder={t('audit.clientIdPlaceholder')}
               style={dateInputStyle}
             />
           </FilterBlock>
@@ -228,23 +231,27 @@ export default function AuditFilters({ value, onChange, onReset, loading }: Prop
         }}>
           <span style={{ fontSize: 10, color: '#64748b', fontWeight: 600,
             textTransform: 'uppercase', letterSpacing: '0.07em', marginRight: 4 }}>
-            Active:
+            {t('audit.activeFilters')}
           </span>
 
           {value.date_from && (
-            <Chip text={`from ${value.date_from}`} onRemove={() => updateField('date_from', undefined)} />
+            <Chip text={t('audit.chipFrom', { date: value.date_from })} onRemove={() => updateField('date_from', undefined)} />
           )}
           {value.date_to && (
-            <Chip text={`to ${value.date_to}`} onRemove={() => updateField('date_to', undefined)} />
+            <Chip text={t('audit.chipTo', { date: value.date_to })} onRemove={() => updateField('date_to', undefined)} />
           )}
           {(value.semaphore ?? []).map(s => (
-            <Chip key={s} text={s} onRemove={() => toggleSemaphore(s)} />
+            <Chip
+              key={s}
+              text={t(SEMAPHORES.find(x => x.key === s)?.labelKey ?? s)}
+              onRemove={() => toggleSemaphore(s)}
+            />
           ))}
           {value.min_amount != null && (
-            <Chip text={`min ${value.min_amount}`} onRemove={() => updateField('min_amount', undefined)} />
+            <Chip text={t('audit.chipMin', { amount: value.min_amount })} onRemove={() => updateField('min_amount', undefined)} />
           )}
           {value.max_amount != null && (
-            <Chip text={`max ${value.max_amount}`} onRemove={() => updateField('max_amount', undefined)} />
+            <Chip text={t('audit.chipMax', { amount: value.max_amount })} onRemove={() => updateField('max_amount', undefined)} />
           )}
           {value.search && (
             <Chip text={`"${value.search}"`} onRemove={() => updateField('search', undefined)} />

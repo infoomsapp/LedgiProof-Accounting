@@ -16,6 +16,7 @@
 
 import { db } from '../lib/supabase'
 import type { Database } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 
@@ -34,7 +35,7 @@ export interface ClientProfile {
  */
 export async function getMyProfile(): Promise<ClientProfile | null> {
   const { data: userResp, error: userErr } = await db.auth.getUser()
-  if (userErr) throw new Error(userErr.message)
+  if (userErr) throw dbError(userErr, 'Failed to load your profile')
 
   const userId = userResp.user?.id
   if (!userId) throw new Error('Not authenticated')
@@ -45,7 +46,7 @@ export async function getMyProfile(): Promise<ClientProfile | null> {
     .eq('id', userId)
     .maybeSingle()
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load your profile')
   return (data as ClientProfile | null) ?? null
 }
 
@@ -58,7 +59,7 @@ export async function updateMyProfile(input: {
   phone?:        string
 }): Promise<ClientProfile> {
   const { data: userResp, error: userErr } = await db.auth.getUser()
-  if (userErr) throw new Error(userErr.message)
+  if (userErr) throw dbError(userErr, 'Failed to save your profile')
 
   const userId = userResp.user?.id
   if (!userId) throw new Error('Not authenticated')
@@ -84,6 +85,6 @@ export async function updateMyProfile(input: {
     .select('id, display_name, email, phone, lp_user_code, updated_at')
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save your profile')
   return data as ClientProfile
 }

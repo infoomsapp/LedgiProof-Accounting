@@ -24,6 +24,7 @@ import type {
   SyncPayrollEmployeeResult,
   SubmitPayrollRunResult
 } from '../types/payroll'
+import { dbError } from '../lib/errors'
 
 async function requireAccessToken(): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -42,7 +43,7 @@ async function invokeEdgeFunction<TResult>(
     headers: { Authorization: `Bearer ${accessToken}` }
   })
 
-  if (res.error) throw new Error(res.error.message)
+  if (res.error) throw dbError(res.error, 'The payroll provider request failed')
 
   const data = res.data as (TResult & { error?: string }) | { error: string }
   if ('error' in data && data.error) throw new Error(data.error)

@@ -6,6 +6,7 @@
 import { db } from '../lib/supabase'
 import { createTransaction } from './transactions.service'
 import type { BankImport, PaymentMethodType } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 // ── Normalized representation of a single bank statement line ────────────────
 
@@ -40,7 +41,7 @@ export async function processBankImport(
     .eq('org_id', orgId)
     .single()
 
-  if (error || !imp) throw new Error(`[BankImport] Import not found: ${error?.message}`)
+  if (error || !imp) throw new Error(`[BankImport] Import not found: ${toSafeMessage(error, 'database error')}`)
   if (!imp.raw_content)   throw new Error('[BankImport] No raw_content to process')
 
   // 🆕 1099 Fase 2 — Derive the payment instrument from the account type the
@@ -200,7 +201,7 @@ export async function detectBankImportDuplicates(
   if (to)   q = q.lte('transaction_date', to)
 
   const { data, error } = await q
-  if (error) throw new Error(`[BankImport] Duplicate scan failed: ${error.message}`)
+  if (error) throw new Error(`[BankImport] Duplicate scan failed: ${toSafeMessage(error, 'database error')}`)
 
   const existing = new Set(
     (data ?? []).map(r => dupeKey(Number(r.amount), r.reference, r.transaction_date))
@@ -240,7 +241,7 @@ export async function getImports(orgId: string): Promise<BankImport[]> {
     .order('imported_at', { ascending: false })
     .limit(50)
 
-  if (error) throw new Error(`[BankImport] Fetch failed: ${error.message}`)
+  if (error) throw new Error(`[BankImport] Fetch failed: ${toSafeMessage(error, 'database error')}`)
   return data ?? []
 }
 

@@ -54,6 +54,7 @@ import type {
   Json,
   Database
 } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 type RuleEvaluationInsert = Database['public']['Tables']['rule_evaluations']['Insert']
 
@@ -133,8 +134,8 @@ async function loadRules(orgId: string): Promise<RuleDefinition[]> {
       .order('priority', { ascending: true })
   ])
 
-  if (globalRes.error) throw new Error(`[Brain] Failed to load global rules: ${globalRes.error.message}`)
-  if (orgRes.error)    throw new Error(`[Brain] Failed to load org rules: ${orgRes.error.message}`)
+  if (globalRes.error) throw new Error(`[Brain] Failed to load global rules: ${toSafeMessage(globalRes.error, 'database error')}`)
+  if (orgRes.error)    throw new Error(`[Brain] Failed to load org rules: ${toSafeMessage(orgRes.error, 'database error')}`)
 
   // Org-specific rules override global rules with the same rule_id
   const map = new Map<string, RuleDefinition>()
@@ -195,7 +196,7 @@ async function applyRule(rule: RuleDefinition, input: RuleInput): Promise<Evalua
 
       const { count, error } = await q
       if (error) {
-        return errorRule(rule, `Query error: ${error.message}`)
+        return errorRule(rule, `Query error: ${toSafeMessage(error, 'database error')}`)
       }
 
       const fired = (count ?? 0) > 0
@@ -235,7 +236,7 @@ async function applyRule(rule: RuleDefinition, input: RuleInput): Promise<Evalua
 
       const { count, error } = await q
       if (error) {
-        return errorRule(rule, `Query error: ${error.message}`)
+        return errorRule(rule, `Query error: ${toSafeMessage(error, 'database error')}`)
       }
 
       const fired = (count ?? 0) >= maxPerHour
@@ -269,7 +270,7 @@ async function applyRule(rule: RuleDefinition, input: RuleInput): Promise<Evalua
 
       const { count, error } = await q
       if (error) {
-        return errorRule(rule, `Query error: ${error.message}`)
+        return errorRule(rule, `Query error: ${toSafeMessage(error, 'database error')}`)
       }
 
       const fired = (count ?? 0) === 0
@@ -395,5 +396,5 @@ export async function persistEvaluation(
 
   const { error } = await db.from('rule_evaluations').insert(row)
 
-  if (error) throw new Error(`[Brain] Failed to persist evaluation: ${error.message}`)
+  if (error) throw new Error(`[Brain] Failed to persist evaluation: ${toSafeMessage(error, 'database error')}`)
 }

@@ -8,6 +8,7 @@
 //
 // Extracted from BookkeeperDashboard.tsx (Sprint Accountant — 2026-06-26).
 
+import { useTranslation } from 'react-i18next'
 import { ListChecks, Users, Hourglass, Scale } from 'lucide-react'
 import SectionCard       from './SectionCard'
 import { KpiRow }        from './KpiTile'
@@ -20,7 +21,7 @@ export interface OperationalKpisProps {
   onClickClients?:      () => void
   onClickPending?:      () => void
   onClickUnreconciled?: () => void
-  /** Optional custom title — defaults to 'Operational Health'. */
+  /** Optional custom title — defaults to the translated 'Operational Health'. */
   title?:           string
 }
 
@@ -32,20 +33,22 @@ export default function OperationalKpis({
   onClickClients,
   onClickPending,
   onClickUnreconciled,
-  title = 'Operational Health'
+  title
 }: OperationalKpisProps) {
+  const { t } = useTranslation()
+  const resolvedTitle = title ?? t('dashboard.operationalHealth')
   const totalPending = pendingAmber + pendingRed
   const pendingColor = pendingRed > 0
     ? 'var(--sem-red)'
     : 'var(--sem-amber)'
 
   return (
-    <SectionCard title={title} icon={ListChecks}>
+    <SectionCard title={resolvedTitle} icon={ListChecks}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <KpiRow
           icon={<Users size={13} color="var(--sem-green)" />}
           iconBg="var(--sem-green-bg)"
-          label="Active Clients"
+          label={t('dashboard.activeClients')}
           value={activeClients}
           valueColor="var(--sem-green)"
           {...(onClickClients ? { onClick: onClickClients } : {})}
@@ -53,7 +56,7 @@ export default function OperationalKpis({
         <KpiRow
           icon={<Hourglass size={13} color={pendingColor} />}
           iconBg="var(--sem-amber-bg)"
-          label="Pending Review"
+          label={t('dashboard.pendingReview')}
           value={totalPending}
           valueColor={pendingColor}
           {...(onClickPending ? { onClick: onClickPending } : {})}
@@ -61,7 +64,7 @@ export default function OperationalKpis({
         <KpiRow
           icon={<Scale size={13} color={unreconciled > 0 ? 'var(--sem-red)' : 'var(--sem-green)'} />}
           iconBg="var(--sem-red-bg)"
-          label="Unreconciled"
+          label={t('dashboard.unreconciled')}
           value={unreconciled}
           valueColor={unreconciled > 0 ? 'var(--sem-red)' : 'var(--sem-green)'}
           {...(onClickUnreconciled ? { onClick: onClickUnreconciled } : {})}

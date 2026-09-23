@@ -21,6 +21,7 @@ import type {
   AccountTemplateBundle
 } from '../types/account'
 import type { Json } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 // ── List operations ─────────────────────────────────────────────────────
 
@@ -76,8 +77,8 @@ export async function listTemplates(
     customQuery ?? Promise.resolve({ data: [] as AccountTemplate[], error: null })
   ])
 
-  if (systemRes.error) throw new Error(`[Templates] List failed: ${systemRes.error.message}`)
-  if (customRes.error) throw new Error(`[Templates] List failed: ${customRes.error.message}`)
+  if (systemRes.error) throw new Error(`[Templates] List failed: ${toSafeMessage(systemRes.error, 'database error')}`)
+  if (customRes.error) throw new Error(`[Templates] List failed: ${toSafeMessage(customRes.error, 'database error')}`)
 
   // Merge: system first, then custom, deduplicated by id (defensive)
   const merged: AccountTemplate[] = []
@@ -104,8 +105,8 @@ export async function getTemplateBundle(templateId: string): Promise<AccountTemp
       .order('sort_order')
   ])
 
-  if (tplRes.error)   throw new Error(`[Templates] Get failed: ${tplRes.error.message}`)
-  if (itemsRes.error) throw new Error(`[Templates] Get items failed: ${itemsRes.error.message}`)
+  if (tplRes.error)   throw new Error(`[Templates] Get failed: ${toSafeMessage(tplRes.error, 'database error')}`)
+  if (itemsRes.error) throw new Error(`[Templates] Get items failed: ${toSafeMessage(itemsRes.error, 'database error')}`)
   if (!tplRes.data)   throw new Error(`[Templates] Template ${templateId} not found`)
 
   return {
@@ -137,7 +138,7 @@ export async function cloneTemplateToClient(
     p_client_id:   clientId
   })
 
-  if (error) throw new Error(`[Templates] Clone failed: ${error.message}`)
+  if (error) throw new Error(`[Templates] Clone failed: ${toSafeMessage(error, 'database error')}`)
   return { accountsCreated: (data as number) ?? 0 }
 }
 
@@ -183,7 +184,7 @@ export async function createCustomTemplate(
     } as unknown as Json
   })
 
-  if (rpcErr) throw new Error(`[Templates] Create failed: ${rpcErr.message}`)
+  if (rpcErr) throw new Error(`[Templates] Create failed: ${toSafeMessage(rpcErr, 'database error')}`)
   if (!newId)  throw new Error('[Templates] Create returned no id')
 
   // 2. Fetch the full template row to return to caller
@@ -193,6 +194,6 @@ export async function createCustomTemplate(
     .eq('id', newId)
     .single()
 
-  if (fetchErr) throw new Error(`[Templates] Fetch new template failed: ${fetchErr.message}`)
+  if (fetchErr) throw new Error(`[Templates] Fetch new template failed: ${toSafeMessage(fetchErr, 'database error')}`)
   return tpl as AccountTemplate
 }

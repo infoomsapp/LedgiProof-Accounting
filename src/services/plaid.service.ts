@@ -12,6 +12,7 @@
 
 import { supabase } from '../lib/supabase'
 import { assertQuota, QuotaExceededError } from './quota.service'
+import { dbError } from '../lib/errors'
 
 // ── Plaid Link script loader (CDN) ────────────────────────────────────────
 
@@ -117,7 +118,7 @@ export async function getLinkToken(): Promise<string> {
     headers: { Authorization: `Bearer ${session.access_token}` }
   })
 
-  if (res.error) throw new Error(res.error.message)
+  if (res.error) throw dbError(res.error, 'Failed to start the bank connection')
 
   const data = res.data as { link_token?: string; error?: string }
 
@@ -173,7 +174,7 @@ export async function openPlaidLink(
             headers: { Authorization: `Bearer ${session.access_token}` }
           })
 
-          if (res.error) throw new Error(res.error.message)
+          if (res.error) throw dbError(res.error, 'Failed to link the bank account')
 
           const data = res.data as {
             success: boolean
@@ -225,7 +226,7 @@ export async function syncTransactions(
     headers: { Authorization: `Bearer ${session.access_token}` }
   })
 
-  if (res.error) throw new Error(res.error.message)
+  if (res.error) throw dbError(res.error, 'Failed to sync bank transactions')
 
   const data = res.data as {
     success: boolean
@@ -264,7 +265,7 @@ export async function getBankConnections(
 
   const { data, error } = await q
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load bank connections')
   return data ?? []
 }
 
@@ -277,5 +278,5 @@ export async function disconnectBank(connectionId: string, orgId: string) {
     .eq('id', connectionId)
     .eq('org_id', orgId)
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to disconnect the bank')
 }

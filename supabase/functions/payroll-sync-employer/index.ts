@@ -24,6 +24,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 const CHECK_ENV      = Deno.env.get('CHECK_ENV') ?? 'sandbox'
 const CHECK_BASE_URL = CHECK_ENV === 'production'
@@ -130,7 +131,7 @@ Deno.serve(async (req) => {
     // ── Load current sync state (user-facing RPC, re-checks authorize()) ─
     const { data: employer, error: employerErr } = await supabaseUser.rpc('payroll_get_employer_for_sync', { p_org_id: body.org_id })
     if (employerErr) {
-      return Response.json({ error: employerErr.message }, { status: 400, headers: cors })
+      return Response.json({ error: safeMessage(employerErr, 'Failed to look up the employer') }, { status: 400, headers: cors })
     }
 
     let providerCompanyId = employer.provider_company_id as string | null
@@ -211,6 +212,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[payroll-sync-employer] Unexpected error:', err)
-    return Response.json({ error: String(err) }, { status: 500, headers: cors })
+    return Response.json({ error: safeMessage(err, 'Failed to sync the employer') }, { status: 500, headers: cors })
   }
 })

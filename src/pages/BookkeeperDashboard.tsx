@@ -12,6 +12,7 @@
 // Layout: DashboardLayout (70/30 grid) — unchanged.
 
 import { useNavigate }              from 'react-router-dom'
+import { useTranslation }           from 'react-i18next'
 import { ClipboardList, AlertTriangle, AlertOctagon, FileText } from 'lucide-react'
 import { staggerStyle }              from '../lib/motion'
 import { useAuthStore }             from '../store/auth.store'
@@ -51,6 +52,7 @@ import { useOnboardingHints }  from '../hooks/useOnboardingHints'
 
 export default function BookkeeperDashboard() {
   const navigate = useNavigate()
+  const { t }    = useTranslation()
   const { membership, profile } = useAuthStore()
   const orgId                   = membership?.org_id ?? ''
   const role                    = useUserRole()
@@ -69,11 +71,17 @@ export default function BookkeeperDashboard() {
 
   const now = new Date()
 
+  const firstName = profile?.display_name?.split(' ')[0]
+  const timeOfDay = now.getHours() < 12 ? 'Morning' : now.getHours() < 18 ? 'Afternoon' : 'Evening'
+  const greeting  = firstName
+    ? t(`dashboard.greeting${timeOfDay}`, { name: firstName })
+    : t(`dashboard.greeting${timeOfDay}NoName`)
+
   // All derived state comes from the RPC DTO via shared helpers.
-  const attentionItems  = buildAttentionItems(bk.data, navigate)
+  const attentionItems  = buildAttentionItems(bk.data, navigate, t)
   const critical        = criticalCount(attentionItems)
   const pendingDocItems = buildPendingDocItems(bk.data, orgCurrency)
-  const activityItems   = buildActivityItems(events)
+  const activityItems   = buildActivityItems(events, t)
   const sem             = bk.data?.semaphore_counts
   const onboarding      = useOnboardingHints('bookkeeper_dashboard')
 
@@ -85,8 +93,8 @@ export default function BookkeeperDashboard() {
 
           {onboarding.shouldShow && canCertify && orgId && (
             <OnboardingHint
-              title="Certify"
-              message="Certify simple transactions yourself, right from the header — no need to wait on your accountant to close them out."
+              title={t('dashboard.certifyHintTitle')}
+              message={t('dashboard.certifyHintMessage')}
               onDismiss={onboarding.dismissAll}
             />
           )}
@@ -100,8 +108,7 @@ export default function BookkeeperDashboard() {
                 fontSize: 22, fontWeight: 600,
                 color: 'var(--lp-text)', letterSpacing: '-0.01em', margin: 0
               }}>
-                Good {now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'},
-                {' '}{profile?.display_name?.split(' ')[0] ?? 'there'} <span style={{ opacity: 0.5 }}>👋</span>
+                {greeting} <span style={{ opacity: 0.5 }}>👋</span>
               </h1>
               <p style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 4, margin: 0 }}>
                 {formatDateHeadline(now)}
@@ -120,8 +127,8 @@ export default function BookkeeperDashboard() {
         <CriticalAlertBanner
           count={critical}
           severity="critical"
-          label={critical === 1 ? 'critical item' : 'critical items'}
-          sub="need your attention today"
+          label={critical === 1 ? t('dashboard.criticalItemOne') : t('dashboard.criticalItemOther')}
+          sub={t('dashboard.needAttentionToday')}
           onView={() => navigate('/clients')}
         />
       }
@@ -152,13 +159,13 @@ export default function BookkeeperDashboard() {
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {onboarding.shouldShow && (
                   <OnboardingHint
-                    title="Today's Workflow"
-                    message="Your daily queue, at a glance — active clients, what's pending review, and what's still unreconciled."
+                    title={t('dashboard.todaysWorkflow')}
+                    message={t('dashboard.todaysWorkflowHintMessage')}
                     onDismiss={onboarding.dismissAll}
                   />
                 )}
                 <OperationalKpis
-                  title="Today's Workflow"
+                  title={t('dashboard.todaysWorkflow')}
                   activeClients={bk.data.kpis.active_clients}
                   pendingAmber={bk.data.kpis.pending_amber}
                   pendingRed={bk.data.kpis.pending_red}
@@ -181,19 +188,21 @@ export default function BookkeeperDashboard() {
             <>
               {onboarding.shouldShow && (
                 <OnboardingHint
-                  title="Multi-Client Workflow"
-                  message="Every client, grouped by where they are in your process. Click a card to move it — or lock it manually if it needs to stay put."
+                  title={t('dashboard.multiClientWorkflow')}
+                  message={t('dashboard.multiClientWorkflowHintMessage')}
                   onDismiss={onboarding.dismissAll}
                 />
               )}
               <SectionCard
-                title="Multi-Client Workflow"
+                title={t('dashboard.multiClientWorkflow')}
                 icon={ClipboardList}
                 accentColor="var(--sem-cyan)"
                 accentBg="var(--sem-cyan-bg)"
                 right={
                   <span style={{ fontSize: 10, color: 'var(--lp-text-muted)' }}>
-                    {bk.data.kanban.length} {bk.data.kanban.length === 1 ? 'client' : 'clients'} across 5 stages
+                    {bk.data.kanban.length === 1
+                      ? t('dashboard.clientsAcrossStagesOne',   { count: bk.data.kanban.length })
+                      : t('dashboard.clientsAcrossStagesOther', { count: bk.data.kanban.length })}
                   </span>
                 }
                 style={{ marginBottom: 14, ...staggerStyle(2) }}
@@ -206,13 +215,13 @@ export default function BookkeeperDashboard() {
           {/* ── Row 3: Attention Required ──────────────────────────────── */}
           {attentionItems.length > 0 && (
             <SectionCard
-              title="Attention Required"
+              title={t('dashboard.attentionRequired')}
               icon={AlertTriangle}
               accentColor="var(--sem-amber)"
               accentBg="var(--sem-amber-bg)"
               right={
                 <button className="lp-btn-outline" onClick={() => navigate('/clients')}>
-                  View all →
+                  {t('common.viewAll')}
                 </button>
               }
               style={{ marginBottom: 14, ...staggerStyle(3) }}
@@ -227,13 +236,15 @@ export default function BookkeeperDashboard() {
           {/* ── Row 4: Clients with Issues ─────────────────────────────── */}
           {bk.data && bk.data.clients_with_issues.length > 0 && (
             <SectionCard
-              title="Clients with Issues"
+              title={t('dashboard.clientsWithIssues')}
               icon={AlertOctagon}
               accentColor="var(--sem-red)"
               accentBg="var(--sem-red-bg)"
               right={
                 <span style={{ fontSize: 10, color: 'var(--lp-text-muted)' }}>
-                  {bk.data.clients_with_issues.length} {bk.data.clients_with_issues.length === 1 ? 'client' : 'clients'}
+                  {bk.data.clients_with_issues.length === 1
+                    ? t('dashboard.clientCountOne',   { count: bk.data.clients_with_issues.length })
+                    : t('dashboard.clientCountOther', { count: bk.data.clients_with_issues.length })}
                 </span>
               }
               style={staggerStyle(4)}
@@ -250,12 +261,12 @@ export default function BookkeeperDashboard() {
             <>
               {onboarding.shouldShow && (
                 <OnboardingHint
-                  title="Pending Documents"
-                  message="Receipts and statements your clients still owe you — attach them here as they come in."
+                  title={t('dashboard.pendingDocuments')}
+                  message={t('dashboard.pendingDocsHintMessage')}
                   onDismiss={onboarding.dismissAll}
                 />
               )}
-              <SectionCard title="Pending Documents" icon={FileText} style={{ marginBottom: 12, padding: 0, ...staggerStyle(0) }}>
+              <SectionCard title={t('dashboard.pendingDocuments')} icon={FileText} style={{ marginBottom: 12, padding: 0, ...staggerStyle(0) }}>
                 <PendingDocsCard
                   orgId={orgId}
                   items={pendingDocItems}

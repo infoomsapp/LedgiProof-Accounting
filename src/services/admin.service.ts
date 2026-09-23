@@ -7,6 +7,7 @@ import { pruneRpcArgs } from '../lib/rpc-args'
 import type {
   Transaction, Organization, SystemRole
 } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 // ── Role check ───────────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ export async function fetchMySystemRole(userId: string): Promise<SystemRole> {
 
 export async function adminGetOrganizations(): Promise<Organization[]> {
   const { data, error } = await db.rpc('get_organizations_admin')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load organizations')
   return (data ?? []) as Organization[]
 }
 
@@ -58,7 +59,7 @@ export async function adminGetClients(orgId?: string): Promise<AdminClientRow[]>
   const { data, error } = await db.rpc('get_clients_admin', pruneRpcArgs({
     p_org_id: orgId ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load clients')
   return (data ?? []) as unknown as AdminClientRow[]
 }
 
@@ -72,7 +73,7 @@ export async function adminGetTransactions(opts: {
     p_client_id: opts.clientId ?? undefined,
     p_limit:     opts.limit    ?? 200
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load transactions')
   return (data ?? []) as Transaction[]
 }
 
@@ -92,7 +93,7 @@ export interface AdminUserDirectoryRow {
 
 export async function adminGetUserDirectory(): Promise<AdminUserDirectoryRow[]> {
   const { data, error } = await db.rpc('get_user_directory_admin')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the user directory')
   return (data ?? []) as unknown as AdminUserDirectoryRow[]
 }
 
@@ -110,7 +111,7 @@ export interface UserOrgContext {
 
 export async function adminGetUserOrgContext(userId: string): Promise<UserOrgContext | null> {
   const { data, error } = await db.rpc('get_user_org_context_admin', { p_user_id: userId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the user organization context')
   const rows = (data ?? []) as unknown as UserOrgContext[]
   return rows[0] ?? null
 }
@@ -142,7 +143,7 @@ export async function adminGetGovernanceOverview(days = 30): Promise<GovernanceO
   const { data, error } = await db.rpc('get_governance_overview_admin', {
     p_days: days
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the governance overview')
   return data as unknown as GovernanceOverview
 }
 
@@ -158,7 +159,7 @@ export async function adminGrantRole(
     p_role:           role,
     p_notes:          notes ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to grant the role')
 }
 
 // ── Impersonation audit log ───────────────────────────────────
@@ -184,6 +185,6 @@ export async function adminGetAuditLog(limit = 100): Promise<ImpersonationAuditR
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the audit log')
   return (data ?? []) as ImpersonationAuditRow[]
 }

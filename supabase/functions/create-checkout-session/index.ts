@@ -18,6 +18,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe           from 'npm:stripe@17'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 const STRIPE_SECRET = Deno.env.get('STRIPE_SECRET_KEY')          ?? ''
 const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')              ?? ''
@@ -152,9 +153,8 @@ Deno.serve(async (req) => {
     return fail('Invalid request type — expected "invoice" or "subscription"', 400, cors)
 
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[create-checkout-session]', msg)
-    return fail(msg, 500, cors)
+    console.error('[create-checkout-session]', err)
+    return fail(safeMessage(err, 'Failed to start checkout'), 500, cors)
   }
 })
 

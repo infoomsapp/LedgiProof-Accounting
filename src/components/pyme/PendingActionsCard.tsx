@@ -3,6 +3,7 @@
 // Compact strip with 3 action items, each navigable.
 
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { PymePending } from '../../services/pyme-dashboard.service'
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function PendingActionsCard({ pending }: Props) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const hasAny =
@@ -30,10 +32,10 @@ export default function PendingActionsCard({ pending }: Props) {
         <div style={{ fontSize: 26 }}>✓</div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#22c55e' }}>
-            You're all caught up
+            {t('pyme.allCaughtUpTitle')}
           </div>
           <div style={{ fontSize: 12, color: 'var(--lp-text-muted)', marginTop: 3 }}>
-            Nothing pending from your firm right now.
+            {t('pyme.allCaughtUpSub')}
           </div>
         </div>
       </div>
@@ -53,19 +55,21 @@ export default function PendingActionsCard({ pending }: Props) {
         textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600,
         marginBottom: 12
       }}>
-        📋 What needs your attention
+        {t('pyme.whatNeedsAttention')}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {pending.transactions_to_review > 0 && (
           <ActionRow
             icon="🟡"
-            text={`${pending.transactions_to_review} transaction${pending.transactions_to_review === 1 ? '' : 's'} to review`}
+            text={pending.transactions_to_review === 1
+              ? t('pyme.txToReviewOne',   { count: pending.transactions_to_review })
+              : t('pyme.txToReviewOther', { count: pending.transactions_to_review })}
             hint={pending.red_count > 0
-              ? `${pending.red_count} urgent · "Was this for business or personal?"`
-              : 'Was this for business or personal?'
+              ? t('pyme.urgentHint', { count: pending.red_count })
+              : t('pyme.businessOrPersonalHint')
             }
-            cta="Review now"
+            cta={t('pyme.reviewNow')}
             color="#f59e0b"
             onClick={() => navigate('/transactions?filter=pending')}
           />
@@ -74,9 +78,11 @@ export default function PendingActionsCard({ pending }: Props) {
         {pending.receipts_requested > 0 && (
           <ActionRow
             icon="🧾"
-            text={`${pending.receipts_requested} receipt${pending.receipts_requested === 1 ? '' : 's'} requested by your firm`}
-            hint="Upload to keep your books complete"
-            cta="Upload"
+            text={pending.receipts_requested === 1
+              ? t('pyme.receiptsRequestedOne',   { count: pending.receipts_requested })
+              : t('pyme.receiptsRequestedOther', { count: pending.receipts_requested })}
+            hint={t('pyme.uploadToKeepComplete')}
+            cta={t('pyme.upload')}
             color="#3b82f6"
             onClick={() => navigate('/receipts')}
           />
@@ -85,9 +91,11 @@ export default function PendingActionsCard({ pending }: Props) {
         {pending.unread_workspace_messages > 0 && (
           <ActionRow
             icon="💬"
-            text={`${pending.unread_workspace_messages} unread message${pending.unread_workspace_messages === 1 ? '' : 's'}`}
-            hint="From your firm"
-            cta="Open chat"
+            text={pending.unread_workspace_messages === 1
+              ? t('pyme.unreadMessagesOne',   { count: pending.unread_workspace_messages })
+              : t('pyme.unreadMessagesOther', { count: pending.unread_workspace_messages })}
+            hint={t('pyme.fromYourFirm')}
+            cta={t('pyme.openChat')}
             color="#06b6d4"
             onClick={() => {
               // Scroll to chat panel

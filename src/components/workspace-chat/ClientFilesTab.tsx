@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { db } from '../../lib/supabase'
 import { uploadDocument, getDocumentSignedUrl, formatBytes, validateFile } from '../../services/upload.service'
 import { formatDate } from '../../lib/dates'
+import { toSafeMessage } from '../../lib/errors'
 
 interface Props {
   orgId:    string
@@ -45,7 +46,7 @@ export default function ClientFilesTab({ orgId, clientId }: Props) {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
-    if (err) { setError(err.message); return }
+    if (err) { setError(toSafeMessage(err, 'Could not load files')); return }
     setDocs((data ?? []) as DocumentRow[])
   }, [orgId, clientId])
 

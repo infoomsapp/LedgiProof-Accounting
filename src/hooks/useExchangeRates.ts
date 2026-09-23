@@ -40,14 +40,24 @@ export function useExchangeRates(): UseExchangeRates {
       .finally(() => setLoading(false))
   }, [])
 
+  // convertAmount now throws when a currency has no rate in `_rates` (see
+  // lib/currency.ts) rather than silently returning a 1:1 amount — caught
+  // here so a still-missing rate degrades honestly (NaN / "—") instead of
+  // crashing whatever calls this hook.
   const convert = useCallback((amount: number, from: string, to: string): number => {
     if (!_rates || from === to) return amount
-    return convertAmount(amount, from, to, _rates)
+    try {
+      return convertAmount(amount, from, to, _rates)
+    } catch (e) {
+      console.error('[useExchangeRates]', e)
+      return NaN
+    }
   }, [rates])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const format = useCallback((amount: number, fromCurrency: string, toCurrency: string): string =>
-    formatCurrency(convert(amount, fromCurrency, toCurrency), toCurrency),
-  [convert])
+  const format = useCallback((amount: number, fromCurrency: string, toCurrency: string): string => {
+    const converted = convert(amount, fromCurrency, toCurrency)
+    return Number.isNaN(converted) ? '—' : formatCurrency(converted, toCurrency)
+  }, [convert])
 
   return { rates, loading, convert, format }
 }

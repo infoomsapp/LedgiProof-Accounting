@@ -140,12 +140,20 @@ export interface CGCGovernanceResponse {
   approved:            boolean
   outcome:             LoopOutcome
   reason:              string
-  scm_exit_status:     string              // "CLOSED_IMMUTABLE" | "PREFILTER_DENY" | ...
-  area:                GovernanceArea
-  sensitivity_level:   SensitivityLevel
+  // Optional rather than always-present: several real CGC Core response
+  // shapes (tenant quota exceeded, SCM entry rejection, an internal
+  // exception, a PreFilter deny at the endpoint level) genuinely don't
+  // include scm_exit_status/area/sensitivity_level/decision_artifact --
+  // see normalizeGovernanceResponse() below, which is what actually builds
+  // one of these from whatever CGC Core sent back rather than assuming
+  // every response is the full happy-path shape.
+  scm_exit_status?:    string              // "CLOSED_IMMUTABLE" | "PREFILTER_DENY" | ...
+  area?:               GovernanceArea
+  sensitivity_level?:  SensitivityLevel
 
-  // Signed decision artifact with all module outputs
-  decision_artifact: {
+  // Signed decision artifact with all module outputs — absent whenever the
+  // cycle short-circuited before reaching module scoring (see above).
+  decision_artifact?: {
     decision_id:      string
     aggregated_score: number
     module_scores: {
@@ -268,6 +276,15 @@ function detectDataDomains(tx: CGCEvaluationInput): string[] {
   const method = (tx.metadata?.['payment_method'] as string | undefined)?.toLowerCase() ?? ''
   const domains = new Set<string>()
 
+  // Genuinely present in the payload whenever Brain has scored this
+  // transaction — brain_confidence IS a risk metric/assessment value, sent
+  // as part of input_data (see cgcEvaluate below), not a claim about data
+  // we don't actually have. Deliberately NOT tagging KYC_DATA for BANKING:
+  // unlike a risk score, LedgiProof doesn't perform or hold real
+  // know-your-customer verification data on a transaction, so claiming that
+  // tag would misrepresent what's actually in the request.
+  const hasRiskMetric = tx.confidence != null
+
   switch (detectAreaHint(tx)) {
     case 'BANKING':
       // Every bank-fed transaction genuinely is a piece of transaction
@@ -280,13 +297,16 @@ function detectDataDomains(tx: CGCEvaluationInput): string[] {
       if (text.includes('invest')) domains.add('INVESTMENT_DATA')
       if (text.includes('securities') || text.includes('trade') || text.includes('trading')) domains.add('TRADING_DATA')
       if (text.includes('dividend') || text.includes('portfolio')) domains.add('PORTFOLIO')
-      // A plain, non-investment transaction that only fell through to the
-      // FINANCE default has no FINANCE-specific domain to report — an
-      // empty set (→ LOW) is the correct read, not a bug to paper over.
+      if (hasRiskMetric) domains.add('RISK_METRICS')
+      // A plain, non-investment, non-scored transaction that only fell
+      // through to the FINANCE default has no FINANCE-specific domain to
+      // report — an empty set (→ LOW) is the correct read, not a bug to
+      // paper over.
       break
     case 'AUDIT':
       domains.add('AUDIT_LOGS')
       if (text.includes('reconcil')) domains.add('COMPLIANCE_REPORTS')
+      if (hasRiskMetric) domains.add('RISK_ASSESSMENT')
       break
   }
 
@@ -468,6 +488,58 @@ async function runEmbeddedGovernance(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  RESPONSE NORMALIZATION
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// CGC Core's real `/governance/decision` response does NOT match this file's
+// own CGCGovernanceResponse shape at the top level — confirmed by reading
+// both sides directly (cgc_core's app/main.py + app/modules/loop/cgc_loop.py),
+// not assumed. execute_governance_cycle()'s own return value IS already
+// shaped exactly like CGCGovernanceResponse (approved/outcome/
+// decision_artifact/area/sensitivity_level/processing_time_ms all at its own
+// top level) -- but main.py's endpoint handler wraps that entire object one
+// level deeper, under a "decision" key, alongside a few sibling fields
+// (correlation_id, prefilter, total_latency_ms, decision_id) that duplicate
+// or rename what's already inside it. Several other real response shapes
+// (tenant quota exceeded, an SCM entry rejection, an internal exception, a
+// PreFilter deny caught at the endpoint level before "decision" is ever
+// built) are smaller and never include decision_artifact/area/
+// sensitivity_level at all. Previously nothing handled any of this: the
+// caller (transactions.service.ts) discarded the resolved value outright,
+// and even the code that WOULD have read it (persistCGCValidation) assumed
+// the full happy-path shape and threw on every real remote response,
+// silently caught by its own try/catch. Net effect: a remote CGC Core
+// evaluation has never once been persisted or used for anything -- only the
+// embedded local fallback ever wrote a cgc_validations row. This function is
+// the actual fix: normalize whatever CGC Core sent into a safe, honestly-
+// degraded CGCGovernanceResponse instead of assuming one specific shape.
+function normalizeGovernanceResponse(
+  raw:          unknown,
+  fallbackArea: GovernanceArea
+): CGCGovernanceResponse {
+  const envelope = (raw && typeof raw === 'object') ? raw as Record<string, any> : {}
+  // The happy path (and the quota/SCM-rejection/error paths) all nest the
+  // real result under "decision"; the endpoint's own PreFilter-deny early
+  // return does not nest anything -- use the envelope itself in that case.
+  const core: Record<string, any> =
+    (envelope.decision && typeof envelope.decision === 'object') ? envelope.decision : envelope
+
+  return {
+    approved:           core.approved ?? false,
+    outcome:            (core.outcome as LoopOutcome) ?? 'ERROR',
+    reason:             core.reason ?? core.error ?? envelope.reason ?? 'CGC Core did not return a reason',
+    scm_exit_status:    core.scm_exit_status,
+    area:               (core.area as GovernanceArea) ?? fallbackArea,
+    sensitivity_level:  core.sensitivity_level,
+    decision_artifact:  core.decision_artifact,
+    audit:              core.audit,
+    prefilter_result:   core.prefilter_result ?? envelope.prefilter,
+    compliance_report:  core.compliance_report,
+    processing_time_ms: core.processing_time_ms ?? envelope.total_latency_ms ?? 0
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  MAIN ENTRY POINT — evaluate a transaction through CGC
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -476,7 +548,13 @@ export async function cgcEvaluate(
 ): Promise<CGCGovernanceResponse> {
   const overallStart = Date.now()
 
-  // Build full CGC governance request
+  // Build full CGC governance request. Absent optional fields are OMITTED
+  // entirely rather than sent as a literal `null` — CGC Core's PAN/SDA
+  // modules score a present-but-null key as *worse* than a key that's
+  // simply not there (data_quality/completeness scoring counts empty
+  // values against the payload), so sending null for "we don't have this"
+  // was actively hurting the score for no reason; omitting the key is the
+  // same true statement ("this data doesn't exist") without the penalty.
   const request: CGCGovernanceRequest = {
     decision_id:   `lp-${input.transactionId}-${Date.now()}`,
     module_source: 'ledgiproof-transactions',
@@ -486,12 +564,12 @@ export async function cgcEvaluate(
       transaction_id: input.transactionId,
       amount:         input.amount,
       currency:       input.currency,
-      description:    input.description,
-      reference:      input.reference,
       date:           input.date,
       source:         input.source,
       current_semaphore: input.semaphore,
-      brain_confidence:  input.confidence
+      ...(input.description != null ? { description: input.description } : {}),
+      ...(input.reference   != null ? { reference:   input.reference   } : {}),
+      ...(input.confidence  != null ? { brain_confidence: input.confidence } : {})
     },
     prefilter_hint: {
       area: detectAreaHint(input)
@@ -541,10 +619,11 @@ export async function cgcEvaluate(
         clearTimeout(timeout)
 
         if (res.ok) {
-          const data = (await res.json()) as CGCGovernanceResponse & { use_embedded?: boolean }
-          if (!data.use_embedded) {
-            await persistCGCValidation(input, data)
-            return data
+          const raw = (await res.json()) as { use_embedded?: boolean } & Record<string, unknown>
+          if (!raw.use_embedded) {
+            const normalized = normalizeGovernanceResponse(raw, detectAreaHint(input))
+            await persistCGCValidation(input, normalized, 'remote')
+            return normalized
           }
           // Edge function signalled to fall back to embedded
         } else {
@@ -558,7 +637,7 @@ export async function cgcEvaluate(
 
   // Embedded fallback — always available
   const embedded = await runEmbeddedGovernance(input, overallStart)
-  await persistCGCValidation(input, embedded)
+  await persistCGCValidation(input, embedded, 'embedded')
   return embedded
 }
 
@@ -568,32 +647,45 @@ export async function cgcEvaluate(
 
 async function persistCGCValidation(
   input:    CGCEvaluationInput,
-  response: CGCGovernanceResponse
+  response: CGCGovernanceResponse,
+  source:   'embedded' | 'remote' = 'embedded'
 ): Promise<void> {
   try {
+    // decision_artifact is genuinely absent on several real CGC Core response
+    // shapes (quota exceeded, SCM entry rejection, an internal exception, a
+    // PreFilter deny) -- optional-chained throughout rather than assumed
+    // present, which is exactly what silently broke this for every real
+    // remote evaluation before (see normalizeGovernanceResponse's comment).
     const artifact = response.decision_artifact
     const validationResult =
       response.outcome === 'APPROVE'        ? 'approved'          :
       response.outcome === 'REQUIRE_HUMAN'  ? 'review_required'   :
       response.outcome === 'REJECT'         ? 'rejected'          : 'error'
 
-    const violations = artifact.compliance?.violations ?? []
+    const violations = artifact?.compliance?.violations ?? []
+
+    // A remote call ran CGC Core's real 4 core modules (PAN/ECM/PFM/SDA) —
+    // EMBEDDED_POLICIES.length describes only the LOCAL fallback engine's
+    // own rule count and was previously being written even for remote
+    // evaluations, which is a different, unrelated number.
+    const policiesChecked = source === 'remote' ? 4 : EMBEDDED_POLICIES.length
 
     await db.from('cgc_validations').upsert({
       org_id:              input.orgId,
       transaction_id:      input.transactionId,
-      cgc_session_id:      artifact.decision_id,
-      proof_hash:          artifact.pod_triplet?.triplet_hash ?? null,
+      cgc_session_id:      artifact?.decision_id ?? null,
+      proof_hash:          artifact?.pod_triplet?.triplet_hash ?? null,
       validation_result:   validationResult,
-      policies_checked:    EMBEDDED_POLICIES.length,
+      policies_checked:    policiesChecked,
       violations:          violations.map(v => ({
         policy:   v.article,
         severity: v.severity,
         message:  v.message
       })),
-      cgc_confidence:      artifact.aggregated_score,
+      cgc_confidence:      artifact?.aggregated_score ?? null,
       cgc_recommendation:  response.reason,
-      cgc_engine_version:  artifact.pod_triplet?.model_identifier ?? 'unknown',
+      cgc_engine_version:  artifact?.pod_triplet?.model_identifier
+        ?? (source === 'remote' ? 'cgc-remote-no-artifact' : 'unknown'),
       latency_ms:          response.processing_time_ms
     }, { onConflict: 'transaction_id' })
   } catch (err) {

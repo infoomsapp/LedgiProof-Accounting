@@ -12,6 +12,7 @@
 // not a per-item checklist.
 
 import { X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   title:      string
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function OnboardingHint({ title, message, onDismiss }: Props) {
+  const { t } = useTranslation()
   return (
     <div style={{
       display: 'flex',
@@ -42,7 +44,7 @@ export default function OnboardingHint({ title, message, onDismiss }: Props) {
       </div>
       <button
         onClick={onDismiss}
-        aria-label="Dismiss"
+        aria-label={t('common.dismiss')}
         style={{
           flexShrink: 0,
           display: 'flex',

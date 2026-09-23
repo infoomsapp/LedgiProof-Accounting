@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { db } from '../lib/supabase'
 import { useAuthStore } from './auth.store'
 import type { Organization, OrganizationMembership } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 interface OrgState {
   orgs: Organization[]
@@ -40,7 +41,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     if (queryError) {
       set({
         loading: false,
-        error: queryError.message,
+        error: toSafeMessage(queryError, 'Could not load your workspaces'),
         orgs: [],
         activeOrg: null
       })

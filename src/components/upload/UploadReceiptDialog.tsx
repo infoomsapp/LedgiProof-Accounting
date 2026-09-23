@@ -31,6 +31,7 @@ import {
   type OcrResult,
   type OcrStatus
 } from '../../services/ocr.service'
+import { toSafeMessage } from '../../lib/errors'
 
 interface Props {
   open:           boolean
@@ -102,7 +103,7 @@ export default function UploadReceiptDialog({
             p_request_id:  receiptRequestId,
             p_document_id: result.documentId
           })
-          if (error) setError(`Receipt uploaded but linking failed: ${error.message}`)
+          if (error) setError(`Receipt uploaded but linking failed: ${toSafeMessage(error, 'database error')}`)
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e)
           setError(`Receipt uploaded but linking failed: ${msg}`)

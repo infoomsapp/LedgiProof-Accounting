@@ -13,6 +13,7 @@
 
 import { db } from '../lib/supabase'
 import type { SalesTaxSourcing, SalesTaxProviderName } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 export type { SalesTaxSourcing, SalesTaxProviderName }
 
@@ -60,7 +61,7 @@ export const tableProvider: SalesTaxProvider = {
       ...(category        ? { p_category: category }        : {}),
       ...(addr.country    ? { p_country:  addr.country }    : {})
     })
-    if (error) throw new Error(error.message)
+    if (error) throw dbError(error, 'Failed to look up the sales tax rate')
     const r = data as unknown as Record<string, unknown>
     if (r?.error) throw new Error(String(r.error))
     return {
@@ -99,7 +100,7 @@ export const avalaraProvider: SalesTaxProvider = {
 export async function getSalesTaxSettings(orgId: string): Promise<SalesTaxSettings | null> {
   const { data, error } = await db
     .from('sales_tax_settings').select('*').eq('org_id', orgId).maybeSingle()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load sales tax settings')
   return (data as SalesTaxSettings | null) ?? null
 }
 
@@ -114,7 +115,7 @@ export async function upsertSalesTaxSettings(
     ...(updatedBy ? { updated_by: updatedBy } : {}),
     updated_at: new Date().toISOString()
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save sales tax settings')
 }
 
 // ── Dispatcher: pick the provider from org settings ──────────────────────────
@@ -161,7 +162,7 @@ export async function upsertSalesTaxRate(input: SalesTaxRateInput): Promise<void
     source_url:        input.source_url ?? null,
     published_at:      input.published_at ?? null
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save the sales tax rate')
 }
 
 export interface SalesTaxLookup {
@@ -191,7 +192,7 @@ export async function lookupSalesTaxRate(
     .eq('country', country)
     .eq('state_code', state)
     .lte('effective_from', date)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to look up the sales tax rate')
 
   const candidates = (data ?? []).filter(r =>
     (r.postal_code === null || r.postal_code === (opts?.postal ?? null)) &&
@@ -219,6 +220,6 @@ export async function listSalesTaxRates(state?: string): Promise<SalesTaxRateInp
   let q = db.from('sales_tax_rates').select('*').order('state_code').order('effective_from', { ascending: false })
   if (state) q = q.eq('state_code', state)
   const { data, error } = await q
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load sales tax rates')
   return (data ?? []) as unknown as SalesTaxRateInput[]
 }

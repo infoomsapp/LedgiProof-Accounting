@@ -9,6 +9,7 @@
 // Extracted from BookkeeperDashboard.tsx (Sprint Accountant — 2026-06-26).
 
 import type { ReactNode } from 'react'
+import { useTranslation }        from 'react-i18next'
 import { Wallet }                from 'lucide-react'
 import SectionCard               from './SectionCard'
 import KpiTile                   from './KpiTile'
@@ -32,7 +33,7 @@ export interface FirmHealthKpisProps {
   /** Optional slot rendered to the right of the KPIs (e.g. the semaphore
    *  donut) so money + automation health live in one unified card. */
   rightSlot?:         ReactNode
-  /** Optional custom title — defaults to 'Financial Overview'. */
+  /** Optional custom title — defaults to the translated 'Financial Overview'. */
   title?:             string
 }
 
@@ -46,8 +47,10 @@ export default function FirmHealthKpis({
   overdueCount,
   onClickOutstanding,
   rightSlot,
-  title = 'Financial Overview'
+  title
 }: FirmHealthKpisProps) {
+  const { t } = useTranslation()
+  const resolvedTitle = title ?? t('dashboard.financialOverview')
   const fmt      = (n: number) => formatCurrency(n, currency)
   const fmtShort = (n: number) => formatCurrency(n, currency, { compact: true })
 
@@ -57,11 +60,11 @@ export default function FirmHealthKpis({
 
   return (
     <SectionCard
-      title={title}
+      title={resolvedTitle}
       icon={Wallet}
       accentColor="var(--sem-blue)"
       accentBg="var(--sem-blue-bg)"
-      right={<SourceTag label="Bank feed" title="Income & expenses come from verified bank-feed transactions this month" />}
+      right={<SourceTag label={t('dashboard.bankFeed')} title={t('dashboard.bankFeedTitle')} />}
     >
       <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{
@@ -72,22 +75,22 @@ export default function FirmHealthKpis({
           minWidth: 200
         }}>
           <KpiTile
-            label="Income (this month)"
+            label={t('dashboard.incomeThisMonth')}
             value={fmtShort(incomeAnim)}
-            sub={`${monthIncomeCount} transactions`}
+            sub={t('dashboard.transactionsCount', { count: monthIncomeCount })}
             color="var(--sem-green)"
           />
           <KpiTile
-            label="Expenses"
+            label={t('dashboard.expenses')}
             value={fmtShort(expensesAnim)}
-            sub={`${monthExpensesCount} transactions`}
+            sub={t('dashboard.transactionsCount', { count: monthExpensesCount })}
             color="var(--sem-red)"
           />
           {outstandingTotal !== undefined && (
             <KpiTile
-              label="Outstanding"
+              label={t('dashboard.outstanding')}
               value={fmtShort(outstandingAnim)}
-              sub={`${overdueCount ?? 0} overdue`}
+              sub={t('dashboard.overdueCount', { count: overdueCount ?? 0 })}
               color="var(--lp-violet)"
               {...(onClickOutstanding ? { onClick: onClickOutstanding } : {})}
             />

@@ -20,6 +20,7 @@ import { useOrgStore } from './store/org.store'
 import { useClientPortalStore } from './store/client-portal.store'
 import { useImpersonationStore } from './store/impersonation.store'
 import { useSessionRevocationGuard } from './hooks/useSessionRevocationGuard'
+import i18n from './i18n'
 
 import AppShell from './components/layout/AppShell'
 import LandingPage from './pages/LandingPage'
@@ -60,6 +61,7 @@ import Payroll from './pages/Payroll'
 import Reports from './pages/Reports'
 import FirmReportsSummary from './pages/FirmReportsSummary'
 import Settings from './pages/Settings'
+import BillingSuccess from './pages/BillingSuccess'
 import JournalEntries from './pages/JournalEntries'
 import PeriodControls from './pages/PeriodControls'
 
@@ -168,6 +170,16 @@ export default function App() {
   useEffect(() => {
     if (session?.user?.id) loadOrgs(session.user.id)
   }, [session?.user?.id, loadOrgs])
+
+  // 2b. Sync in-app language with the profile's saved preference — covers a
+  // new device/session where the localStorage mirror (src/i18n/index.ts)
+  // doesn't match the real saved choice yet.
+  useEffect(() => {
+    if (profile?.locale && profile.locale !== i18n.language) {
+      i18n.changeLanguage(profile.locale)
+      try { localStorage.setItem('lp-locale', profile.locale) } catch { /* best-effort mirror only */ }
+    }
+  }, [profile?.locale])
 
   // 2b. Load client-portal memberships in parallel — a person invited to a
   // firm's client portal has zero organization_memberships rows by design
@@ -297,7 +309,7 @@ export default function App() {
         <Route path="/login"          element={<Navigate to="/" replace />} />
         <Route path="/signup"         element={<Navigate to="/" replace />} />
         <Route path="/forgot-password" element={<Navigate to="/" replace />} />
-        <Route path="/pricing"        element={<Navigate to="/settings/billing" replace />} />
+        <Route path="/pricing"        element={<Navigate to="/settings?tab=billing" replace />} />
         {/* Reset password — Supabase may redirect here while already logged in.
             Allow it through so the user can set their new password. */}
         <Route path="/reset-password" element={<ResetPasswordRoute />} />
@@ -507,6 +519,10 @@ export default function App() {
 
           <Route path="settings"      element={
             <ErrorBoundary section="settings"><Settings /></ErrorBoundary>
+          } />
+
+          <Route path="billing/success" element={
+            <ErrorBoundary section="billing"><BillingSuccess /></ErrorBoundary>
           } />
 
           {/* Admin route — gated by RoleGuard (super_admin only) */}

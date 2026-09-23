@@ -5,6 +5,7 @@
 // nada; solo pinta este DTO). Box 1 = pagos reportables sobre tx verificadas.
 
 import { db } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 
 export type Worksheet1099Readiness =
   | 'ready'            // elegible + W-9 + TIN + sin tx pendientes + ≥ $600 → imprimir
@@ -46,7 +47,7 @@ export async function get1099Worksheet(
     p_tax_year: taxYear,
     ...(clientId ? { p_client_id: clientId } : {})
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the 1099 worksheet')
   return (data ?? []) as unknown as Worksheet1099Row[]
 }
 
@@ -73,7 +74,7 @@ export async function get1099Recipient(vendorId: string, taxYear: number): Promi
     p_vendor_id: vendorId,
     p_tax_year:  taxYear
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the 1099 recipient')
   return data as unknown as Recipient1099
 }
 

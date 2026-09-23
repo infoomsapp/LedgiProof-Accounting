@@ -13,6 +13,7 @@ import type { ClientPortalMembership } from '../../store/client-portal.store'
 import { db } from '../../lib/supabase'
 import { uploadDocument, getDocumentSignedUrl, formatBytes, validateFile } from '../../services/upload.service'
 import { formatDate } from '../../lib/dates'
+import { toSafeMessage } from '../../lib/errors'
 
 interface DocumentRow {
   id:               string
@@ -45,7 +46,7 @@ export default function PortalDocuments() {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
-    if (err) { setError(err.message); return }
+    if (err) { setError(toSafeMessage(err, 'Could not load documents')); return }
     setDocs((data ?? []) as DocumentRow[])
   }, [membership.clientId])
 

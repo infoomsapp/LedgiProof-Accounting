@@ -5,6 +5,7 @@
 // y en las páginas públicas. El logo vive en el bucket público org-branding.
 
 import { db } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 
 export interface Branding {
   logo_url:             string | null
@@ -22,13 +23,13 @@ export async function getBranding(orgId: string): Promise<Branding> {
     .select(BRANDING_COLS)
     .eq('id', orgId)
     .single()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load branding settings')
   return data as Branding
 }
 
 export async function updateBranding(orgId: string, patch: Partial<Branding>): Promise<void> {
   const { error } = await db.from('organizations').update(patch).eq('id', orgId)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save branding settings')
 }
 
 /**
@@ -41,7 +42,7 @@ export async function uploadLogo(orgId: string, file: File): Promise<string> {
   const { error: upErr } = await db.storage
     .from('org-branding')
     .upload(path, file, { upsert: true, contentType: file.type })
-  if (upErr) throw new Error(upErr.message)
+  if (upErr) throw dbError(upErr, 'Failed to upload the logo')
 
   const { data } = db.storage.from('org-branding').getPublicUrl(path)
   // Cache-bust para que el nuevo logo se vea al instante.

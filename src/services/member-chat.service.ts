@@ -15,6 +15,7 @@
 
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
+import { dbError } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ export async function openOrGetMemberConversation(
     p_org_id:        orgId,
     p_other_user_id: otherUserId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to open the conversation')
   if (!data) throw new Error('RPC returned no conversation_id')
   return data as string
 }
@@ -77,7 +78,7 @@ export async function getMemberInbox(
     p_org_id:           orgId,
     p_include_archived: includeArchived
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load your inbox')
 
   // Defensive coercion — the RPC returns JSONB which TS sees as `any`
   const result = (data as Partial<MemberInbox> | null) ?? {}
@@ -99,7 +100,7 @@ export async function getMemberMessages(
     p_limit:           limit,
     p_before:          before ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load messages')
   return (data as MemberMessage[] | null) ?? []
 }
 
@@ -118,7 +119,7 @@ export async function sendMemberMessage(input: {
     p_body:            input.body        ?? undefined,
     p_document_id:     input.documentId  ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to send the message')
   if (!data) throw new Error('RPC returned no message_id')
   return data as string
 }
@@ -131,7 +132,7 @@ export async function markMemberMessagesRead(
   const { data, error } = await db.rpc('mark_member_messages_read', {
     p_conversation_id: conversationId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to mark messages as read')
   return (data as number) ?? 0
 }
 
@@ -143,7 +144,7 @@ export async function archiveMemberConversation(
   const { error } = await db.rpc('archive_member_conversation', {
     p_conversation_id: conversationId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to archive the conversation')
 }
 
 export async function restoreMemberConversation(
@@ -152,5 +153,5 @@ export async function restoreMemberConversation(
   const { error } = await db.rpc('restore_member_conversation', {
     p_conversation_id: conversationId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to restore the conversation')
 }

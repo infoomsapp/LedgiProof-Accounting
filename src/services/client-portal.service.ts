@@ -15,6 +15,7 @@
 //   · Does NOT bypass the RPC (no direct table INSERTs for create)
 
 import { db } from '../lib/supabase'
+import { dbError, toSafeMessage } from '../lib/errors'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -112,7 +113,7 @@ export async function createClientPortalInvitation(input: {
     p_role:      input.role
   })
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the invitation')
   return data as unknown as { invitation_id: string; token: string; expires_at: string }
 }
 
@@ -156,7 +157,7 @@ export async function listClientPortalInvitations(
     .in('status', statuses)
     .order('created_at', { ascending: false })
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load invitations')
   return (data ?? []) as unknown as ClientPortalInvitationWithClient[]
 }
 
@@ -175,7 +176,7 @@ export async function revokeClientPortalInvitation(
     .eq('id', invitationId)
     .eq('status', 'pending')  // can only revoke pending ones
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to revoke the invitation')
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,6 +240,6 @@ export async function sendClientInvitationEmail(params: {
     return { sent: true }
   } catch (err: any) {
     console.error('[client-portal] Unexpected error sending invitation email:', err)
-    return { sent: false, error: err?.message ?? 'Network error' }
+    return { sent: false, error: toSafeMessage(err, 'Network error') }
   }
 }

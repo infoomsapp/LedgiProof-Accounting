@@ -3,6 +3,7 @@
 
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
+import { dbError } from '../lib/errors'
 
 // ── Types: get_solo_dashboard ────────────────────────────────────────────────
 
@@ -116,7 +117,7 @@ export interface RecurringCharge {
 
 export async function getRecurringSubscriptions(orgId: string): Promise<RecurringCharge[]> {
   const { data, error } = await db.rpc('rpc_solo_recurring', { p_org_id: orgId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load recurring subscriptions')
   return (data ?? []) as unknown as RecurringCharge[]
 }
 
@@ -130,7 +131,7 @@ export async function getSoloDashboard(
     p_year:    year ?? undefined,
     p_quarter: quarter ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the dashboard')
 
   // RPC now returns quarter_kpis directly (see migration
   // fix_get_solo_dashboard_quarter_key_collision) — no remap needed.
@@ -158,7 +159,7 @@ export async function getScheduleCData(
     p_org_id: orgId,
     p_year:   year ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the Schedule C data')
   return data as unknown as ScheduleCData
 }
 

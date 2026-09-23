@@ -12,6 +12,7 @@
 
 import { db } from '../lib/supabase'
 import { runWithQuota } from './quota.service'
+import { dbError } from '../lib/errors'
 
 export interface AiChatRequest {
   orgId:    string
@@ -52,7 +53,7 @@ export async function askAi(req: AiChatRequest): Promise<AiChatResponse> {
       headers: { Authorization: `Bearer ${session.access_token}` }
     })
 
-    if (res.error) throw new Error(res.error.message)
+    if (res.error) throw dbError(res.error, 'The assistant is unavailable right now')
     const data = res.data as any
     if (data?.error) throw new Error(data.error)
     if (!data?.reply) throw new Error('AI returned no reply')
@@ -81,7 +82,7 @@ export async function classifyTransaction(
       headers: { Authorization: `Bearer ${session.access_token}` }
     })
 
-    if (res.error) throw new Error(res.error.message)
+    if (res.error) throw dbError(res.error, 'Failed to classify the transaction')
     return res.data as { semaphore: any; reason: string }
   })
 }

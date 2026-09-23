@@ -3,6 +3,7 @@
 // countdown to IRS Form 1040-ES due date.
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { estimateQuarterlyTax, formatTax, formatPct } from '../../services/tax-estimator.service'
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 export default function QuarterlyTaxCard({
   netProfitYTD, netProfitQ, quarter, year, quarterDueDate, stateCode
 }: Props) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [basis, setBasis] = useState<'this_quarter' | 'ytd_annualized'>(
     netProfitYTD > netProfitQ ? 'ytd_annualized' : 'this_quarter'
@@ -40,10 +42,10 @@ export default function QuarterlyTaxCard({
   // Color logic
   const headerColor = isOverdue ? '#ef4444' : isUrgent ? '#f59e0b' : '#22c55e'
   const headerLabel = isOverdue
-    ? `⚠ ${Math.abs(daysUntilDue)} days overdue`
-    : daysUntilDue === 0 ? 'Due today'
-    : daysUntilDue === 1 ? 'Due tomorrow'
-    : `${daysUntilDue} days left`
+    ? t('solo.daysOverdueBadge', { count: Math.abs(daysUntilDue) })
+    : daysUntilDue === 0 ? t('solo.dueToday')
+    : daysUntilDue === 1 ? t('solo.dueTomorrow')
+    : t('solo.daysLeft', { count: daysUntilDue })
 
   return (
     <div style={{
@@ -64,8 +66,7 @@ export default function QuarterlyTaxCard({
           fontSize: 12,
           color: 'var(--lp-text, #92400e)'
         }}>
-          ⚠ Provisional estimate — the {est.taxYear} tax tables are not yet verified against the
-          official IRS figures. Treat this number as an approximation until confirmed.
+          {t('solo.provisionalEstimate', { year: est.taxYear })}
         </div>
       )}
 
@@ -80,7 +81,7 @@ export default function QuarterlyTaxCard({
             textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600,
             marginBottom: 4
           }}>
-            💰 Quarterly tax estimate · Q{quarter} {year}
+            {t('solo.quarterlyTaxEstimate', { quarter, year })}
           </div>
           <div style={{
             fontSize: 28, fontWeight: 800, color: 'var(--lp-text)',
@@ -89,8 +90,8 @@ export default function QuarterlyTaxCard({
             {formatTax(est.quarterlyDue)}
           </div>
           <div style={{ fontSize: 12, color: 'var(--lp-text-muted)', marginTop: 3 }}>
-            Form 1040-ES · Pay by {due.toLocaleDateString('en-US', {
-              month: 'long', day: 'numeric', year: 'numeric'
+            {t('solo.payBy', {
+              date: due.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
             })}
           </div>
         </div>
@@ -117,7 +118,7 @@ export default function QuarterlyTaxCard({
             fontSize: 10, color: '#475569',
             textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5
           }}>
-            Estimate based on
+            {t('solo.estimateBasedOn')}
           </div>
           <div style={{ display: 'inline-flex', gap: 4, padding: 2,
             background: 'rgba(255,255,255,0.03)', borderRadius: 7,
@@ -125,12 +126,12 @@ export default function QuarterlyTaxCard({
             <ToggleBtn
               active={basis === 'this_quarter'}
               onClick={() => setBasis('this_quarter')}
-              label={`This Q only (${formatTax(netProfitQ)})`}
+              label={t('solo.thisQOnly', { amount: formatTax(netProfitQ) })}
             />
             <ToggleBtn
               active={basis === 'ytd_annualized'}
               onClick={() => setBasis('ytd_annualized')}
-              label={`YTD annualized (${formatTax(netProfitYTD)})`}
+              label={t('solo.ytdAnnualized', { amount: formatTax(netProfitYTD) })}
             />
           </div>
         </div>
@@ -147,9 +148,12 @@ export default function QuarterlyTaxCard({
           display: 'flex', alignItems: 'center', justifyContent: 'space-between'
         }}
       >
-        <span>{expanded ? '▼' : '▶'} See breakdown</span>
+        <span>{expanded ? '▼' : '▶'} {t('solo.seeBreakdown')}</span>
         <span style={{ fontSize: 11, color: '#475569' }}>
-          {formatPct(est.effectiveRate)} effective · {formatPct(est.marginalRate)} marginal
+          {t('solo.effectiveMarginal', {
+            effective: formatPct(est.effectiveRate),
+            marginal:  formatPct(est.marginalRate)
+          })}
         </span>
       </button>
 
@@ -166,16 +170,16 @@ export default function QuarterlyTaxCard({
               textTransform: 'uppercase', letterSpacing: '0.06em',
               fontWeight: 600, marginBottom: 8
             }}>
-              Self-employment tax (15.3%)
+              {t('solo.seTaxTitle')}
             </div>
-            <Line label="Net earnings × 0.9235" value={formatTax(est.seBase)} />
-            <Line label="Social Security (12.4%)" value={formatTax(est.socialSecurityTax)} />
-            <Line label="Medicare (2.9%)" value={formatTax(est.medicareTax)} />
+            <Line label={t('solo.seNetEarnings')} value={formatTax(est.seBase)} />
+            <Line label={t('solo.socialSecurity')} value={formatTax(est.socialSecurityTax)} />
+            <Line label={t('solo.medicare')} value={formatTax(est.medicareTax)} />
             {est.additionalMedicare > 0 && (
-              <Line label="Additional Medicare (0.9%)"
+              <Line label={t('solo.additionalMedicare')}
                     value={formatTax(est.additionalMedicare)} />
             )}
-            <Line label="Total SE tax" value={formatTax(est.totalSeTax)} bold />
+            <Line label={t('solo.totalSeTax')} value={formatTax(est.totalSeTax)} bold />
           </div>
 
           {/* Federal column */}
@@ -185,15 +189,15 @@ export default function QuarterlyTaxCard({
               textTransform: 'uppercase', letterSpacing: '0.06em',
               fontWeight: 600, marginBottom: 8
             }}>
-              Federal income tax
+              {t('solo.federalIncomeTax')}
             </div>
-            <Line label="Net profit" value={formatTax(est.netProfit)} />
-            <Line label="− SE deduction (½)"
+            <Line label={t('solo.netProfit')} value={formatTax(est.netProfit)} />
+            <Line label={t('solo.seDeduction')}
                   value={`−${formatTax(est.seDeduction)}`} />
-            <Line label="− Std. deduction"
+            <Line label={t('solo.stdDeduction')}
                   value={`−${formatTax(est.netProfit - est.seDeduction - est.taxableIncome)}`} />
-            <Line label="Taxable income" value={formatTax(est.taxableIncome)} />
-            <Line label="Federal tax" value={formatTax(est.federalIncomeTax)} bold />
+            <Line label={t('solo.taxableIncome')} value={formatTax(est.taxableIncome)} />
+            <Line label={t('solo.federalTax')} value={formatTax(est.federalIncomeTax)} bold />
           </div>
 
           {/* Footer summary */}
@@ -203,7 +207,7 @@ export default function QuarterlyTaxCard({
             border: '0.5px solid rgba(34,197,94,0.25)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <span style={{ fontSize: 13, color: 'var(--lp-text)', fontWeight: 600 }}>
-                Annual total
+                {t('solo.annualTotal')}
               </span>
               <span style={{ fontSize: 16, fontWeight: 700, color: '#22c55e',
                 fontFamily: 'monospace' }}>
@@ -213,11 +217,11 @@ export default function QuarterlyTaxCard({
             <div style={{ display: 'flex', justifyContent: 'space-between',
               alignItems: 'baseline', marginTop: 4 }}>
               <span style={{ fontSize: 11.5, color: 'var(--lp-text-muted)' }}>
-                ÷ 4 quarters × 90% safe harbor
+                {t('solo.quartersSafeHarbor')}
               </span>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#22c55e',
                 fontFamily: 'monospace' }}>
-                {formatTax(est.quarterlyDue)} / quarter
+                {t('solo.perQuarter', { amount: formatTax(est.quarterlyDue) })}
               </span>
             </div>
           </div>
@@ -230,8 +234,7 @@ export default function QuarterlyTaxCard({
               border: '0.5px solid rgba(251,191,36,0.2)',
               fontSize: 11.5, color: '#fbbf24', lineHeight: 1.5
             }}>
-              💡 Add your state in <strong>Settings → Tax info</strong> for a more accurate
-              estimate (this covers federal + SE only).
+              {t('solo.addStateNotePrefix')} <strong>{t('solo.settingsTaxInfo')}</strong> {t('solo.addStateNoteSuffix')}
             </div>
           )}
           {stateCode && (
@@ -241,7 +244,7 @@ export default function QuarterlyTaxCard({
               border: '0.5px solid rgba(59,130,246,0.2)',
               fontSize: 11.5, color: '#93c5fd', lineHeight: 1.5
             }}>
-              📍 State: {stateCode} · State tax estimation coming soon. This figure is federal + SE only.
+              {t('solo.stateNote', { state: stateCode })}
             </div>
           )}
         </div>
@@ -263,7 +266,7 @@ export default function QuarterlyTaxCard({
             textDecoration: 'none', fontFamily: 'inherit'
           }}
         >
-          Pay at IRS.gov →
+          {t('solo.payAtIrs')}
         </a>
       </div>
     </div>

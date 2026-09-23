@@ -3,13 +3,14 @@
 // Stripe checkout integration will come in a later sprint.
 
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useOrgStore } from '../../store/org.store'
 import { useAuthStore } from '../../store/auth.store'
 import { db } from '../../lib/supabase'
 import Button from '../ui/Button'
 import { useUserRole } from '../../hooks/useUserRole'
 import { formatDate } from '../../lib/dates'
+import { createSubscriptionCheckoutSession } from '../../services/stripe.service'
+import { toSafeMessage } from '../../lib/errors'
 
 // ── Plan matrix (matches pricing page + v23 SQL) ────────────────────────────
 
@@ -96,13 +97,26 @@ interface Props {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 export default function BillingTab({ onMessage }: Props) {
-  const navigate         = useNavigate()
   const { activeOrg }    = useOrgStore()
   const { profile }      = useAuthStore()
   const role             = useUserRole()
 
-  const [sub, setSub]         = useState<Subscription | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [sub, setSub]                 = useState<Subscription | null>(null)
+  const [loading, setLoading]         = useState(true)
+  const [showPicker, setShowPicker]   = useState(false)
+  const [subscribing, setSubscribing] = useState<PlanId | null>(null)
+
+  async function handleSubscribe(planId: PlanId) {
+    if (!activeOrg?.id || subscribing) return
+    setSubscribing(planId)
+    try {
+      const url = await createSubscriptionCheckoutSession(planId, activeOrg.id)
+      window.location.href = url
+    } catch (e: any) {
+      onMessage?.({ type: 'err', text: e?.message ?? 'Failed to start checkout' })
+      setSubscribing(null)
+    }
+  }
 
   useEffect(() => {
     let alive = true
@@ -120,7 +134,7 @@ export default function BillingTab({ onMessage }: Props) {
 
         if (!alive) return
         if (error) {
-          onMessage?.({ type: 'err', text: error.message })
+          onMessage?.({ type: 'err', text: toSafeMessage(error, 'Could not load your subscription') })
         } else {
           setSub(data)
         }
@@ -219,27 +233,59 @@ export default function BillingTab({ onMessage }: Props) {
         {role.showBillingTab && (
           <Button
             variant="primary"
-            onClick={() => navigate('/pricing')}
+            onClick={() => setShowPicker(v => !v)}
           >
-            {currentPlan.id === 'starter' ? 'Choose a plan →' : 'Change plan →'}
+            {showPicker ? 'Hide plans' : currentPlan.id === 'starter' ? 'Choose a plan →' : 'Change plan →'}
           </Button>
         )}
       </div>
 
-      {/* Stripe coming soon notice */}
-      <div className="lp-card" style={{
-        borderColor: 'rgba(167,139,250,0.2)',
-        background: 'rgba(167,139,250,0.04)'
-      }}>
-        <div style={{ fontSize: 12, color: '#c4b5fd', lineHeight: 1.7, fontWeight: 500 }}>
-          💳 Payment processing coming soon
+      {/* Plan picker — real Stripe Checkout, no placeholder */}
+      {role.showBillingTab && showPicker && (
+        <div className="lp-card" style={{ marginBottom: 14 }}>
+          <div style={{
+            fontSize: 11, color: 'var(--lp-text-muted)',
+            textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10
+          }}>
+            Choose a plan
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(Object.keys(PLANS) as PlanId[]).map(planId => {
+              const plan = PLANS[planId]
+              const isCurrent = planId === currentPlan.id
+              return (
+                <div key={planId} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 12px', borderRadius: 8,
+                  border: `0.5px solid ${isCurrent ? plan.color + '50' : 'var(--lp-border)'}`,
+                  background: isCurrent ? `${plan.color}0c` : 'transparent'
+                }}>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: plan.color }}>
+                      {plan.name}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', fontFamily: 'monospace' }}>
+                      ${plan.price}{plan.price > 0 ? '/mo' : ''}
+                    </div>
+                  </div>
+                  <Button
+                    variant={isCurrent ? 'ghost' : 'primary'}
+                    disabled={isCurrent || subscribing !== null}
+                    onClick={() => handleSubscribe(planId)}
+                  >
+                    {isCurrent
+                      ? 'Current plan'
+                      : subscribing === planId ? 'Redirecting…' : 'Subscribe'}
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', marginTop: 10, lineHeight: 1.5 }}>
+            You'll be redirected to Stripe's secure checkout to complete payment.
+          </div>
         </div>
-        <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 6, lineHeight: 1.6 }}>
-          Stripe integration is being rolled out. Plan changes and pay-as-you-go
-          billing will be available shortly. For now, all paid features are
-          available during your trial period.
-        </div>
-      </div>
+      )}
 
       {/* Subscription details (for owners + super_admin only) */}
       {role.showBillingTab && sub && (

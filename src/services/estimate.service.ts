@@ -29,6 +29,7 @@ import type {
   ListEstimatesResult,
   EstimateTemplateItem
 } from '../types/estimate'
+import { dbError } from '../lib/errors'
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ESTIMATES — CRUD via RPCs
@@ -49,7 +50,7 @@ export async function createEstimate(input: CreateEstimateInput): Promise<Create
     p_terms:             input.terms              ?? undefined,
     p_footer:            input.footer             ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the estimate')
   return data as unknown as CreateEstimateResult
 }
 
@@ -65,7 +66,7 @@ export async function updateEstimate(input: UpdateEstimateInput): Promise<void> 
     p_footer:            input.footer            ?? undefined,
     p_currency:          input.currency          ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the estimate')
 }
 
 /** Get an estimate by id (org member access) — direct table read */
@@ -75,7 +76,7 @@ export async function getEstimate(estimateId: string): Promise<Estimate | null> 
     .select('*')
     .eq('id', estimateId)
     .maybeSingle()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the estimate')
   return data as Estimate | null
 }
 
@@ -86,7 +87,7 @@ export async function getEstimateItems(estimateId: string): Promise<EstimateItem
     .select('*')
     .eq('estimate_id', estimateId)
     .order('sort_order', { ascending: true })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the estimate items')
   return (data ?? []) as EstimateItem[]
 }
 
@@ -118,14 +119,14 @@ export async function listEstimates(opts: {
     p_limit:     opts.limit    ?? 50,
     p_offset:    opts.offset   ?? 0
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load estimates')
   return data as unknown as ListEstimatesResult
 }
 
 /** Delete a draft estimate (RLS only allows status=draft) */
 export async function deleteEstimate(estimateId: string): Promise<void> {
   const { error } = await db.from('estimates').delete().eq('id', estimateId)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to delete the estimate')
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -143,7 +144,7 @@ export async function addEstimateItem(input: AddEstimateItemInput): Promise<stri
     p_item_type:    input.item_type    ?? 'service',
     p_sort_order:   input.sort_order   ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to add the estimate item')
   return data as string
 }
 
@@ -157,12 +158,12 @@ export async function updateEstimateItem(input: UpdateEstimateItemInput): Promis
     p_tax_rate:     input.tax_rate     ?? undefined,
     p_sort_order:   input.sort_order   ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the estimate item')
 }
 
 export async function deleteEstimateItem(itemId: string): Promise<void> {
   const { error } = await db.rpc('delete_estimate_item', { p_item_id: itemId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to delete the estimate item')
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -180,7 +181,7 @@ export async function sendEstimate(opts: {
     p_to_email:    opts.toEmail ?? undefined,
     p_method:      opts.method  ?? 'link_copied'
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to send the estimate')
   return data as unknown as SendEstimateResult
 }
 
@@ -205,7 +206,7 @@ export async function getEstimateByPublicToken(opts: {
     p_viewer_ip:  null,  // anon — server reads from request if needed
     p_user_agent: opts.userAgent ?? (typeof navigator !== 'undefined' ? navigator.userAgent : undefined)
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the estimate')
   return data as unknown as EstimatePublicPayload
 }
 
@@ -223,7 +224,7 @@ export async function acceptEstimatePublic(opts: {
     p_ip:              null,
     p_user_agent:      typeof navigator !== 'undefined' ? navigator.userAgent : undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to accept the estimate')
   return data as unknown as AcceptEstimateResult
 }
 
@@ -241,7 +242,7 @@ export async function rejectEstimatePublic(opts: {
     p_ip:           null,
     p_user_agent:   typeof navigator !== 'undefined' ? navigator.userAgent : undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to decline the estimate')
   return data as unknown as { estimate_id: string; rejected_at: string }
 }
 
@@ -261,7 +262,7 @@ export async function counterOfferPublic(opts: {
     p_ip:             null,
     p_user_agent:     typeof navigator !== 'undefined' ? navigator.userAgent : undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to submit the counter offer')
   return data as unknown as { parent_estimate_id: string; proposed_total: number; recorded_at: string }
 }
 
@@ -273,7 +274,7 @@ export async function convertEstimateToInvoice(estimateId: string): Promise<Conv
   const { data, error } = await db.rpc('convert_estimate_to_invoice', {
     p_estimate_id: estimateId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to convert the estimate to an invoice')
   return data as unknown as ConvertEstimateResult
 }
 
@@ -299,7 +300,7 @@ export async function listEstimateTemplates(opts?: {
   }
 
   const { data, error } = await q
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load estimate templates')
   return (data ?? []) as unknown as EstimateTemplate[]
 }
 
@@ -310,7 +311,7 @@ export async function getEstimateTemplate(templateId: string): Promise<EstimateT
     .select('*')
     .eq('id', templateId)
     .maybeSingle()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the estimate template')
   return data as EstimateTemplate | null
 }
 
@@ -343,7 +344,7 @@ export async function createEstimateTemplate(input: {
     })
     .select('*')
     .single()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the estimate template')
   return data as unknown as EstimateTemplate
 }
 
@@ -361,13 +362,13 @@ export async function updateEstimateTemplate(
     .eq('id', templateId)
     .select('*')
     .single()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the estimate template')
   return data as unknown as EstimateTemplate
 }
 
 export async function deleteEstimateTemplate(templateId: string): Promise<void> {
   const { error } = await db.from('estimate_templates').delete().eq('id', templateId)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to delete the estimate template')
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -380,7 +381,7 @@ export async function getEstimateSignatures(estimateId: string): Promise<Estimat
     .select('*')
     .eq('estimate_id', estimateId)
     .order('signed_at', { ascending: false })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the estimate signatures')
   return (data ?? []) as EstimateSignature[]
 }
 
@@ -390,7 +391,7 @@ export async function getEstimateResponses(estimateId: string): Promise<Estimate
     .select('*')
     .eq('estimate_id', estimateId)
     .order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the estimate responses')
   return (data ?? []) as EstimateResponse[]
 }
 

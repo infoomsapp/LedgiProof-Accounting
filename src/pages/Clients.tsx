@@ -28,6 +28,7 @@ import {
   type ClientPortalRole,
   type ClientPortalInvitationWithClient
 } from '../services/client-portal.service'
+import { toSafeMessage } from '../lib/errors'
 
 interface Member {
   id:           string
@@ -217,7 +218,7 @@ export default function Clients() {
       .single()
 
     if (error) {
-      setInvError(error.message)
+      setInvError(toSafeMessage(error, 'Could not send the invitation'))
     } else {
       const inv_data = inv as Invitation & { token: string }
       // Build invitation URL
@@ -232,7 +233,7 @@ export default function Clients() {
   async function revokeInvitation(id: string) {
     const { error } = await db.from('invitations').update({ status: 'revoked' }).eq('id', id)
     if (error) {
-      setListError(`Could not revoke invitation: ${error.message}`)
+      setListError(`Could not revoke invitation: ${toSafeMessage(error, 'database error')}`)
       return
     }
     await load()

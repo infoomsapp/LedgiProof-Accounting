@@ -12,6 +12,7 @@
 
 import { db } from '../lib/supabase'
 import type { InvoiceItemType } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly'
 export type RecurringStatus    = 'active' | 'paused' | 'ended'
@@ -69,7 +70,7 @@ export async function getRecurringInvoices(orgId: string): Promise<RecurringInvo
     .select('*, clients(display_name, email)')
     .eq('org_id', orgId)
     .order('next_run_date')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load recurring invoices')
   return (data ?? []) as unknown as RecurringInvoiceWithClient[]
 }
 
@@ -79,7 +80,7 @@ export async function getRecurringItems(recurringId: string): Promise<RecurringI
     .select('*')
     .eq('recurring_id', recurringId)
     .order('sort_order')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the recurring invoice items')
   return (data ?? []) as RecurringInvoiceItem[]
 }
 
@@ -123,7 +124,7 @@ export async function createRecurringInvoice(
     end_date:        input.endDate ?? null,
     max_occurrences: input.maxOccurrences ?? null
   }).select().single()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the recurring invoice')
 
   const rec = data as RecurringInvoice
   await replaceRecurringItems(rec.id, input.orgId, items)
@@ -149,25 +150,25 @@ export async function replaceRecurringItems(
     tax_rate:     it.tax_rate
   }))
   const { error } = await db.from('recurring_invoice_items').insert(rows)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save the recurring invoice items')
 }
 
 export async function setRecurringStatus(id: string, status: RecurringStatus): Promise<void> {
   const { error } = await db.from('recurring_invoices')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the recurring invoice status')
 }
 
 export async function deleteRecurringInvoice(id: string): Promise<void> {
   const { error } = await db.from('recurring_invoices').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to delete the recurring invoice')
 }
 
 /** Runs the due-now generator for this org (the "Generate now" button). */
 export async function generateDueRecurringInvoices(orgId: string): Promise<number> {
   const { data, error } = await db.rpc('generate_due_recurring_invoices', { p_org_id: orgId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to generate the due recurring invoices')
   const res = data as unknown as { generated?: number; error?: string }
   if (res?.error) throw new Error(res.error)
   return res?.generated ?? 0

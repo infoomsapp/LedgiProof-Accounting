@@ -57,16 +57,23 @@ export function formatCompact(amount: number, currency = 'USD'): string {
 
 export type ExchangeRates = Record<string, number>
 
+// Throws rather than silently falling back to a 1:1 rate when a currency has
+// no entry in `rates` — a missing rate (e.g. ARS/COP, which the free Frankfurter
+// FX source this app uses doesn't carry) must never be mistaken for "already
+// in USD". Callers that can legitimately hit a missing rate should catch this
+// explicitly rather than let it produce a silently wrong converted amount.
 export function toUSD(amount: number, currency: string, rates: ExchangeRates): number {
   if (currency === 'USD') return amount
   const r = rates[currency]
-  return r ? amount / r : amount
+  if (!r) throw new Error(`No exchange rate available for "${currency}" — cannot convert to USD`)
+  return amount / r
 }
 
 export function fromUSD(amount: number, currency: string, rates: ExchangeRates): number {
   if (currency === 'USD') return amount
   const r = rates[currency]
-  return r ? amount * r : amount
+  if (!r) throw new Error(`No exchange rate available for "${currency}" — cannot convert from USD`)
+  return amount * r
 }
 
 export function convertAmount(

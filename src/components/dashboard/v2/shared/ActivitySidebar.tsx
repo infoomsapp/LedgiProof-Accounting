@@ -7,6 +7,8 @@
 // Auto-collapses to "show more" if items exceed max visible count.
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Radio } from 'lucide-react'
 import SectionCard from './SectionCard'
 import { formatDateShort } from '../../../../lib/dates'
@@ -54,6 +56,7 @@ export default function ActivitySidebar({
   isLive = true,
   rightSlot
 }: Props) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   const visibleItems = expanded ? items : items.slice(0, maxVisible)
@@ -61,7 +64,7 @@ export default function ActivitySidebar({
 
   return (
     <SectionCard
-      title="Recent Activity"
+      title={t('dashboard.recentActivity')}
       icon={Radio}
       right={
         rightSlot ?? (isLive ? (
@@ -77,7 +80,7 @@ export default function ActivitySidebar({
               background: 'var(--sem-green)',
               animation: 'lp-blink 1.6s ease-in-out infinite'
             }} />
-            Live
+            {t('dashboard.live')}
           </span>
         ) : null)
       }
@@ -89,7 +92,7 @@ export default function ActivitySidebar({
           fontSize: 11,
           color: 'var(--lp-text-muted)'
         }}>
-          No recent activity.
+          {t('dashboard.noRecentActivity')}
         </div>
       ) : (
         <>
@@ -129,8 +132,8 @@ export default function ActivitySidebar({
               }}
             >
               {expanded
-                ? '↑ Show less'
-                : `↓ Show ${items.length - maxVisible} more`}
+                ? t('dashboard.showLess')
+                : t('dashboard.showMore', { count: items.length - maxVisible })}
             </button>
           )}
         </>
@@ -149,8 +152,9 @@ export default function ActivitySidebar({
 // ── Single activity row ─────────────────────────────────────────────────────
 
 function ActivityRow({ item }: { item: ActivityItem }) {
+  const { t } = useTranslation()
   const interactive = !!item.onClick
-  const timeAgo = useMemo(() => formatRelativeTime(item.at), [item.at])
+  const timeAgo = useMemo(() => formatRelativeTime(item.at, t), [item.at, t])
 
   return (
     <div
@@ -234,16 +238,16 @@ function renderWithAccent(text: string, accent: string, color: string) {
 }
 
 /** Format an ISO timestamp as "5m", "2h", "3d", or full date */
-function formatRelativeTime(iso: string): string {
+function formatRelativeTime(iso: string, t: TFunction): string {
   const now = Date.now()
-  const t   = new Date(iso).getTime()
-  if (isNaN(t)) return ''
-  const diffSec = Math.floor((now - t) / 1000)
+  const ts  = new Date(iso).getTime()
+  if (isNaN(ts)) return ''
+  const diffSec = Math.floor((now - ts) / 1000)
 
-  if (diffSec < 60)   return `${diffSec}s ago`
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`
-  if (diffSec < 7 * 86400) return `${Math.floor(diffSec / 86400)}d ago`
+  if (diffSec < 60)   return t('dashboard.relSecondsAgo', { count: diffSec })
+  if (diffSec < 3600) return t('dashboard.relMinutesAgo', { count: Math.floor(diffSec / 60) })
+  if (diffSec < 86400) return t('dashboard.relHoursAgo', { count: Math.floor(diffSec / 3600) })
+  if (diffSec < 7 * 86400) return t('dashboard.relDaysAgo', { count: Math.floor(diffSec / 86400) })
 
   return formatDateShort(iso, { withYear: false })
 }

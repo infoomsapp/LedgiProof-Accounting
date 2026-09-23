@@ -8,6 +8,7 @@
 //                      w9_status='on_file' y se recomputa su elegibilidad 1099.
 
 import { db } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 
 // ── Firma (autenticado) ──────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ export async function requestW9(vendorId: string): Promise<{ token: string; url:
       w9_requested_at:  new Date().toISOString()
     })
     .eq('id', vendorId)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to send the W-9 request')
 
   return { token, url: buildW9Url(token) }
 }
@@ -49,7 +50,7 @@ export interface W9RequestContext {
 
 export async function getW9Request(token: string): Promise<W9RequestContext> {
   const { data, error } = await db.rpc('get_w9_request', { p_token: token })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the W-9 request')
   return data as unknown as W9RequestContext
 }
 
@@ -81,5 +82,5 @@ export async function submitW9(input: SubmitW9Input): Promise<void> {
     p_cert_name:          input.certName,
     p_backup_withholding: input.backupWithholding ?? false
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to submit the W-9')
 }

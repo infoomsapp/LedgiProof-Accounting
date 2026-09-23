@@ -13,6 +13,7 @@
 // become a source of errors in the app.
 
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 const CGC_ENDPOINT = Deno.env.get('CGC_ENDPOINT') ?? ''
 const CGC_API_KEY  = Deno.env.get('CGC_API_KEY')  ?? ''
@@ -102,6 +103,6 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     console.error('[report-error] error:', err)
     // Swallow — a broken monitoring pipe must never surface to the caller.
-    return respond({ accepted: false, reason: err?.message ?? 'unknown error' }, 200)
+    return respond({ accepted: false, reason: safeMessage(err, 'unknown error') }, 200)
   }
 })

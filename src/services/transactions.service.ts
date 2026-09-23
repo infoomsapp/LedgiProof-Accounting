@@ -27,6 +27,7 @@ import type {
   PaymentMethodType,
   Json
 } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 // `transaction_group_id` has no column-level DEFAULT, so the generated
 // Insert type marks it required — but trg_default_transaction_group_id
@@ -154,7 +155,7 @@ export async function createTransaction(
     .single()
 
   if (error || !data) {
-    throw new Error(`[Transactions] Insert failed: ${error?.message}`)
+    throw new Error(`[Transactions] Insert failed: ${toSafeMessage(error, 'database error')}`)
   }
 
   // 5. Persist Brain evaluation
@@ -271,7 +272,7 @@ export async function editTransaction(
     .single()
 
   if (fetchErr || !current) {
-    throw new Error(`[Transactions] Current version not found: ${fetchErr?.message}`)
+    throw new Error(`[Transactions] Current version not found: ${toSafeMessage(fetchErr, 'database error')}`)
   }
 
   if (current.locked_at) {
@@ -338,7 +339,7 @@ export async function editTransaction(
     .single()
 
   if (error || !data) {
-    throw new Error(`[Transactions] Edit insert failed: ${error?.message}`)
+    throw new Error(`[Transactions] Edit insert failed: ${toSafeMessage(error, 'database error')}`)
   }
 
   await persistEvaluation(data.id, data.version, brainResult)
@@ -400,7 +401,7 @@ export async function approveTransaction(
     .single()
 
   if (fetchErr || !tx) {
-    throw new Error(`[Transactions] Transaction not found: ${fetchErr?.message}`)
+    throw new Error(`[Transactions] Transaction not found: ${toSafeMessage(fetchErr, 'database error')}`)
   }
 
   if (tx.locked_at) throw new Error('[Transactions] Transaction already locked')
@@ -421,7 +422,7 @@ export async function approveTransaction(
     .single()
 
   if (error || !data) {
-    throw new Error(`[Transactions] Approval update failed: ${error?.message}`)
+    throw new Error(`[Transactions] Approval update failed: ${toSafeMessage(error, 'database error')}`)
   }
 
   const previousHash = await getLatestAuditHash(input.orgId)
@@ -470,7 +471,7 @@ export async function lockTransaction(
     .eq('org_id', orgId)
     .single()
 
-  if (fetchErr || !tx) throw new Error(`[Transactions] Not found: ${fetchErr?.message}`)
+  if (fetchErr || !tx) throw new Error(`[Transactions] Not found: ${toSafeMessage(fetchErr, 'database error')}`)
   if (tx.locked_at)      throw new Error('[Transactions] Already locked')
   if (tx.semaphore !== 'blue') {
     throw new Error('[Transactions] Only blue (verified) transactions can be locked')
@@ -504,7 +505,7 @@ export async function lockTransaction(
     .single()
 
   if (error || !data) {
-    throw new Error(`[Transactions] Lock failed: ${error?.message}`)
+    throw new Error(`[Transactions] Lock failed: ${toSafeMessage(error, 'database error')}`)
   }
 
   const entryHash = await buildAuditHash({
@@ -557,7 +558,7 @@ export async function getCertificationQueue(orgId: string): Promise<Certificatio
     .order('transaction_date', { ascending: false })
 
   if (error) {
-    throw new Error(`[Transactions] Certification queue fetch failed: ${error.message}`)
+    throw new Error(`[Transactions] Certification queue fetch failed: ${toSafeMessage(error, 'database error')}`)
   }
   return (data ?? []) as CertificationQueueItem[]
 }
@@ -569,7 +570,7 @@ export async function certifyTransaction(transactionId: string): Promise<void> {
 
   if (error) {
     const serverMessage = (data as { error?: string } | null)?.error
-    throw new Error(`[Transactions] Certification failed: ${serverMessage ?? error.message}`)
+    throw new Error(`[Transactions] Certification failed: ${serverMessage ?? toSafeMessage(error, 'database error')}`)
   }
   if (!data?.success) {
     throw new Error(`[Transactions] Certification failed: ${data?.error ?? 'Unknown error'}`)
@@ -627,7 +628,7 @@ export async function getTransactions(
   q = q.range(options?.offset ?? 0, (options?.offset ?? 0) + (options?.limit ?? 500) - 1)
 
   const { data, error } = await q
-  if (error) throw new Error(`[Transactions] Fetch failed: ${error.message}`)
+  if (error) throw new Error(`[Transactions] Fetch failed: ${toSafeMessage(error, 'database error')}`)
   return (data ?? []) as Transaction[]
 }
 
@@ -638,6 +639,6 @@ export async function getTransactionHistory(transactionGroupId: string): Promise
     .eq('transaction_group_id', transactionGroupId)
     .order('version', { ascending: true })
 
-  if (error) throw new Error(`[Transactions] History fetch failed: ${error.message}`)
+  if (error) throw new Error(`[Transactions] History fetch failed: ${toSafeMessage(error, 'database error')}`)
   return (data ?? []) as Transaction[]
 }

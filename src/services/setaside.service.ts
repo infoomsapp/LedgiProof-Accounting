@@ -4,6 +4,7 @@
 // ganancia y trackea los aportes reales. Ahorro, no tax-prep.
 
 import { db } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 
 export interface SetAsideSummary {
   totalSetAside: number
@@ -25,7 +26,7 @@ export async function getSetAsideSummary(
     p_org_id: orgId, p_year: year,
     ...(clientId ? { p_client_id: clientId } : {})
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the set-aside summary')
   const row = (data ?? [])[0]
   return {
     totalSetAside: Number(row?.total_set_aside ?? 0),
@@ -44,7 +45,7 @@ export async function listSetAsideEntries(
     .lte('entry_date', `${year}-12-31`)
   if (clientId) q = q.eq('client_id', clientId)
   const { data, error } = await q.order('entry_date', { ascending: false }).limit(50)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load set-aside entries')
   return (data ?? []) as SetAsideEntry[]
 }
 
@@ -64,7 +65,7 @@ export async function addSetAside(input: {
     ...(input.note ? { note: input.note } : {}),
     ...(input.clientId ? { client_id: input.clientId } : {})
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to add the set-aside')
 }
 
 /** Actualiza el % de apartado del org (0..1). */
@@ -72,5 +73,5 @@ export async function updateSetAsideRate(orgId: string, rate: number): Promise<v
   const { error } = await db.from('organizations')
     .update({ tax_setaside_rate: rate })
     .eq('id', orgId)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the set-aside rate')
 }

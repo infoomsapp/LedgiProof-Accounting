@@ -9,6 +9,7 @@
 //   - AuditFilters
 //   - AuditTransactionsTable (cursor pagination)
 
+import { useTranslation }          from 'react-i18next'
 import { useAuthStore }            from '../store/auth.store'
 import { useAuditorView }          from '../hooks/useAuditorView'
 
@@ -19,20 +20,21 @@ import { formatCurrency } from '../lib/currency'
 
 const fmtCur = (n: number, ccy = 'USD') => formatCurrency(n, ccy, { maximumFractionDigits: 0 })
 
-const SEM_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
-  blue:  { label: 'Verified',     color: '#3b82f6', emoji: '🔵' },
-  green: { label: 'Reconciled',   color: '#22c55e', emoji: '🟢' },
-  amber: { label: 'Needs review', color: '#f59e0b', emoji: '🟡' },
-  red:   { label: 'Urgent',       color: '#ef4444', emoji: '🔴' }
+// `labelKey` holds an i18n KEY — resolved with t() at the render site.
+const SEM_LABELS: Record<string, { labelKey: string; color: string; emoji: string }> = {
+  blue:  { labelKey: 'audit.semVerified',    color: '#3b82f6', emoji: '🔵' },
+  green: { labelKey: 'audit.semReconciled',  color: '#22c55e', emoji: '🟢' },
+  amber: { labelKey: 'audit.semNeedsReview', color: '#f59e0b', emoji: '🟡' },
+  red:   { labelKey: 'audit.semUrgent',      color: '#ef4444', emoji: '🔴' }
 }
 
 export default function ReadOnlyDashboard() {
+  const { t } = useTranslation()
   const { profile } = useAuthStore()
   const view = useAuditorView()
 
   const firstName = profile?.display_name?.split(' ')[0]
     ?? profile?.email?.split('@')[0]
-    ?? 'there'
 
   const selectedWorkspace = view.workspaces.find(w => w.org_id === view.selectedOrgId)
 
@@ -50,7 +52,7 @@ export default function ReadOnlyDashboard() {
             letterSpacing: '-0.01em', margin: 0,
             display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
           }}>
-            <span>Audit view, {firstName}</span>
+            <span>{firstName ? t('audit.viewTitle', { name: firstName }) : t('audit.viewTitleNoName')}</span>
             <span style={{
               fontSize: 10.5, padding: '3px 10px', borderRadius: 100,
               background: 'rgba(34,197,94,0.10)',
@@ -59,11 +61,11 @@ export default function ReadOnlyDashboard() {
               textTransform: 'uppercase', letterSpacing: '0.07em',
               display: 'inline-flex', alignItems: 'center', gap: 5
             }}>
-              🟢 Auditor access · Read-only
+              {t('audit.auditorBadge')}
             </span>
           </h1>
           <p style={{ fontSize: 13, color: 'var(--lp-text-muted)', marginTop: 6 }}>
-            You can view and export records. You cannot edit transactions or post changes.
+            {t('audit.auditorNote')}
           </p>
         </div>
 
@@ -91,7 +93,7 @@ export default function ReadOnlyDashboard() {
               display: 'flex', alignItems: 'center', gap: 6
             }}
           >
-            {view.exporting ? '⏳ Exporting…' : '⬇ Export CSV'}
+            {view.exporting ? t('audit.exporting') : t('audit.exportCsv')}
           </button>
         </div>
       </div>
@@ -121,13 +123,13 @@ export default function ReadOnlyDashboard() {
           <div style={{ fontSize: 36, marginBottom: 10, opacity: 0.4 }}>🏢</div>
           <div style={{ fontSize: 14, color: '#cbd5e1', fontWeight: 500, marginBottom: 6 }}>
             {view.workspaces.length === 0
-              ? 'No workspaces accessible'
-              : 'Select a workspace to begin'}
+              ? t('audit.noWorkspaces')
+              : t('audit.selectWorkspace')}
           </div>
           <div style={{ fontSize: 12, color: '#64748b' }}>
             {view.workspaces.length === 0
-              ? 'Your account does not have audit access to any workspace yet.'
-              : 'Choose a firm from the dropdown above to load its audit data.'}
+              ? t('audit.noWorkspacesSub')
+              : t('audit.selectWorkspaceSub')}
           </div>
         </div>
       )}
@@ -145,7 +147,7 @@ export default function ReadOnlyDashboard() {
               marginBottom: 14,
               color: '#64748b', fontSize: 12.5, fontStyle: 'italic'
             }}>
-              Loading summary…
+              {t('audit.loadingSummary')}
             </div>
           ) : view.summary ? (
             <SummarySection
@@ -184,6 +186,9 @@ function SummarySection({ summary, workspaceName }: {
   summary: import('../services/auditor.service').AuditSummary
   workspaceName?: string
 }) {
+  // `t` is already taken by this component's totals alias, so the translation
+  // function is bound as `tr` here.
+  const { t: tr } = useTranslation()
   const t = summary.totals
   const breakdown = summary.by_status
   const totalCount = Object.values(breakdown).reduce((sum, n) => sum + n, 0)
@@ -208,7 +213,9 @@ function SummarySection({ summary, workspaceName }: {
             textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600,
             marginBottom: 3
           }}>
-            Summary {workspaceName && `· ${workspaceName}`}
+            {workspaceName
+              ? tr('audit.summaryWithWorkspace', { workspace: workspaceName })
+              : tr('audit.summary')}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)' }}>
             {summary.period.from} → {summary.period.to}
@@ -224,7 +231,7 @@ function SummarySection({ summary, workspaceName }: {
             color: '#22c55e', fontWeight: 600,
             display: 'inline-flex', alignItems: 'center', gap: 5
           }}>
-            ✓ Workspace integrity verified
+            {tr('audit.integrityVerified')}
           </span>
         )}
       </div>
@@ -236,25 +243,25 @@ function SummarySection({ summary, workspaceName }: {
         gap: 10, marginBottom: 16
       }}>
         <Kpi
-          label="Income"
+          label={tr('audit.kpiIncome')}
           value={fmtCur(t.income)}
           color="#22c55e"
           icon="📥"
         />
         <Kpi
-          label="Expenses"
+          label={tr('audit.kpiExpenses')}
           value={fmtCur(t.expenses)}
           color="#f87171"
           icon="📤"
         />
         <Kpi
-          label="Net profit"
+          label={tr('audit.kpiNetProfit')}
           value={fmtCur(t.net_profit)}
           color={t.net_profit >= 0 ? '#22c55e' : '#ef4444'}
           icon="💹"
         />
         <Kpi
-          label="Transactions"
+          label={tr('audit.kpiTransactions')}
           value={t.transactions_count.toLocaleString()}
           color="#3b82f6"
           icon="📋"
@@ -269,15 +276,16 @@ function SummarySection({ summary, workspaceName }: {
             fontSize: 10, color: '#64748b', fontWeight: 600,
             textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6
           }}>
-            Status breakdown
+            {tr('audit.statusBreakdown')}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {Object.entries(breakdown)
               .sort((a, b) => b[1] - a[1])
               .map(([key, count]) => {
-                const cfg = SEM_LABELS[key] ?? {
-                  label: key, color: 'var(--lp-text-muted)', emoji: '•'
-                }
+                const known = SEM_LABELS[key]
+                const cfg = known
+                  ? { label: tr(known.labelKey), color: known.color, emoji: known.emoji }
+                  : { label: key, color: 'var(--lp-text-muted)', emoji: '•' }
                 const pct = totalCount > 0
                   ? Math.round((count / totalCount) * 100)
                   : 0

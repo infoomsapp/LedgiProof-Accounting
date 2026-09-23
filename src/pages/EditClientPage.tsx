@@ -24,6 +24,7 @@ import SemaphoreSpinner from '../components/ui/SemaphoreSpinner'
 import { db } from '../lib/supabase'
 import { updateClient } from '../services/invoice.service'
 import type { Client } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 export default function EditClientPage() {
   const { id }       = useParams<{ id: string }>()
@@ -67,7 +68,7 @@ export default function EditClientPage() {
         .single()
 
       if (dbErr) {
-        setError(dbErr.message)
+        setError(toSafeMessage(dbErr, 'Could not load the client'))
         setLoading(false)
         return
       }

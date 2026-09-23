@@ -9,6 +9,7 @@
 
 import { db } from '../lib/supabase'
 import type { Json } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 export type OnboardingSurface = 'accountant_dashboard' | 'bookkeeper_dashboard'
 
@@ -22,5 +23,5 @@ export function hasSeenOnboardingHints(
 
 export async function markOnboardingHintsSeen(surface: OnboardingSurface): Promise<void> {
   const { error } = await db.rpc('mark_onboarding_hints_seen', { p_surface: surface })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save your onboarding progress')
 }

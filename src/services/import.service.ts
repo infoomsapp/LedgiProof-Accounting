@@ -19,6 +19,7 @@
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
 import type { Json } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 // ════════════════════════════════════════════════════════════════════════════
 // LAYER 1 — Low-level RPC wrappers
@@ -79,7 +80,7 @@ export async function previewCoaImport(
     p_rows:      rows as unknown as Json,
     p_client_id: clientId ?? undefined  // 🆕 B3.7 v42
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to preview the chart of accounts import')
   return data as unknown as CoaPreviewResult
 }
 
@@ -93,7 +94,7 @@ export async function importCoaBatch(
     p_rows:      rows as unknown as Json,
     p_client_id: clientId ?? undefined  // 🆕 B3.7 — v40b RPC accepts NULL for legacy mode
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to import the chart of accounts')
   return data as unknown as CoaImportResult
 }
 
@@ -153,7 +154,7 @@ export async function previewClientsImport(
     p_org_id: orgId,
     p_rows:   rows as unknown as Json
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to preview the client import')
   return data as unknown as ClientPreviewResult
 }
 
@@ -165,7 +166,7 @@ export async function importClientsBatch(
     p_org_id: orgId,
     p_rows:   rows as unknown as Json
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to import clients')
   return data as unknown as ClientImportResult
 }
 
@@ -415,6 +416,6 @@ export async function importOpeningBalances(
     p_memo:            memo,
     ...(clientId ? { p_client_id: clientId } : {})
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to import opening balances')
   return data as unknown as OpeningBalanceResult
 }

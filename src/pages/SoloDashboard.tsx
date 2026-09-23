@@ -24,6 +24,7 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation }     from 'react-i18next'
 import { useAuthStore }       from '../store/auth.store'
 import { useSoloDashboard }   from '../hooks/useSoloDashboard'
 import { SCHEDULE_C_LINE_LABELS, type ScheduleCData } from '../services/solo-dashboard.service'
@@ -41,11 +42,12 @@ import { formatCurrency } from '../lib/currency'
 
 const fmtCur = (n: number) => formatCurrency(n, 'USD', { maximumFractionDigits: 0 })
 
+// `rangeKey` holds an i18n KEY — resolved with t() at the render site.
 const QUARTERS = [
-  { num: 1, label: 'Q1', range: 'Jan – Mar' },
-  { num: 2, label: 'Q2', range: 'Apr – Jun' },
-  { num: 3, label: 'Q3', range: 'Jul – Sep' },
-  { num: 4, label: 'Q4', range: 'Oct – Dec' }
+  { num: 1, label: 'Q1', rangeKey: 'solo.q1Range' },
+  { num: 2, label: 'Q2', rangeKey: 'solo.q2Range' },
+  { num: 3, label: 'Q3', rangeKey: 'solo.q3Range' },
+  { num: 4, label: 'Q4', rangeKey: 'solo.q4Range' }
 ]
 
 const csvCell = (v: string | number) => {
@@ -72,6 +74,7 @@ function downloadScheduleCCsv(sc: ScheduleCData, year: number) {
 
 export default function SoloDashboard() {
   const navigate = useNavigate()
+  const { t }    = useTranslation()
   const { profile, membership } = useAuthStore()
   const orgId = membership?.org_id ?? ''
 
@@ -90,7 +93,7 @@ export default function SoloDashboard() {
       <div style={{
         padding: 48, textAlign: 'center', color: 'var(--lp-text-muted)'
       }}>
-        Loading your tax-time dashboard…
+        {t('solo.loadingDashboard')}
       </div>
     )
   }
@@ -105,14 +108,14 @@ export default function SoloDashboard() {
           borderRadius: 10,
           color: 'var(--sem-red)', fontSize: 13
         }}>
-          ⚠ {sd.error ?? 'Could not load dashboard'}
+          ⚠ {sd.error ?? t('solo.couldNotLoad')}
           <button onClick={sd.refresh} style={{
             marginLeft: 14, padding: '4px 10px', borderRadius: 6,
             background: 'var(--sem-red-bg-strong)',
             border: '0.5px solid rgba(239,68,68,0.4)',
             color: 'var(--sem-red)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5
           }}>
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       </div>
@@ -123,13 +126,13 @@ export default function SoloDashboard() {
   const sc = sd.scheduleC
   const stateCode = d.profile?.state_code ?? null
 
-  const hourNow = new Date().getHours()
-  const greeting =
-    hourNow < 12 ? 'Good morning' :
-    hourNow < 18 ? 'Good afternoon' : 'Good evening'
+  const hourNow   = new Date().getHours()
+  const timeOfDay = hourNow < 12 ? 'Morning' : hourNow < 18 ? 'Afternoon' : 'Evening'
   const firstName = profile?.display_name?.split(' ')[0]
     ?? profile?.email?.split('@')[0]
-    ?? 'there'
+  const greeting  = firstName
+    ? t(`dashboard.greeting${timeOfDay}`, { name: firstName })
+    : t(`dashboard.greeting${timeOfDay}NoName`)
 
   return (
     <div style={{ padding: '28px 32px', flex: 1, overflowY: 'auto' }}>
@@ -144,13 +147,13 @@ export default function SoloDashboard() {
             fontSize: 22, fontWeight: 700, color: 'var(--lp-text)',
             letterSpacing: '-0.01em', margin: 0
           }}>
-            {greeting}, {firstName} 👋
+            {greeting} 👋
           </h1>
           <p style={{ fontSize: 13, color: 'var(--lp-text-muted)', marginTop: 5 }}>
-            Entrepreneur workspace
+            {t('solo.entrepreneurWorkspace')}
             {sd.refreshing && (
               <span style={{ marginLeft: 8, color: 'var(--lp-accent)' }}>
-                ⏳ refreshing…
+                {t('solo.refreshing')}
               </span>
             )}
           </p>
@@ -159,7 +162,7 @@ export default function SoloDashboard() {
         {/* Period selector */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
           <div>
-            <div style={lblHeader}>Year</div>
+            <div style={lblHeader}>{t('solo.year')}</div>
             <select
               value={sd.year}
               onChange={e => sd.setYear(parseInt(e.target.value))}
@@ -173,7 +176,7 @@ export default function SoloDashboard() {
           </div>
 
           <div>
-            <div style={lblHeader}>Quarter</div>
+            <div style={lblHeader}>{t('solo.quarter')}</div>
             <div style={{
               display: 'inline-flex', gap: 2, padding: 2,
               background: 'var(--lp-surface)',
@@ -184,7 +187,7 @@ export default function SoloDashboard() {
                 <button
                   key={q.num}
                   onClick={() => sd.setQuarter(q.num)}
-                  title={q.range}
+                  title={t(q.rangeKey)}
                   style={{
                     padding: '5px 10px', borderRadius: 6,
                     background: sd.quarter === q.num
@@ -205,7 +208,7 @@ export default function SoloDashboard() {
           <button
             onClick={() => setUploadOpen(true)}
             disabled={!orgId}
-            title="Upload a receipt"
+            title={t('solo.uploadReceiptTitle')}
             style={{
               padding: '7px 14px', borderRadius: 8,
               background: orgId
@@ -222,7 +225,7 @@ export default function SoloDashboard() {
             onMouseEnter={e => { if (orgId) e.currentTarget.style.opacity = '0.9' }}
             onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
           >
-            📥 Upload receipt
+            {t('solo.uploadReceipt')}
           </button>
         </div>
       </div>
@@ -233,7 +236,7 @@ export default function SoloDashboard() {
         background: 'var(--lp-surface)', border: '0.5px solid var(--lp-border)',
         borderRadius: 10
       }}>
-        {([['overview', '🏠 Overview'], ['taxes', '🧾 Taxes']] as const).map(([id, label]) => (
+        {([['overview', 'solo.tabOverview'], ['taxes', 'solo.tabTaxes']] as const).map(([id, labelKey]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -245,7 +248,7 @@ export default function SoloDashboard() {
               fontWeight: tab === id ? 600 : 400
             }}
           >
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>
@@ -254,27 +257,27 @@ export default function SoloDashboard() {
       {tab === 'overview' && (
         <>
           {/* Needs your attention */}
-          <div style={sectionLabel}>Needs your attention</div>
+          <div style={sectionLabel}>{t('solo.needsAttention')}</div>
           <PendingReviewCard pending={d.pending} recentTx={d.recent_tx} />
           <OverdueInvoicesCard orgId={orgId} />
 
           {/* Your money */}
-          <div style={{ ...sectionLabel, marginTop: 24 }}>Your money · Q{sd.quarter}</div>
+          <div style={{ ...sectionLabel, marginTop: 24 }}>{t('solo.yourMoney', { quarter: sd.quarter })}</div>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             gap: 10, marginBottom: 16
           }}>
-            <Kpi label={`Q${sd.quarter} Income`}    value={fmtCur(d.quarter_kpis.income)}   color="var(--sem-green)" icon="📥" />
-            <Kpi label={`Q${sd.quarter} Expenses`}  value={fmtCur(d.quarter_kpis.expenses)} color="var(--sem-red-soft)" icon="📤" />
-            <Kpi label={`Q${sd.quarter} Net profit`}
+            <Kpi label={t('solo.kpiIncome',   { quarter: sd.quarter })} value={fmtCur(d.quarter_kpis.income)}   color="var(--sem-green)" icon="📥" />
+            <Kpi label={t('solo.kpiExpenses', { quarter: sd.quarter })} value={fmtCur(d.quarter_kpis.expenses)} color="var(--sem-red-soft)" icon="📤" />
+            <Kpi label={t('solo.kpiNetProfitQuarter', { quarter: sd.quarter })}
                  value={fmtCur(d.quarter_kpis.net_profit)}
-                 sub={`${d.quarter_kpis.margin_pct}% margin`}
+                 sub={t('solo.marginPct', { pct: d.quarter_kpis.margin_pct })}
                  color={d.quarter_kpis.net_profit >= 0 ? 'var(--sem-green)' : 'var(--sem-red)'}
                  icon="💹" />
-            <Kpi label="YTD Net profit"
+            <Kpi label={t('solo.ytdNetProfit')}
                  value={fmtCur(d.ytd.net_profit)}
-                 sub={`${d.ytd.tx_count} transactions`}
+                 sub={t('dashboard.transactionsCount', { count: d.ytd.tx_count })}
                  color={d.ytd.net_profit >= 0 ? 'var(--sem-green)' : 'var(--sem-red)'}
                  icon="📊"
                  onClick={() => navigate('/transactions')} />
@@ -288,7 +291,7 @@ export default function SoloDashboard() {
                 ...sectionLabel, marginBottom: 10,
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center'
               }}>
-                Recent activity
+                {t('dashboard.recentActivity')}
                 <button
                   onClick={() => navigate('/transactions')}
                   style={{
@@ -297,7 +300,7 @@ export default function SoloDashboard() {
                     textTransform: 'none', letterSpacing: 0, fontWeight: 400
                   }}
                 >
-                  View all →
+                  {t('common.viewAll')}
                 </button>
               </div>
               <div style={{
@@ -321,7 +324,7 @@ export default function SoloDashboard() {
                         fontSize: 12.5, color: 'var(--lp-text)',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                       }}>
-                        {tx.merchant ?? tx.description ?? 'Transaction'}
+                        {tx.merchant ?? tx.description ?? t('dashboard.transactionFallback')}
                       </div>
                       <div style={{ fontSize: 10.5, color: 'var(--lp-text-muted)', marginTop: 1 }}>
                         {tx.transaction_date}

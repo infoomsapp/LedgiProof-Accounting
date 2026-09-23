@@ -2,6 +2,7 @@
 // Client-side caller for the ocr-receipt edge function.
 
 import { supabase } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 
 export interface OcrResult {
   document_id:    string
@@ -30,7 +31,7 @@ export async function extractReceiptOcr(
     body: { document_id: documentId, org_id: orgId }
   })
 
-  if (res.error) throw new Error(res.error.message)
+  if (res.error) throw dbError(res.error, 'Failed to read the receipt')
   if (res.data?.error) throw new Error(res.data.error)
 
   return res.data as OcrResult

@@ -32,6 +32,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 // ── Hash-chain helper ─────────────────────────────────────────────────────────
 async function sha256Text(input: string): Promise<string> {
@@ -194,7 +195,7 @@ Deno.serve(async (req) => {
       })
       .eq('id', transaction_id)
 
-    if (updateErr) return j({ error: updateErr.message }, 500)
+    if (updateErr) return j({ error: safeMessage(updateErr, 'Failed to update the transaction') }, 500)
 
     // ── Audit entry ───────────────────────────────────────────────────────────
     const { data: lastEntry } = await supabaseAdmin
@@ -249,6 +250,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[resolve-transaction] Unexpected error:', err)
-    return j({ error: String(err) }, 500)
+    return j({ error: safeMessage(err, 'Failed to resolve the transaction') }, 500)
   }
 })

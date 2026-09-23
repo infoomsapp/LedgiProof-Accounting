@@ -21,6 +21,7 @@ import { createClient } from '../../services/invoice.service'
 // 🆕 Sprint 5 Paso 5.5 — Inline template selection (replaces post-create modal).
 import TemplatePicker      from './TemplatePicker'
 import { useCloneTemplate } from '../../hooks/useAccountTemplates'
+import { toSafeMessage } from '../../lib/errors'
 
 interface Props {
   open:    boolean
@@ -138,7 +139,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
           // Partial failure: client exists, template clone failed
           setPartialWarning({
             clientId: c.id,
-            message:  `Client was created, but applying the template failed: ${cloneErr?.message ?? 'unknown error'}. You can retry from the client's Chart of Accounts page.`
+            message:  `Client was created, but applying the template failed: ${toSafeMessage(cloneErr, 'unknown error')}. You can retry from the client's Chart of Accounts page.`
           })
           onCreated?.(c.id)
           setSaving(false)

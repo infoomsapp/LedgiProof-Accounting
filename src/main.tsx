@@ -13,6 +13,10 @@ import './lib/commands'
 // must run before anything else can throw.
 import './lib/errorMonitor'
 
+// In-app language (EN/ES) — must init before App renders so the very first
+// paint already uses the persisted locale mirror instead of flashing English.
+import './i18n'
+
 import App from './App'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

@@ -5,6 +5,7 @@
 
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
+import { dbError } from '../lib/errors'
 
 export interface DocumentRequest {
   id:              string
@@ -31,7 +32,7 @@ export async function listDocumentRequests(orgId: string, clientId: string): Pro
     .eq('org_id', orgId)
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load document requests')
   return (data ?? []) as unknown as DocumentRequest[]
 }
 
@@ -56,7 +57,7 @@ export async function createDocumentRequest(input: CreateDocumentRequestInput): 
     p_conversation_id: input.conversationId,
   })
   const { data, error } = await db.rpc('create_document_request', args)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the document request')
   return data as unknown as { request_id: string }
 }
 
@@ -65,7 +66,7 @@ export async function fulfillDocumentRequest(requestId: string, documentId: stri
     p_request_id: requestId,
     p_document_id: documentId,
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to submit the requested document')
 }
 
 export async function reviewDocumentRequest(requestId: string, approve: boolean): Promise<void> {
@@ -73,5 +74,5 @@ export async function reviewDocumentRequest(requestId: string, approve: boolean)
     p_request_id: requestId,
     p_approve: approve,
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to review the document request')
 }

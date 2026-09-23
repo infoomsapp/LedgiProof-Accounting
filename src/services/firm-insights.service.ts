@@ -5,6 +5,7 @@
 // get_firm_insights (Constitution: no UI aggregation). Single round-trip.
 
 import { db } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 
 export interface ArBucket { amount: number; count: number }
 
@@ -80,6 +81,6 @@ export async function getFirmInsights(
     ...(plYear  !== undefined ? { p_pl_year:  plYear  } : {}),
     ...(plMonth !== undefined ? { p_pl_month: plMonth } : {})
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load firm insights')
   return data as unknown as FirmInsights
 }

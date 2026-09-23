@@ -25,6 +25,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
 import { checkRateLimit } from '../_shared/rate-limit.ts'
 import { reportToGovernance } from '../_shared/cgc-report.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 const ROLE_LABEL: Record<string, string> = {
   owner:      'Owner',
@@ -147,7 +148,7 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[send-staff-invitation] Unexpected error:', err)
-    return j({ error: String(err) }, 500)
+    return j({ error: safeMessage(err, 'Failed to send the invitation') }, 500)
   }
 })
 

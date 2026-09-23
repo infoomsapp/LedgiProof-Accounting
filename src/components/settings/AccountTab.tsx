@@ -1,12 +1,16 @@
 // PATH: src/components/settings/AccountTab.tsx
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuthStore }   from '../../store/auth.store'
 import { db }             from '../../lib/supabase'
 import Button             from '../ui/Button'
 import LpUserBadge        from '../ui/LpUserBadge'
 import MfaSetup           from './MfaSetup'
 import { useUserRole, USER_KIND_LABELS, USER_KIND_COLORS } from '../../hooks/useUserRole'
+import { toSafeMessage } from '../../lib/errors'
+import { useTranslation } from 'react-i18next'
+import { useLocale } from '../../hooks/useLocale'
+import type { AppLocale } from '../../i18n'
 
 interface Props {
   onMessage?: (msg: { type: 'ok' | 'err'; text: string }) => void
@@ -15,6 +19,33 @@ interface Props {
 export default function AccountTab({ onMessage }: Props) {
   const { profile } = useAuthStore()
   const role = useUserRole()
+  const { t } = useTranslation()
+  const { locale, setLocale, saving: savingLocale } = useLocale()
+  const [langMenuOpen, setLangMenuOpen] = useState(false)
+  const langMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+        setLangMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
+
+  async function handleLocaleChange(next: AppLocale) {
+    setLangMenuOpen(false)
+    if (next === locale) return
+    const { error } = await setLocale(next)
+    if (error) onMessage?.({ type: 'err', text: error })
+    else onMessage?.({ type: 'ok', text: t('settings.languageSaved') })
+  }
+
+  const LANGUAGE_LABEL: Record<AppLocale, string> = {
+    en: t('settings.languageEnglish'),
+    es: t('settings.languageSpanish'),
+  }
 
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [newPw,       setNewPw]       = useState('')
@@ -34,7 +65,7 @@ export default function AccountTab({ onMessage }: Props) {
       .eq('id', profile.id)
 
     if (error) {
-      onMessage?.({ type: 'err', text: error.message })
+      onMessage?.({ type: 'err', text: toSafeMessage(error, 'Could not save your profile') })
       setSaving(false)
       return
     }
@@ -188,6 +219,79 @@ export default function AccountTab({ onMessage }: Props) {
         </Button>
 
         <MfaSetup />
+      </div>
+
+      {/* Language */}
+      <div className="lp-card" style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>
+          {t('settings.language')}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--lp-text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+          {t('settings.languageDescription')}
+        </div>
+        <div ref={langMenuRef} style={{ position: 'relative', display: 'inline-block' }}>
+          <button
+            onClick={() => setLangMenuOpen(o => !o)}
+            disabled={savingLocale}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 14px', borderRadius: 8,
+              border: '1.5px solid var(--lp-border)',
+              background: 'transparent',
+              color: 'var(--lp-text)',
+              fontSize: 13, fontWeight: 500,
+              cursor: savingLocale ? 'not-allowed' : 'pointer',
+              opacity: savingLocale ? 0.6 : 1,
+              fontFamily: 'inherit', minWidth: 160
+            }}
+          >
+            <span style={{ flex: 1, textAlign: 'left' }}>{LANGUAGE_LABEL[locale]}</span>
+            <span style={{
+              fontSize: 9, color: 'var(--lp-text-muted)',
+              transform: langMenuOpen ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.15s', flexShrink: 0
+            }}>
+              ▼
+            </span>
+          </button>
+
+          {langMenuOpen && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0,
+              marginTop: 4, minWidth: 180,
+              background: 'var(--lp-surface)',
+              border: '0.5px solid var(--lp-border-2)',
+              borderRadius: 10,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              zIndex: 200, overflow: 'hidden', padding: '4px 0'
+            }}>
+              {(['en', 'es'] as const).map(code => {
+                const isActive = locale === code
+                return (
+                  <button
+                    key={code}
+                    onClick={() => handleLocaleChange(code)}
+                    disabled={isActive}
+                    style={{
+                      width: '100%', background: 'none', border: 'none',
+                      padding: '9px 14px', cursor: isActive ? 'default' : 'pointer',
+                      textAlign: 'left', display: 'flex', alignItems: 'center',
+                      justifyContent: 'space-between', gap: 8,
+                      fontSize: 13, fontFamily: 'inherit',
+                      color: isActive ? 'var(--lp-accent)' : 'var(--lp-text)',
+                      fontWeight: isActive ? 600 : 400
+                    }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--chat-row-hover)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                  >
+                    {LANGUAGE_LABEL[code]}
+                    {isActive && <span>✓</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

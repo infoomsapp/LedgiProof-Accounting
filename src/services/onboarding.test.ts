@@ -46,8 +46,30 @@ describe('markOnboardingHintsSeen', () => {
     expect(rpc).toHaveBeenCalledWith('mark_onboarding_hints_seen', { p_surface: 'bookkeeper_dashboard' })
   })
 
-  it('throws when the RPC fails', async () => {
-    mockRpcResult.error = { message: 'permission denied' }
-    await expect(markOnboardingHintsSeen('accountant_dashboard')).rejects.toThrow(/permission denied/)
+  it('throws when the RPC fails, without leaking the raw database error text', async () => {
+    // Shaped like a real PostgrestError: details/hint are what mark it DB-originated,
+    // and the raw message names an internal table — exactly what must not reach a user.
+    mockRpcResult.error = {
+      message: 'permission denied for table user_onboarding',
+      code:    '42501',
+      details: null,
+      hint:    null
+    }
+    const err = await markOnboardingHintsSeen('accountant_dashboard').then(() => null, (e: Error) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err!.message).not.toContain('user_onboarding')
+    expect(err!.message).toBe("You don't have permission to do that.")
+  })
+
+  it('falls back to the caller-supplied description for an unrecognized DB error', async () => {
+    mockRpcResult.error = {
+      message: 'null value in column "surface" of relation "user_onboarding" violates not-null constraint',
+      code:    '23502',
+      details: null,
+      hint:    null
+    }
+    const err = await markOnboardingHintsSeen('accountant_dashboard').then(() => null, (e: Error) => e)
+    expect(err!.message).not.toContain('user_onboarding')
+    expect(err!.message).toBe('Failed to save your onboarding progress')
   })
 })

@@ -3,6 +3,7 @@
 
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
+import { dbError } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ export interface BookkeeperDashboardData {
 
 export async function getBookkeeperDashboard(orgId: string): Promise<BookkeeperDashboardData> {
   const { data, error } = await db.rpc('get_bookkeeper_dashboard', { p_org_id: orgId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the dashboard')
   return data as unknown as BookkeeperDashboardData
 }
 
@@ -102,10 +103,10 @@ export async function setClientWorkflowState(
     p_expires_in_days: expiresInDays ?? undefined,
     p_notes:           notes ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the client workflow state')
 }
 
 export async function clearClientWorkflowState(clientId: string): Promise<void> {
   const { error } = await db.rpc('clear_client_workflow_state', { p_client_id: clientId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to clear the client workflow state')
 }

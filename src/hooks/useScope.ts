@@ -34,6 +34,7 @@ import { useAuthStore } from '../store/auth.store'
 import { useOrgStore }  from '../store/org.store'
 import { db }           from '../lib/supabase'
 import type { Client }  from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 export type ScopeMode = 'self' | 'firm-client'
 
@@ -155,7 +156,7 @@ export function useScope(): Scope {
       .then(({ data, error: err }) => {
         if (!alive) return
         if (err) {
-          setError(err.message)
+          setError(toSafeMessage(err, 'Could not load the client'))
           setClient(null)
         } else if (!data) {
           setError('Client not found or you do not have access')

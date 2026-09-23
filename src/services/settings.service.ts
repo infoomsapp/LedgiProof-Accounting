@@ -4,6 +4,7 @@
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
 import type { LpUserTier } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ export async function getUsersInScope(orgId: string | null): Promise<ScopedUser[
   const { data, error } = await db.rpc('get_users_in_scope', pruneRpcArgs({
     p_org_id: orgId ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load users')
   return (data ?? []) as ScopedUser[]
 }
 
@@ -60,7 +61,7 @@ export async function updateOrgTaxInfo(
     p_principal_business: patch.principal_business ?? undefined,
     p_business_code:      patch.business_code      ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save the tax information')
 }
 
 // ── US States constant (for dropdown) ────────────────────────────────────────

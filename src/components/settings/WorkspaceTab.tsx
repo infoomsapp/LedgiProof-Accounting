@@ -6,6 +6,7 @@ import { useOrgStore }  from '../../store/org.store'
 import { db }           from '../../lib/supabase'
 import Button           from '../ui/Button'
 import { useUserRole, USER_KIND_LABELS } from '../../hooks/useUserRole'
+import { toSafeMessage } from '../../lib/errors'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'MXN', 'ARS', 'COP']
 const MONTHS = ['January','February','March','April','May','June',
@@ -45,7 +46,7 @@ export default function WorkspaceTab({ onMessage }: Props) {
     }).eq('id', activeOrg.id)
 
     if (error) {
-      onMessage?.({ type: 'err', text: error.message })
+      onMessage?.({ type: 'err', text: toSafeMessage(error, 'Could not save workspace settings') })
     } else {
       onMessage?.({ type: 'ok', text: 'Workspace settings saved' })
       if (profile?.id) await loadOrgs(profile.id)

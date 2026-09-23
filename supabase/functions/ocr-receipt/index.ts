@@ -17,6 +17,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
 const MODEL             = 'claude-sonnet-4-6'
@@ -239,7 +240,7 @@ Deno.serve(async (req) => {
       .download(doc.storage_path as string)
 
     if (dlErr || !blob) {
-      return j({ error: `Storage download failed: ${dlErr?.message ?? 'unknown'}` }, 500)
+      return j({ error: safeMessage(dlErr, 'Storage download failed') }, 500)
     }
 
     // 6. Base64-encode
@@ -306,8 +307,7 @@ Deno.serve(async (req) => {
     }, 200)
 
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error('[ocr-receipt]', message)
-    return j({ error: message }, 500)
+    console.error('[ocr-receipt]', err)
+    return j({ error: safeMessage(err, 'Failed to read the receipt') }, 500)
   }
 })

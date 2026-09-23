@@ -28,6 +28,7 @@ import type {
   WorkflowState,
 } from './bookkeeper-dashboard.service'
 export { setClientWorkflowState, clearClientWorkflowState } from './bookkeeper-dashboard.service'
+import { dbError } from '../lib/errors'
 
 export type {
   FirmFinancialKpis,
@@ -126,7 +127,7 @@ interface RawDashboardRpc {
 
 export async function getAccountantDashboard(orgId: string): Promise<AccountantDashboardData> {
   const { data, error } = await db.rpc('get_accountant_dashboard', { p_org_id: orgId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the dashboard')
 
   const raw = data as unknown as RawDashboardRpc
 

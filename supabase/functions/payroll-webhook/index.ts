@@ -24,6 +24,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 
 const CHECK_WEBHOOK_KEY = Deno.env.get('CHECK_WEBHOOK_KEY')
 
@@ -192,7 +193,7 @@ Deno.serve(async (req) => {
     })
     if (findErr) {
       console.error('[payroll-webhook] payroll_find_run_id_by_provider_id failed:', findErr)
-      return Response.json({ error: findErr.message }, { status: 500, headers: cors })
+      return Response.json({ error: safeMessage(findErr, 'Failed to find the payroll run') }, { status: 500, headers: cors })
     }
     if (!runId) {
       // A payroll Check knows about that we have no local run for —
@@ -218,7 +219,7 @@ Deno.serve(async (req) => {
         })
         if (completeErr) {
           console.error('[payroll-webhook] payroll_complete_run failed:', completeErr)
-          return Response.json({ error: completeErr.message }, { status: 500, headers: cors })
+          return Response.json({ error: safeMessage(completeErr, 'Failed to complete the payroll run') }, { status: 500, headers: cors })
         }
         if (payroll.status === 'partially_paid') {
           console.warn(`[payroll-webhook] Run ${runId} completed as PARTIALLY PAID — one or more employee disbursements failed on Check's side. Reach out to Check support per their docs to resolve.`)
@@ -245,6 +246,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[payroll-webhook] Unexpected error:', err)
-    return Response.json({ error: String(err) }, { status: 500, headers: cors })
+    return Response.json({ error: safeMessage(err, 'Failed to process the payroll webhook') }, { status: 500, headers: cors })
   }
 })

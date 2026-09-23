@@ -14,6 +14,7 @@ import { useAuthStore } from '../store/auth.store'
 import { useClientPortalStore } from '../store/client-portal.store'
 import { db } from '../lib/supabase'
 import LogoBrand from '../components/ui/LogoBrand'
+import { toSafeMessage } from '../lib/errors'
 
 type Status = 'loading' | 'success' | 'error'
 
@@ -114,7 +115,7 @@ export default function AcceptClientPortalInvite() {
 
     if (error) {
       setStatus('error')
-      setMessage(error.message)
+      setMessage(toSafeMessage(error, 'Could not accept the invitation'))
       return
     }
 

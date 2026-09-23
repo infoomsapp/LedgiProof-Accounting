@@ -25,6 +25,7 @@ import Button              from '../components/ui/Button'
 import type { LpRole } from '../types/database.types'
 import { ROLE_CONFIG, getAssignableRoles } from '../lib/role-config'
 import { formatDate } from '../lib/dates'
+import { dbError, toSafeMessage } from '../lib/errors'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ export default function Team() {
       .single()
 
     if (error) {
-      setInvError(error.message)
+      setInvError(toSafeMessage(error, 'Could not send the invitation'))
     } else {
       const inv_data = inv as Invitation & { token: string; expires_at: string }
       const activationUrl = `${window.location.origin}/staff-activate/${inv_data.token}`
@@ -158,7 +159,7 @@ export default function Team() {
   async function revokeInvitation(id: string) {
     const { error } = await db.from('invitations').update({ status: 'revoked' }).eq('id', id)
     if (error) {
-      setListError(`Could not revoke invitation: ${error.message}`)
+      setListError(`Could not revoke invitation: ${toSafeMessage(error, 'database error')}`)
       return
     }
     await load()
@@ -175,7 +176,7 @@ export default function Team() {
         .from('organization_memberships')
         .update({ is_active: false })
         .eq('id', removingMember.id)
-      if (error) throw new Error(error.message)
+      if (error) throw dbError(error, 'Could not remove the team member')
       setRemovingMember(null)
       await load()
     } catch (e: any) {

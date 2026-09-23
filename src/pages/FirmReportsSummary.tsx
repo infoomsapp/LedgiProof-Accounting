@@ -7,6 +7,7 @@ import { formatCurrency }  from '../lib/currency'
 import { getClients }      from '../services/invoice.service'
 import type { Client }     from '../types/database.types'
 import Reports             from './Reports'
+import { toSafeMessage } from '../lib/errors'
 
 const fmt = (n: number) => formatCurrency(n)
 
@@ -55,7 +56,7 @@ export default function FirmReportsSummary() {
     const { data, error: err } = await db.rpc('get_firm_client_summary', {
       p_org_id: orgId, p_as_of_year: year, p_as_of_month: month
     })
-    if (err) setError(err.message)
+    if (err) setError(toSafeMessage(err, 'Could not run the report'))
     else setRows(data as unknown as ClientSummaryRow[])
     setLoading(false); setHasRun(true)
   }, [orgId, year, month])

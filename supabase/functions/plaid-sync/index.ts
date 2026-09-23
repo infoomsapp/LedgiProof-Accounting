@@ -26,6 +26,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 import { decryptToken } from '../_shared/plaid-crypto.ts'
 
 const PLAID_BASE: Record<string, string> = {
@@ -337,7 +338,7 @@ Deno.serve(async (req) => {
             // auto-post-journal-entries step below (see file header).
             .select('id, amount, metadata, confidence_score, semaphore')
 
-          if (txErr) throw new Error(`Transaction insert failed: ${txErr.message}`)
+          if (txErr) throw new Error(`Transaction insert failed: ${safeMessage(txErr, 'database error')}`)
 
           // Auto-post journal entries for high-confidence transactions (blue/green)
           // where we have a known account mapping
@@ -406,9 +407,10 @@ Deno.serve(async (req) => {
         .eq('plaid_item_id', conn.plaid_item_id).eq('org_id', org_id)
 
       } catch (err: any) {
-        errors.push(`${conn.institution_name}: ${err.message}`)
+        const msg = safeMessage(err, 'Sync failed')
+        errors.push(`${conn.institution_name}: ${msg}`)
         await supabaseAdmin.from('bank_connections')
-          .update({ sync_status: 'error', sync_error: err.message })
+          .update({ sync_status: 'error', sync_error: msg })
           .eq('id', conn.id)
       }
     }
@@ -422,6 +424,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[plaid-sync] Unexpected error:', err)
-    return Response.json({ error: String(err) }, { status: 500, headers: cors })
+    return Response.json({ error: safeMessage(err, 'Failed to sync transactions') }, { status: 500, headers: cors })
   }
 })

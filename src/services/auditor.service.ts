@@ -3,6 +3,7 @@
 
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
+import { dbError } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ export interface AuditTransactionActivity {
 
 export async function getAuditorWorkspaces(): Promise<AuditorWorkspaceList> {
   const { data, error } = await db.rpc('get_auditor_workspaces')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load auditor workspaces')
   return data as unknown as AuditorWorkspaceList
 }
 
@@ -124,7 +125,7 @@ export async function getAuditSummary(
     p_date_to:   filters.date_to   ?? undefined,
     p_client_id: filters.client_id ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the audit summary')
   return data as unknown as AuditSummary
 }
 
@@ -146,7 +147,7 @@ export async function getAuditTransactions(
     p_cursor:     cursor             ?? undefined,
     p_limit:      Math.min(Math.max(limit, 1), 200)
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load audit transactions')
   return data as unknown as AuditTransactionsPage
 }
 
@@ -156,7 +157,7 @@ export async function getAuditTransactionActivity(
   const { data, error } = await db.rpc('get_audit_transaction_activity', {
     p_tx_id: txId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load transaction activity')
   return data as unknown as AuditTransactionActivity
 }
 
@@ -174,7 +175,7 @@ export async function exportAuditCsv(
     p_max_amount: filters.max_amount ?? undefined,
     p_search:     filters.search     ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to export the audit report')
   return data as string
 }
 

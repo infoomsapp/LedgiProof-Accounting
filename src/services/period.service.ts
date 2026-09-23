@@ -4,6 +4,7 @@
 // (the DB trigger and get_period_status() RPC both default to OPEN).
 
 import { db } from '../lib/supabase'
+import { toSafeMessage } from '../lib/errors'
 
 export type PeriodStatus = 'OPEN' | 'ADJUSTMENT' | 'CLOSED'
 
@@ -41,7 +42,7 @@ export async function getPeriodControls(
     .eq('period_year', year)
     .order('period_month')
 
-  if (error) throw new Error(`[Period] Load failed: ${error.message}`)
+  if (error) throw new Error(`[Period] Load failed: ${toSafeMessage(error, 'database error')}`)
   return (data ?? []) as PeriodControl[]
 }
 
@@ -59,7 +60,7 @@ export async function getPeriodStatus(
     p_client_id: clientId,
     p_date:      isoDate
   })
-  if (error) throw new Error(`[Period] Status check failed: ${error.message}`)
+  if (error) throw new Error(`[Period] Status check failed: ${toSafeMessage(error, 'database error')}`)
   return (data as PeriodStatus) ?? 'OPEN'
 }
 
@@ -91,7 +92,7 @@ export async function advancePeriod(
     .select()
     .single()
 
-  if (error) throw new Error(`[Period] Advance failed: ${error.message}`)
+  if (error) throw new Error(`[Period] Advance failed: ${toSafeMessage(error, 'database error')}`)
   return data as PeriodControl
 }
 
@@ -120,7 +121,7 @@ export async function reopenPeriod(
     .select()
     .single()
 
-  if (error) throw new Error(`[Period] Reopen failed: ${error.message}`)
+  if (error) throw new Error(`[Period] Reopen failed: ${toSafeMessage(error, 'database error')}`)
   return data as PeriodControl
 }
 

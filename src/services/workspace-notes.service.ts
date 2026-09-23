@@ -9,6 +9,7 @@ import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
 import type { Json } from '../types/database.types'
 import type { ContextRef } from './workspace-chat.service'
+import { dbError } from '../lib/errors'
 
 export interface WorkspaceNote {
   id:                 string
@@ -54,7 +55,7 @@ export async function listWorkspaceNotes(orgId: string, clientId: string): Promi
     .eq('org_id', orgId)
     .eq('client_id', clientId)
     .order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load notes')
   return (data ?? []) as unknown as WorkspaceNote[]
 }
 
@@ -72,7 +73,7 @@ export async function listAllWorkspaceNotesForOrg(orgId: string): Promise<Worksp
     .from('workspace_notes')
     .select('*, clients(display_name, company_name)')
     .eq('org_id', orgId)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load notes')
   const rows = (data ?? []) as unknown as WorkspaceNoteWithClient[]
 
   return rows.sort((a, b) => {
@@ -106,16 +107,16 @@ export async function createWorkspaceNote(input: CreateWorkspaceNoteInput): Prom
     p_conversation_id:   input.conversationId,
   })
   const { data, error } = await db.rpc('create_workspace_note', args)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the note')
   return data as unknown as { note_id: string }
 }
 
 export async function approveWorkspaceNote(noteId: string): Promise<void> {
   const { error } = await db.rpc('approve_workspace_note', { p_note_id: noteId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to approve the note')
 }
 
 export async function completeWorkspaceNote(noteId: string): Promise<void> {
   const { error } = await db.rpc('complete_workspace_note', { p_note_id: noteId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to complete the note')
 }

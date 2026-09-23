@@ -19,6 +19,7 @@
 // will be added here as get_accountant_dashboard RPC ships those surfaces.
 
 import { useNavigate }              from 'react-router-dom'
+import { useTranslation }           from 'react-i18next'
 import { ShieldCheck, ClipboardList, AlertTriangle, AlertOctagon, Compass } from 'lucide-react'
 import { staggerStyle }              from '../lib/motion'
 import { useAuthStore }             from '../store/auth.store'
@@ -52,6 +53,7 @@ import { useOnboardingHints }  from '../hooks/useOnboardingHints'
 
 export default function AccountantDashboard() {
   const navigate = useNavigate()
+  const { t }    = useTranslation()
   const { membership, profile } = useAuthStore()
   const orgId                   = membership?.org_id ?? ''
   const role                    = useUserRole()
@@ -63,9 +65,15 @@ export default function AccountantDashboard() {
 
   const now = new Date()
 
-  const attentionItems  = buildAttentionItems(dash.data, navigate)
+  const firstName = profile?.display_name?.split(' ')[0]
+  const timeOfDay = now.getHours() < 12 ? 'Morning' : now.getHours() < 18 ? 'Afternoon' : 'Evening'
+  const greeting  = firstName
+    ? t(`dashboard.greeting${timeOfDay}`, { name: firstName })
+    : t(`dashboard.greeting${timeOfDay}NoName`)
+
+  const attentionItems  = buildAttentionItems(dash.data, navigate, t)
   const critical        = criticalCount(attentionItems)
-  const activityItems   = buildActivityItems(events)
+  const activityItems   = buildActivityItems(events, t)
   const sem             = dash.data?.semaphore_counts
   const hasPracticeActions = role.canPostJournalEntries || role.canClosePeriods
   const onboarding      = useOnboardingHints('accountant_dashboard')
@@ -82,8 +90,7 @@ export default function AccountantDashboard() {
               fontSize: 22, fontWeight: 600,
               color: 'var(--lp-text)', letterSpacing: '-0.01em', margin: 0
             }}>
-              Good {now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'},
-              {' '}{profile?.display_name?.split(' ')[0] ?? 'there'} <span style={{ opacity: 0.5 }}>👋</span>
+              {greeting} <span style={{ opacity: 0.5 }}>👋</span>
             </h1>
             <p style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 4, margin: 0 }}>
               {formatDateHeadline(now)}
@@ -100,8 +107,8 @@ export default function AccountantDashboard() {
         <CriticalAlertBanner
           count={critical}
           severity="critical"
-          label={critical === 1 ? 'critical item' : 'critical items'}
-          sub="need your attention today"
+          label={critical === 1 ? t('dashboard.criticalItemOne') : t('dashboard.criticalItemOther')}
+          sub={t('dashboard.needAttentionToday')}
           onView={() => navigate('/clients')}
         />
       }
@@ -134,13 +141,13 @@ export default function AccountantDashboard() {
             <>
               {onboarding.shouldShow && (
                 <OnboardingHint
-                  title="Certification Blue"
-                  message="Certify the transactions your team already approved — this is the formal close step that permanently locks them."
+                  title={t('dashboard.certificationBlue')}
+                  message={t('dashboard.certificationBlueHintMessage')}
                   onDismiss={onboarding.dismissAll}
                 />
               )}
               <SectionCard
-                title="Certification Blue"
+                title={t('dashboard.certificationBlue')}
                 icon={ShieldCheck}
                 accentColor="var(--lp-violet)"
                 accentBg="var(--lp-violet-bg)"
@@ -156,19 +163,21 @@ export default function AccountantDashboard() {
             <>
               {onboarding.shouldShow && (
                 <OnboardingHint
-                  title="Multi-Client Workflow"
-                  message="Every client, grouped by where they are in your process. Click a card to move it — or lock it manually if it needs to stay put."
+                  title={t('dashboard.multiClientWorkflow')}
+                  message={t('dashboard.multiClientWorkflowHintMessage')}
                   onDismiss={onboarding.dismissAll}
                 />
               )}
               <SectionCard
-                title="Multi-Client Workflow"
+                title={t('dashboard.multiClientWorkflow')}
                 icon={ClipboardList}
                 accentColor="var(--sem-cyan)"
                 accentBg="var(--sem-cyan-bg)"
                 right={
                   <span style={{ fontSize: 10, color: 'var(--lp-text-muted)' }}>
-                    {dash.data.kanban.length} {dash.data.kanban.length === 1 ? 'client' : 'clients'} across 5 stages
+                    {dash.data.kanban.length === 1
+                      ? t('dashboard.clientsAcrossStagesOne',   { count: dash.data.kanban.length })
+                      : t('dashboard.clientsAcrossStagesOther', { count: dash.data.kanban.length })}
                   </span>
                 }
                 style={{ marginBottom: 14, ...staggerStyle(3) }}
@@ -181,13 +190,13 @@ export default function AccountantDashboard() {
           {/* ── Row 4: Attention Required ────────────────────────────── */}
           {attentionItems.length > 0 && (
             <SectionCard
-              title="Attention Required"
+              title={t('dashboard.attentionRequired')}
               icon={AlertTriangle}
               accentColor="var(--sem-amber)"
               accentBg="var(--sem-amber-bg)"
               right={
                 <button className="lp-btn-outline" onClick={() => navigate('/clients')}>
-                  View all →
+                  {t('common.viewAll')}
                 </button>
               }
               style={{ marginBottom: 14, ...staggerStyle(4) }}
@@ -202,13 +211,15 @@ export default function AccountantDashboard() {
           {/* ── Row 5: Clients with Issues ───────────────────────────── */}
           {dash.data && dash.data.clients_with_issues.length > 0 && (
             <SectionCard
-              title="Clients with Issues"
+              title={t('dashboard.clientsWithIssues')}
               icon={AlertOctagon}
               accentColor="var(--sem-red)"
               accentBg="var(--sem-red-bg)"
               right={
                 <span style={{ fontSize: 10, color: 'var(--lp-text-muted)' }}>
-                  {dash.data.clients_with_issues.length} {dash.data.clients_with_issues.length === 1 ? 'client' : 'clients'}
+                  {dash.data.clients_with_issues.length === 1
+                    ? t('dashboard.clientCountOne',   { count: dash.data.clients_with_issues.length })
+                    : t('dashboard.clientCountOther', { count: dash.data.clients_with_issues.length })}
                 </span>
               }
               style={staggerStyle(5)}
@@ -223,7 +234,7 @@ export default function AccountantDashboard() {
         <>
           {hasPracticeActions && (
             <SectionCard
-              title="Practice Actions"
+              title={t('dashboard.practiceActions')}
               icon={Compass}
               accentColor="var(--lp-violet)"
               accentBg="var(--lp-violet-bg)"
@@ -234,18 +245,18 @@ export default function AccountantDashboard() {
                   <>
                     {onboarding.shouldShow && (
                       <OnboardingHint
-                        title="+ Manual Entry"
-                        message="Post an adjusting journal entry directly — accruals, depreciation, corrections."
+                        title={t('dashboard.manualEntryHintTitle')}
+                        message={t('dashboard.manualEntryHintMessage')}
                         onDismiss={onboarding.dismissAll}
                       />
                     )}
                     <button
                       className="lp-btn lp-btn-primary"
                       onClick={() => navigate('/clients?intent=journal')}
-                      title="Select a client to post a manual journal entry"
+                      title={t('dashboard.manualEntryButtonTitle')}
                       style={{ width: '100%' }}
                     >
-                      + Manual Entry
+                      {t('dashboard.manualEntryButton')}
                     </button>
                   </>
                 )}
@@ -253,18 +264,18 @@ export default function AccountantDashboard() {
                   <>
                     {onboarding.shouldShow && (
                       <OnboardingHint
-                        title="Close Period"
-                        message="Lock a client's accounting period once it's reconciled — no further changes can slip in after close."
+                        title={t('dashboard.closePeriodHintTitle')}
+                        message={t('dashboard.closePeriodHintMessage')}
                         onDismiss={onboarding.dismissAll}
                       />
                     )}
                     <button
                       className="lp-btn lp-btn-secondary"
                       onClick={() => navigate('/clients?intent=period')}
-                      title="Select a client to manage and close periods"
+                      title={t('dashboard.closePeriodButtonTitle')}
                       style={{ width: '100%' }}
                     >
-                      Close Period
+                      {t('dashboard.closePeriodButton')}
                     </button>
                   </>
                 )}

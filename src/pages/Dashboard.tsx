@@ -13,6 +13,7 @@
 //   5. Professional (any other firm/org)                    → BookkeeperDashboard
 //   6. Fallback (self_employed / user)                      → SoloDashboard
 
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../store/auth.store'
 import { useOrgStore }  from '../store/org.store'
 import { isPersonalOrg } from '../lib/org-helpers'
@@ -27,6 +28,7 @@ import ReadOnlyDashboard    from './ReadOnlyDashboard'
 const PROFESSIONAL_ROLES = ['super_admin', 'admin', 'bookkeeper'] as const
 
 export default function Dashboard() {
+  const { t }         = useTranslation()
   const { profile }   = useAuthStore()
   const { activeOrg } = useOrgStore()
 
@@ -36,7 +38,7 @@ export default function Dashboard() {
         padding: 48, textAlign: 'center',
         color: 'var(--lp-text-muted)', fontSize: 13
       }}>
-        Loading profile…
+        {t('dashboard.loadingProfile')}
       </div>
     )
   }

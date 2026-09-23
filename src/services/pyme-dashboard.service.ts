@@ -3,6 +3,7 @@
 
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
+import { dbError } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ export async function getPymeDashboard(clientId: string): Promise<PymeDashboardD
   const { data, error } = await db.rpc('get_pyme_dashboard', {
     p_client_id: clientId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the dashboard')
   return data as unknown as PymeDashboardData
 }
 
@@ -113,7 +114,7 @@ export async function createReceiptRequest(input: {
     p_date_hint:      input.dateHint      ?? undefined,
     p_request_note:   input.note          ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the receipt request')
   return data as unknown as { request_id: string; status: string }
 }
 
@@ -125,7 +126,7 @@ export async function fulfillReceiptRequest(
     p_request_id:  requestId,
     p_document_id: documentId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to submit the receipt')
 }
 
 export async function cancelReceiptRequest(
@@ -136,7 +137,7 @@ export async function cancelReceiptRequest(
     p_request_id: requestId,
     p_reason:     reason ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to cancel the receipt request')
 }
 
 // ── Helper: compute vs-last-month percentage ─────────────────────────────────

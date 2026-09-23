@@ -21,6 +21,7 @@
 //   · Theme-aware (works in dark and light mode)
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import UploadReceiptDialog from '../../../upload/UploadReceiptDialog'
 import {
   openOrGetTransactionConversation,
@@ -56,6 +57,7 @@ interface Props {
 export default function PendingDocsCard({
   orgId, items, maxItems = 5, onUploaded
 }: Props) {
+  const { t } = useTranslation()
   const [activeTx,    setActiveTx]    = useState<PendingDocItem | null>(null)
   const [error,       setError]       = useState<string | null>(null)
 
@@ -76,7 +78,7 @@ export default function PendingDocsCard({
       })
       onUploaded?.(txId)
     } catch (e: any) {
-      setError(e?.message ?? 'Document uploaded, but could not post to chat.')
+      setError(e?.message ?? t('dashboard.uploadChatError'))
     }
   }
 
@@ -85,7 +87,7 @@ export default function PendingDocsCard({
       <div style={{ padding: '20px 14px', textAlign: 'center' }}>
         <div style={{ fontSize: 24, marginBottom: 6, opacity: 0.4 }}>📄</div>
         <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)' }}>
-          No transactions awaiting documents
+          {t('dashboard.noTransactionsAwaitingDocs')}
         </div>
       </div>
     )
@@ -128,7 +130,7 @@ export default function PendingDocsCard({
           textAlign:  'center',
           background: 'var(--lp-surface-2)'
         }}>
-          + {items.length - maxItems} more awaiting documents
+          {t('dashboard.moreAwaitingDocuments', { count: items.length - maxItems })}
         </div>
       )}
 
@@ -154,6 +156,7 @@ function PendingDocRow({
   isLast:        boolean
   onAttachClick: () => void
 }) {
+  const { t } = useTranslation()
   const semColor = item.semaphore === 'red' ? 'var(--sem-red)' : 'var(--sem-amber)'
 
   const amount = formatCurrency(item.amount, item.currency)
@@ -183,7 +186,7 @@ function PendingDocRow({
           overflow:      'hidden',
           textOverflow:  'ellipsis'
         }}>
-          {item.merchant ?? item.description ?? 'Transaction'}
+          {item.merchant ?? item.description ?? t('dashboard.transactionFallback')}
         </div>
         <div style={{
           display:    'flex',
@@ -213,7 +216,7 @@ function PendingDocRow({
       {/* Attach button */}
       <button
         onClick={onAttachClick}
-        title="Attach a document to this transaction"
+        title={t('dashboard.attachTitle')}
         style={{
           background:   'var(--chat-bubble-mine-bg)',
           border:       '0.5px solid var(--chat-bubble-mine-border)',
@@ -228,7 +231,7 @@ function PendingDocRow({
           flexShrink:   0
         }}
       >
-        📎 Attach
+        {t('dashboard.attach')}
       </button>
     </div>
   )

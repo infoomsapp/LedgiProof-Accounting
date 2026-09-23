@@ -6,6 +6,7 @@ import { db }           from '../lib/supabase'
 import { printToPDF, downloadCSV, buildCSV } from '../services/export.service'
 import { formatCurrency } from '../lib/currency'
 import { formatDate }     from '../lib/dates'
+import { toSafeMessage } from '../lib/errors'
 
 const fmt = (n: number) => formatCurrency(n)
 
@@ -159,7 +160,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
       p_org_id: orgId, p_as_of_year: year, p_as_of_month: month,
       ...(clientId ? { p_client_id: clientId } : {})
     })
-    if (err) setError(err.message)
+    if (err) setError(toSafeMessage(err, 'Could not run the balance sheet'))
     else setBsData(data as unknown as BalanceSheetData)
     setLoading(false); setHasRun(true)
   }, [orgId, clientId, year, month])
@@ -175,7 +176,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
       ...(clientId ? { p_client_id: clientId } : {})
     })
 
-    if (err) { setError(err.message); setLoading(false); return }
+    if (err) { setError(toSafeMessage(err, 'Could not run the profit and loss report')); setLoading(false); return }
 
     type PlRow = {
       account_id: string

@@ -4,6 +4,8 @@
 // Manual states show a 🔒 indicator with expiry tooltip.
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useImpersonationStore } from '../../../../store/impersonation.store'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -21,16 +23,18 @@ interface Props {
 
 type SemColor = 'amber' | 'red' | 'blue' | 'green'
 
+// `labelKey` holds an i18n KEY (module scope can't call hooks) — every render
+// site resolves it with t().
 const COLUMNS: Array<{
-  state: WorkflowState
-  label: string
-  icon:  string
-  sem:   SemColor
+  state:    WorkflowState
+  labelKey: string
+  icon:     string
+  sem:      SemColor
 }> = [
-  { state: 'todo',        label: 'To do',       icon: '📋', sem: 'amber' },
-  { state: 'in_review',   label: 'In review',   icon: '🔍', sem: 'red' },
-  { state: 'reconciling', label: 'Reconciling', icon: '⚖️', sem: 'blue' },
-  { state: 'closed',      label: 'Closed',      icon: '✓',  sem: 'green' }
+  { state: 'todo',        labelKey: 'dashboard.kanbanTodo',        icon: '📋', sem: 'amber' },
+  { state: 'in_review',   labelKey: 'dashboard.kanbanInReview',    icon: '🔍', sem: 'red' },
+  { state: 'reconciling', labelKey: 'dashboard.kanbanReconciling', icon: '⚖️', sem: 'blue' },
+  { state: 'closed',      labelKey: 'dashboard.kanbanClosed',      icon: '✓',  sem: 'green' }
 ]
 
 function semTint(sem: SemColor) {
@@ -43,6 +47,7 @@ function semTint(sem: SemColor) {
 }
 
 export default function MultiClientKanban({ clients, onUpdate }: Props) {
+  const { t } = useTranslation()
   const [menuFor, setMenuFor] = useState<string | null>(null)
 
   return (
@@ -55,16 +60,18 @@ export default function MultiClientKanban({ clients, onUpdate }: Props) {
           fontSize: 11, color: 'var(--lp-text-muted)',
           textTransform: 'uppercase', letterSpacing: '0.06em'
         }}>
-          Client workflow
+          {t('dashboard.clientWorkflow')}
           <span style={{
             textTransform: 'none', letterSpacing: 0,
             fontWeight: 400, color: 'var(--lp-text-muted)', marginLeft: 8
           }}>
-            · {clients.length} {clients.length === 1 ? 'client' : 'clients'}
+            · {clients.length === 1
+                ? t('dashboard.clientCountOne',   { count: clients.length })
+                : t('dashboard.clientCountOther', { count: clients.length })}
           </span>
         </div>
         <div style={{ fontSize: 10.5, color: 'var(--lp-text-muted)' }}>
-          🔒 = manual override · click to change
+          {t('dashboard.manualOverrideLegend')}
         </div>
       </div>
 
@@ -93,12 +100,13 @@ export default function MultiClientKanban({ clients, onUpdate }: Props) {
 function KanbanColumn({
   column, clients, onSelect, menuFor, onUpdate
 }: {
-  column:   { state: WorkflowState; label: string; icon: string; sem: SemColor }
+  column:   { state: WorkflowState; labelKey: string; icon: string; sem: SemColor }
   clients:  KanbanClient[]
   onSelect: (clientId: string) => void
   menuFor:  string | null
   onUpdate: () => void
 }) {
+  const { t } = useTranslation()
   const tint = semTint(column.sem)
   return (
     <div style={{
@@ -121,7 +129,7 @@ function KanbanColumn({
           textTransform: 'uppercase', letterSpacing: '0.06em'
         }}>
           <span>{column.icon}</span>
-          {column.label}
+          {t(column.labelKey)}
         </span>
         <span style={{
           fontSize: 11, color: tint.text, fontWeight: 700,
@@ -144,7 +152,7 @@ function KanbanColumn({
             padding: '20px 12px', fontSize: 11, color: 'var(--lp-text-muted)',
             textAlign: 'center', fontStyle: 'italic'
           }}>
-            None
+            {t('dashboard.kanbanEmpty')}
           </div>
         ) : clients.map(c => (
           <ClientCard
@@ -172,6 +180,7 @@ function ClientCard({
   onSelect: () => void
   onUpdate: () => void
 }) {
+  const { t } = useTranslation()
   const tint = semTint(sem)
   const enterAdminView = useImpersonationStore(s => s.enterAdminView)
   const navigate = useNavigate()
@@ -189,7 +198,7 @@ function ClientCard({
       await setClientWorkflowState(client.client_id, newState, 30)
       onUpdate()
     } catch (e: any) {
-      alert(`Could not update: ${e.message}`)
+      alert(t('dashboard.couldNotUpdate', { message: e.message }))
     }
   }
 
@@ -198,7 +207,7 @@ function ClientCard({
       await clearClientWorkflowState(client.client_id)
       onUpdate()
     } catch (e: any) {
-      alert(`Could not clear: ${e.message}`)
+      alert(t('dashboard.couldNotClear', { message: e.message }))
     }
   }
 
@@ -230,8 +239,8 @@ function ClientCard({
           {client.is_manual && (
             <span
               title={client.expires_at
-                ? `Manual until ${formatDate(client.expires_at)}`
-                : 'Manual override (no expiry)'}
+                ? t('dashboard.manualUntil', { date: formatDate(client.expires_at) })
+                : t('dashboard.manualNoExpiry')}
               style={{ fontSize: 10, flexShrink: 0 }}
             >
               🔒
@@ -251,11 +260,11 @@ function ClientCard({
             </span>
           )}
           {client.red_count === 0 && client.amber_count === 0 && (
-            <span style={{ color: 'var(--lp-text-muted)' }}>Clean</span>
+            <span style={{ color: 'var(--lp-text-muted)' }}>{t('dashboard.clean')}</span>
           )}
           {client.last_activity && (
             <span style={{ color: 'var(--lp-text-muted)', marginLeft: 'auto' }}>
-              {relTime(client.last_activity)}
+              {relTime(client.last_activity, t)}
             </span>
           )}
         </div>
@@ -274,17 +283,17 @@ function ClientCard({
         }}>
           <MenuItem
             icon="👁️"
-            label="View as client"
+            label={t('dashboard.viewAsClient')}
             onClick={viewAsClient}
           />
           <Divider />
-          <MenuLabel>Move to</MenuLabel>
+          <MenuLabel>{t('dashboard.moveTo')}</MenuLabel>
           {COLUMNS.filter(col => col.state !== client.state).map(col => (
             <MenuItem
               key={col.state}
               icon={col.icon}
-              label={col.label}
-              hint={`Manual (30d)`}
+              label={t(col.labelKey)}
+              hint={t('dashboard.manual30d')}
               onClick={() => changeState(col.state)}
             />
           ))}
@@ -293,8 +302,8 @@ function ClientCard({
               <Divider />
               <MenuItem
                 icon="🔄"
-                label="Clear override"
-                hint="Back to auto"
+                label={t('dashboard.clearOverride')}
+                hint={t('dashboard.backToAuto')}
                 onClick={clearOverride}
               />
             </>
@@ -344,10 +353,10 @@ function Divider() {
   return <div style={{ height: 0.5, background: 'var(--lp-border)', margin: '2px 0' }} />
 }
 
-function relTime(iso: string): string {
+function relTime(iso: string, t: TFunction): string {
   const diff = Date.now() - new Date(iso).getTime()
   const m = Math.floor(diff / 60_000)
-  if (m < 1)   return 'now'
+  if (m < 1)   return t('dashboard.relNow')
   if (m < 60)  return `${m}m`
   const h = Math.floor(m / 60)
   if (h < 24)  return `${h}h`

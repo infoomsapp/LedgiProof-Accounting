@@ -8,6 +8,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { safeMessage } from '../_shared/errors.ts'
 import { encryptToken } from '../_shared/plaid-crypto.ts'
 
 const PLAID_BASE: Record<string, string> = {
@@ -125,7 +126,7 @@ Deno.serve(async (req) => {
 
     if (insertErr) {
       console.error('[plaid-exchange] DB insert failed:', insertErr)
-      return Response.json({ error: insertErr.message }, { status: 500, headers: cors })
+      return Response.json({ error: safeMessage(insertErr, 'Failed to save the bank connection') }, { status: 500, headers: cors })
     }
 
     return Response.json({
@@ -137,6 +138,6 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     console.error('[plaid-exchange] Unexpected error:', err)
-    return Response.json({ error: String(err) }, { status: 500, headers: cors })
+    return Response.json({ error: safeMessage(err, 'Failed to connect the bank account') }, { status: 500, headers: cors })
   }
 })

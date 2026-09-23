@@ -43,6 +43,7 @@ export {
   startPayrollEmployeeOnboarding,
   submitPayrollRunToProvider
 } from './payroll-provider.adapter'
+import { dbError } from '../lib/errors'
 
 // ═════════════════════════════════════════════════════════════════════════════
 // EMPLOYER PROFILE / ACCOUNT MAPPING
@@ -57,7 +58,7 @@ export async function createPayrollEmployerProfile(
     p_org_id: orgId,
     p_pay_frequency: payFrequency
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the payroll employer profile')
   return data as unknown as CreatePayrollEmployerProfileResult
 }
 
@@ -75,14 +76,14 @@ export async function setPayrollAccountMapping(
     p_payroll_expense_account_id: input.payroll_expense_account_id,
     p_payroll_tax_expense_account_id: input.payroll_tax_expense_account_id
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save the payroll account mapping')
   return data as unknown as SetPayrollAccountMappingResult
 }
 
 /** Load the org's current Check sync state (used before calling startPayrollEmployerOnboarding) */
 export async function getPayrollEmployerForSync(orgId: string): Promise<PayrollEmployerSyncState> {
   const { data, error } = await db.rpc('payroll_get_employer_for_sync', { p_org_id: orgId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the payroll employer profile')
   return data as unknown as PayrollEmployerSyncState
 }
 
@@ -117,7 +118,7 @@ export async function createPayrollEmployee(
       p_pa_psd_code:       input.pa_psd_code       ?? undefined
     })
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the employee')
   return data as unknown as CreatePayrollEmployeeResult
 }
 
@@ -136,7 +137,7 @@ export async function updatePayrollEmployee(
     p_pa_psd_code:                 input.pa_psd_code                ?? undefined,
     p_reciprocity_exemption_type:  input.reciprocity_exemption_type ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the employee')
   return data as unknown as UpdatePayrollEmployeeResult
 }
 
@@ -148,27 +149,27 @@ export async function terminatePayrollEmployee(
     p_employee_id: employeeId,
     p_termination_date: terminationDate
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to terminate the employee')
   return data as unknown as TerminatePayrollEmployeeResult
 }
 
 /** List all payroll employees for an org (RLS/authorize-gated inside the RPC) */
 export async function listPayrollEmployees(orgId: string): Promise<PayrollEmployee[]> {
   const { data, error } = await db.rpc('payroll_list_employees', { p_org_id: orgId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load employees')
   return (data ?? []) as unknown as PayrollEmployee[]
 }
 
 /** Load an employee's Check sync state (used before calling startPayrollEmployeeOnboarding) */
 export async function getPayrollEmployeeForSync(employeeId: string): Promise<PayrollEmployeeSyncState> {
   const { data, error } = await db.rpc('payroll_get_employee_for_sync', { p_employee_id: employeeId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the employee')
   return data as unknown as PayrollEmployeeSyncState
 }
 
 export async function getPayrollTaxDocuments(employeeId: string): Promise<PayrollTaxDocumentsResult> {
   const { data, error } = await db.rpc('payroll_get_tax_documents', { p_employee_id: employeeId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load payroll tax documents')
   return data as unknown as PayrollTaxDocumentsResult
 }
 
@@ -187,7 +188,7 @@ export async function createPayrollRun(input: CreatePayrollRunInput): Promise<Cr
     p_period_end: input.period_end,
     p_pay_date: input.pay_date
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the payroll run')
   return data as unknown as CreatePayrollRunResult
 }
 
@@ -199,25 +200,25 @@ export async function createPayrollRun(input: CreatePayrollRunInput): Promise<Cr
  */
 export async function approvePayrollRun(runId: string): Promise<ApprovePayrollRunResult> {
   const { data, error } = await db.rpc('payroll_approve_run', { p_run_id: runId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to approve the payroll run')
   return data as unknown as ApprovePayrollRunResult
 }
 
 export async function getPayrollRunStatus(runId: string): Promise<PayrollRunStatusResult> {
   const { data, error } = await db.rpc('payroll_get_run_status', { p_run_id: runId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the payroll run status')
   return data as unknown as PayrollRunStatusResult
 }
 
 /** List all payroll runs for an org (RLS/authorize-gated inside the RPC) */
 export async function listPayrollRuns(orgId: string): Promise<PayrollRun[]> {
   const { data, error } = await db.rpc('payroll_list_runs', { p_org_id: orgId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load payroll runs')
   return (data ?? []) as unknown as PayrollRun[]
 }
 
 export async function getPayrollPayStub(lineItemId: string): Promise<PayrollPayStubResult> {
   const { data, error } = await db.rpc('payroll_get_paystub', { p_line_item_id: lineItemId })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the pay stub')
   return data as unknown as PayrollPayStubResult
 }

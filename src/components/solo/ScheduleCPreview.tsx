@@ -4,6 +4,7 @@
 // Export buttons: PDF (preparer-ready) and CSV.
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   SCHEDULE_C_LINE_LABELS,
   type ScheduleCData
@@ -20,6 +21,7 @@ interface Props {
 const fmt = (n: number) => formatCurrency(n, 'USD', { maximumFractionDigits: 0 })
 
 export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv }: Props) {
+  const { t } = useTranslation()
   const [showAll, setShowAll] = useState(false)
   const [expandedLine, setExpandedLine] = useState<number | null>(null)
 
@@ -53,10 +55,10 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
             fontSize: 14, fontWeight: 700, color: 'var(--lp-text)',
             letterSpacing: '-0.01em'
           }}>
-            🧾 Schedule C — Live preview · {year}
+            {t('solo.scheduleCTitle', { year })}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 3 }}>
-            Form 1040 · Profit or Loss from Business · Sole Proprietorship
+            {t('solo.scheduleCSub')}
           </div>
         </div>
 
@@ -66,7 +68,7 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
               onClick={onExportPdf}
               style={btnPrimary}
             >
-              📄 Export PDF
+              {t('solo.exportPdf')}
             </button>
           )}
           {onExportCsv && (
@@ -74,7 +76,7 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
               onClick={onExportCsv}
               style={btnGhost}
             >
-              📊 Export CSV
+              {t('solo.exportCsv')}
             </button>
           )}
         </div>
@@ -82,9 +84,9 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
 
       {/* Income section */}
       <div style={sectionStyle}>
-        <div style={sectionHeader('#22c55e')}>Income</div>
+        <div style={sectionHeader('#22c55e')}>{t('solo.income')}</div>
         {incomeLines.length === 0 ? (
-          <EmptyRow text="No income recorded yet for this year" />
+          <EmptyRow text={t('solo.noIncomeRecorded')} />
         ) : (
           incomeLines.map(line => (
             <ScheduleCLineRow
@@ -101,8 +103,8 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
 
         {/* Line 1 total emphasis */}
         <TotalRow
-          line="Line 1"
-          label="Gross receipts"
+          line={t('solo.lineNumber', { n: 1 })}
+          label={t('solo.grossReceipts')}
           value={data.totals.gross_receipts}
           color="#22c55e"
         />
@@ -111,7 +113,7 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
       {/* Expenses section */}
       <div style={sectionStyle}>
         <div style={sectionHeader('#f87171')}>
-          Expenses (Lines 8–27)
+          {t('solo.expensesLines')}
           {!showAll && expenseLines.length > visibleExpenses.length && (
             <button
               onClick={() => setShowAll(true)}
@@ -126,13 +128,13 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
                 textTransform: 'none', letterSpacing: 0, fontWeight: 400
               }}
             >
-              + {expenseLines.length - visibleExpenses.length} empty
+              {t('solo.emptyLinesCount', { count: expenseLines.length - visibleExpenses.length })}
             </button>
           )}
         </div>
 
         {visibleExpenses.length === 0 ? (
-          <EmptyRow text="No expenses recorded yet for this year" />
+          <EmptyRow text={t('solo.noExpensesRecorded')} />
         ) : (
           visibleExpenses.map(line => (
             <ScheduleCLineRow
@@ -148,8 +150,8 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
         )}
 
         <TotalRow
-          line="Line 28"
-          label="Total expenses"
+          line={t('solo.lineNumber', { n: 28 })}
+          label={t('solo.totalExpenses')}
           value={data.totals.total_expenses}
           color="#f87171"
         />
@@ -169,10 +171,10 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
             fontSize: 11, color: 'var(--lp-text-muted)',
             textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600
           }}>
-            Line 31 · {data.totals.net_profit >= 0 ? 'Net profit' : 'Net loss'}
+            {data.totals.net_profit >= 0 ? t('solo.line31NetProfit') : t('solo.line31NetLoss')}
           </div>
           <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-            Flows to Form 1040 Line 3 · Schedule SE for SE tax
+            {t('solo.flowsTo1040')}
           </div>
         </div>
         <div style={{
@@ -194,9 +196,11 @@ export default function ScheduleCPreview({ data, year, onExportPdf, onExportCsv 
           borderTop: '0.5px solid rgba(251,191,36,0.2)',
           fontSize: 11.5, color: '#fbbf24', lineHeight: 1.6
         }}>
-          ⚠ <strong>{data.unmapped.length} account{data.unmapped.length === 1 ? '' : 's'}</strong>{' '}
-          have activity but no Schedule C line mapping. Edit them in{' '}
-          <strong>Chart of Accounts</strong> to ensure they appear on your tax form.
+          ⚠ <strong>{data.unmapped.length === 1
+              ? t('solo.accountCountOne',   { count: data.unmapped.length })
+              : t('solo.accountCountOther', { count: data.unmapped.length })}</strong>{' '}
+          {t('solo.unmappedWarningMid')}{' '}
+          <strong>{t('nav.chartOfAccounts')}</strong> {t('solo.unmappedWarningEnd')}
         </div>
       )}
     </div>
@@ -213,7 +217,9 @@ function ScheduleCLineRow({
   onToggle: () => void
   colorAccent: string
 }) {
-  const label = SCHEDULE_C_LINE_LABELS[line.line_number] ?? `Line ${line.line_number}`
+  const { t } = useTranslation()
+  const label = SCHEDULE_C_LINE_LABELS[line.line_number]
+    ?? t('solo.lineNumber', { n: line.line_number })
   const hasDetails = line.accounts.length > 0
 
   return (
@@ -235,13 +241,15 @@ function ScheduleCLineRow({
           fontFamily: 'monospace', fontSize: 11.5,
           color: '#64748b', fontWeight: 500
         }}>
-          Line {line.line_number}
+          {t('solo.lineNumber', { n: line.line_number })}
         </span>
         <span style={{ fontSize: 12.5, color: 'var(--lp-text)' }}>
           {label}
           {hasDetails && (
             <span style={{ marginLeft: 6, fontSize: 10, color: '#475569' }}>
-              {expanded ? '▼' : '▶'} {line.accounts.length} account{line.accounts.length === 1 ? '' : 's'}
+              {expanded ? '▼' : '▶'} {line.accounts.length === 1
+                ? t('solo.accountCountOne',   { count: line.accounts.length })
+                : t('solo.accountCountOther', { count: line.accounts.length })}
             </span>
           )}
         </span>

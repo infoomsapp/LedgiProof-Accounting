@@ -33,7 +33,16 @@ export async function reportToGovernance(params: {
     form.set('action', params.action)
     form.set('input_data', JSON.stringify(params.input_data))
     form.set('user_email', params.user_email)
-    form.set('data_domains', JSON.stringify(['security']))
+    // 'security' is not a real tag anywhere in CGC Core's AREA_DATA_MAPPINGS
+    // (app/modules/prefilter/PreFilter.py) -- it silently counted as zero
+    // real sensitive domains, landing every invitation report at LOW
+    // sensitivity regardless of content. 'RESTRICTED' is a real DEFAULT-area
+    // tag and an honest description of an access-granting invitation
+    // (email + role + a live invitation token). area is set explicitly to
+    // 'DEFAULT' rather than relying on the endpoint's own undocumented
+    // default for an omitted field.
+    form.set('data_domains', JSON.stringify(['RESTRICTED']))
+    form.set('area', 'DEFAULT')
     form.set('app_source', 'ledgiproof')
 
     await fetch(`${endpoint}/governance/decision`, {

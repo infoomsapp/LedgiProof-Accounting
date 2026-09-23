@@ -11,6 +11,7 @@
 
 import { db } from '../lib/supabase'
 import { businessMileageRateForDate } from '../lib/tax-tables-2026'
+import { toSafeMessage } from '../lib/errors'
 
 export interface MileageEntry {
   id:          string
@@ -66,7 +67,7 @@ export async function addMileageEntry(input: AddMileageInput): Promise<MileageEn
     .select()
     .single()
 
-  if (error || !data) throw new Error(`[Mileage] Save failed: ${error?.message}`)
+  if (error || !data) throw new Error(`[Mileage] Save failed: ${toSafeMessage(error, 'database error')}`)
   return data as MileageEntry
 }
 
@@ -84,7 +85,7 @@ export async function getMileageSummary(
     p_year:   year,
     ...(clientId ? { p_client_id: clientId } : {})
   })
-  if (error) throw new Error(`[Mileage] Summary failed: ${error.message}`)
+  if (error) throw new Error(`[Mileage] Summary failed: ${toSafeMessage(error, 'database error')}`)
 
   const row = (Array.isArray(data) ? data[0] : data) as
     { total_miles: number | string; total_deduction: number | string; entry_count: number } | undefined
@@ -114,6 +115,6 @@ export async function listMileageEntries(
   if (clientId) q = q.eq('client_id', clientId)
 
   const { data, error } = await q
-  if (error) throw new Error(`[Mileage] List failed: ${error.message}`)
+  if (error) throw new Error(`[Mileage] List failed: ${toSafeMessage(error, 'database error')}`)
   return (data ?? []) as MileageEntry[]
 }

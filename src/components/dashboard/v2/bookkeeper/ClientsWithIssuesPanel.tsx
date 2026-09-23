@@ -2,11 +2,13 @@
 // Top 5 clients with red/amber transactions.
 // Click → "View as" that client.
 
+import { useTranslation } from 'react-i18next'
 import { useImpersonationStore } from '../../../../store/impersonation.store'
 import { useNavigate } from 'react-router-dom'
 import type { ClientWithIssues } from '../../../../services/bookkeeper-dashboard.service'
 
 export default function ClientsWithIssuesPanel({ clients }: { clients: ClientWithIssues[] }) {
+  const { t } = useTranslation()
   const enterAdminView = useImpersonationStore(s => s.enterAdminView)
   const navigate = useNavigate()
 
@@ -25,12 +27,12 @@ export default function ClientsWithIssuesPanel({ clients }: { clients: ClientWit
         textTransform: 'uppercase', letterSpacing: '0.06em',
         marginBottom: 10, fontWeight: 600
       }}>
-        Clients needing attention
+        {t('dashboard.clientsNeedingAttention')}
         <span style={{
           textTransform: 'none', letterSpacing: 0,
           fontWeight: 400, color: 'var(--lp-text-muted)', marginLeft: 8
         }}>
-          · Top 5 by issue count
+          {t('dashboard.topFiveByIssue')}
         </span>
       </div>
 
@@ -45,7 +47,7 @@ export default function ClientsWithIssuesPanel({ clients }: { clients: ClientWit
             padding: '28px 14px', fontSize: 12.5, color: 'var(--lp-text-muted)',
             textAlign: 'center', fontStyle: 'italic'
           }}>
-            ✓ No clients with red flags — all clean
+            {t('dashboard.noRedFlags')}
           </div>
         ) : (
           clients.map((c, i) => (
@@ -122,7 +124,7 @@ export default function ClientsWithIssuesPanel({ clients }: { clients: ClientWit
                   border: '0.5px solid var(--lp-violet-border)',
                   fontWeight: 500
                 }}>
-                  View as →
+                  {t('dashboard.viewAsLink')}
                 </span>
               </div>
             </button>

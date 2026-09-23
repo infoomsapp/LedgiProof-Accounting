@@ -11,6 +11,7 @@
 //   · Legend below: name, count, % per semaphore
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { prefersReducedMotion } from '../../../../lib/motion'
 
 interface SemaphoreCounts {
@@ -37,11 +38,13 @@ const SEMAPHORE_COLORS = {
   red:   'var(--sem-red)'
 }
 
-const SEMAPHORE_LABELS = {
-  blue:  'Blue',
-  green: 'Green',
-  amber: 'Amber',
-  red:   'Red'
+// i18n KEYS, not display text — resolved with t() at the render site below
+// (module scope can't call hooks).
+const SEMAPHORE_LABEL_KEYS = {
+  blue:  'dashboard.semBlue',
+  green: 'dashboard.semGreen',
+  amber: 'dashboard.semAmber',
+  red:   'dashboard.semRed'
 }
 
 export default function SemaphoreDonut({
@@ -50,6 +53,7 @@ export default function SemaphoreDonut({
   thickness = 13,
   showLegend = true
 }: Props) {
+  const { t } = useTranslation()
   const [revealed, setRevealed] = useState(prefersReducedMotion())
   useEffect(() => {
     if (revealed) return
@@ -76,7 +80,7 @@ export default function SemaphoreDonut({
             strokeWidth={thickness}
           />
           <text x="50" y="55" textAnchor="middle" fill="var(--lp-text-muted)" fontSize="11" fontWeight="500">
-            no data
+            {t('dashboard.donutNoData')}
           </text>
         </svg>
       </div>
@@ -198,7 +202,7 @@ export default function SemaphoreDonut({
           fill="var(--lp-text-muted)"
           fontSize="6.5"
         >
-          healthy
+          {t('dashboard.donutHealthy')}
         </text>
       </svg>
 
@@ -229,7 +233,7 @@ export default function SemaphoreDonut({
                   background: SEMAPHORE_COLORS[key],
                   borderRadius: 50
                 }} />
-                {SEMAPHORE_LABELS[key]}
+                {t(SEMAPHORE_LABEL_KEYS[key])}
               </span>
               <span style={{
                 color: SEMAPHORE_COLORS[key],

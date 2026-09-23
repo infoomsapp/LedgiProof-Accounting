@@ -12,6 +12,7 @@
 //   const result = await runWithQuota(orgId, 'ai_queries', async () => doAiCall())
 
 import { db } from '../lib/supabase'
+import { toSafeMessage } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ export async function assertQuota(
     p_metric: metric,
     p_amount: amount
   })
-  if (error) throw new Error(`Quota check failed: ${error.message}`)
+  if (error) throw new Error(`Quota check failed: ${toSafeMessage(error, 'database error')}`)
   return data as unknown as QuotaResult
 }
 

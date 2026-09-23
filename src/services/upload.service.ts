@@ -11,6 +11,7 @@
 import { db, supabase } from '../lib/supabase'
 import imageCompression from 'browser-image-compression'
 import { pruneRpcArgs } from '../lib/rpc-args'
+import { dbError, toSafeMessage } from '../lib/errors'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -216,7 +217,7 @@ export async function uploadDocument(input: UploadInput): Promise<UploadResult> 
     })
 
   if (uploadError) {
-    throw new Error(`Storage upload failed: ${uploadError.message}`)
+    throw new Error(`Storage upload failed: ${toSafeMessage(uploadError, 'database error')}`)
   }
   input.onProgress?.(0.80)
 
@@ -239,7 +240,7 @@ export async function uploadDocument(input: UploadInput): Promise<UploadResult> 
     if (error) {
       // Compensate: delete the orphan blob from storage
       await supabase.storage.from(STORAGE_BUCKET).remove([storagePath]).catch(() => {})
-      throw new Error(`Document registration failed: ${error.message}`)
+      throw new Error(`Document registration failed: ${toSafeMessage(error, 'database error')}`)
     }
 
     input.onProgress?.(1.0)
@@ -271,7 +272,7 @@ export async function getDocumentSignedUrl(
     p_document_id: documentId
   })
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to open the document')
 
   const meta = data as {
     document_id:    string
@@ -290,7 +291,7 @@ export async function getDocumentSignedUrl(
     .createSignedUrl(meta.storage_path, expiresInSeconds)
 
   if (signError || !signed) {
-    throw new Error(`Could not sign URL: ${signError?.message ?? 'unknown error'}`)
+    throw new Error(`Could not sign URL: ${toSafeMessage(signError, 'unknown error')}`)
   }
 
   return {
@@ -312,7 +313,7 @@ export async function softDeleteDocument(documentId: string): Promise<void> {
   const { error } = await db.rpc('soft_delete_document', {
     p_document_id: documentId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to delete the document')
 }
 
 // ── Utils ────────────────────────────────────────────────────────────────────

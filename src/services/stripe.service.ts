@@ -5,6 +5,7 @@
 // the Stripe-hosted checkout URL — the caller is responsible for the redirect.
 
 import { db } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 
 // ── Invoice payment ────────────────────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ export async function createInvoiceCheckoutSession(
     },
   })
 
-  if (error) throw new Error(error.message ?? 'Failed to create checkout session')
+  if (error) throw dbError(error, 'Failed to create the checkout session')
   if (!data?.url) throw new Error('No checkout URL returned from payment gateway')
   return data.url as string
 }
@@ -43,11 +44,11 @@ export async function createSubscriptionCheckoutSession(
       plan,
       org_id:      orgId,
       success_url: `${origin}/billing/success?plan=${encodeURIComponent(plan)}`,
-      cancel_url:  `${origin}/pricing`,
+      cancel_url:  `${origin}/settings?tab=billing`,
     },
   })
 
-  if (error) throw new Error(error.message ?? 'Failed to create checkout session')
+  if (error) throw dbError(error, 'Failed to create the checkout session')
   if (!data?.url) throw new Error('No checkout URL returned from payment gateway')
   return data.url as string
 }

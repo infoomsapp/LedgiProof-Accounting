@@ -7,13 +7,14 @@
 // that nudge the user toward action.
 
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface AttentionItem {
   /** Unique key for React */
   key:       string
   /** Big number shown */
   count:     number
-  /** Label below the count (e.g. "Missing Receipts") */
+  /** Already-translated label below the count (e.g. "Missing Receipts") */
   label:     string
   /** Severity tint */
   severity:  'critical' | 'warning' | 'info' | 'neutral'
@@ -57,6 +58,8 @@ const SEVERITY_TINTS = {
 }
 
 export default function AttentionGrid({ items, columns = 4 }: Props) {
+  const { t } = useTranslation()
+
   if (items.length === 0) {
     return (
       <div style={{
@@ -68,7 +71,7 @@ export default function AttentionGrid({ items, columns = 4 }: Props) {
         fontSize: 11.5,
         color: 'var(--sem-green)'
       }}>
-        ✓ All clear — nothing needs your attention right now.
+        {t('dashboard.allClear')}
       </div>
     )
   }

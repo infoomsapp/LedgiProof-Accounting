@@ -12,6 +12,7 @@ import {
 import { useUserRole }    from '../../hooks/useUserRole'
 import { LP_TIER_CONFIG, type LpUserTier, type LpRole } from '../../types/database.types'
 import { formatDate } from '../../lib/dates'
+import { toSafeMessage } from '../../lib/errors'
 
 interface Props {
   onMessage?: (msg: { type: 'ok' | 'err'; text: string }) => void
@@ -136,7 +137,7 @@ export default function UsersTab({ onMessage }: Props) {
       p_requesting_admin_id: profile.id
     })
 
-    if (error) onMessage?.({ type: 'err', text: error.message })
+    if (error) onMessage?.({ type: 'err', text: toSafeMessage(error, 'The action could not be completed') })
     else onMessage?.({ type: 'ok', text: `Done — new code: ${(data as any)?.new_code ?? ''}` })
 
     setActing(null)

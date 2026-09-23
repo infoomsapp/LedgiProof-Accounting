@@ -5,6 +5,7 @@
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
 import type { Json } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ export async function getWorkspaceInbox(
     p_archived: archived,
     p_limit:    limit
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the inbox')
   return data as unknown as WorkspaceInboxResponse
 }
 
@@ -101,7 +102,7 @@ export async function getWorkspaceMessages(
     p_limit:           limit,
     p_before:          before ?? undefined
   }))
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load messages')
   return data as unknown as WorkspaceMessagesResponse
 }
 
@@ -140,7 +141,7 @@ export async function sendWorkspaceMessage(input: SendWorkspaceMessageInput): Pr
   }
 
   const { data, error } = await db.rpc('send_workspace_message', args)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to send the message')
   return data as unknown as {
     message_id:          string
     conversation_id:     string
@@ -156,7 +157,7 @@ export async function markWorkspaceMessagesRead(
   const { data, error } = await db.rpc('mark_workspace_messages_read', {
     p_conversation_id: conversationId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to mark messages as read')
   return data as unknown as { conversation_id: string; marked_read: number }
 }
 
@@ -166,7 +167,7 @@ export async function markWorkspaceConversationUnread(
   const { error } = await db.rpc('mark_workspace_conversation_unread', {
     p_conversation_id: conversationId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to mark the conversation as unread')
 }
 
 export async function archiveWorkspaceConversation(
@@ -175,7 +176,7 @@ export async function archiveWorkspaceConversation(
   const { error } = await db.rpc('archive_workspace_conversation', {
     p_conversation_id: conversationId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to archive the conversation')
 }
 
 export async function restoreWorkspaceConversation(
@@ -184,5 +185,5 @@ export async function restoreWorkspaceConversation(
   const { error } = await db.rpc('restore_workspace_conversation', {
     p_conversation_id: conversationId
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to restore the conversation')
 }

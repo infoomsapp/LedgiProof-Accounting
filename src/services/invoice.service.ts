@@ -3,6 +3,7 @@ import { db } from '../lib/supabase'
 import type {
   Client, Invoice, InvoiceItem, InvoicePayment, InvoiceStatus, Database
 } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 type ClientInsert = Database['public']['Tables']['clients']['Insert']
 
@@ -42,7 +43,7 @@ async function findActiveClientByEmail(
     .eq('org_id', orgId)
     .eq('is_active', true)
     .not('email', 'is', null)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to check the client email')
 
   const match = (data ?? []).find(c =>
     c.id !== excludeClientId && (c.email ?? '').trim().toLowerCase() === normalized
@@ -55,7 +56,7 @@ function rethrowIfDuplicateEmail(error: { code?: string; message: string }, emai
   if (error.code === '23505' && error.message.includes('clients_unique_email_per_org_active')) {
     throw new DuplicateClientEmailError(email ?? '', '', 'another client in this organization')
   }
-  throw new Error(error.message)
+  throw dbError(error, 'Failed to save the client')
 }
 
 export async function getClients(orgId: string): Promise<Client[]> {
@@ -65,7 +66,7 @@ export async function getClients(orgId: string): Promise<Client[]> {
     .eq('org_id', orgId)
     .eq('is_active', true)
     .order('display_name')
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load clients')
   return (data ?? []) as Client[]
 }
 
@@ -114,7 +115,7 @@ export async function deactivateClient(id: string): Promise<void> {
     .from('clients')
     .update({ is_active: false })
     .eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to deactivate the client')
 }
 
 /**
@@ -130,8 +131,8 @@ export async function getClientUsageCount(clientId: string): Promise<{
     db.from('estimates') .select('id', { count: 'exact', head: true }).eq('client_id', clientId)
   ])
 
-  if (invRes.error) throw new Error(invRes.error.message)
-  if (estRes.error) throw new Error(estRes.error.message)
+  if (invRes.error) throw dbError(invRes.error, 'Failed to check whether the client is in use')
+  if (estRes.error) throw dbError(estRes.error, 'Failed to check whether the client is in use')
 
   return {
     invoices:  invRes.count  ?? 0,
@@ -169,7 +170,7 @@ export async function getInvoices(
   if (options.clientId) q = q.eq('client_id', options.clientId)
 
   const { data, error } = await q
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load invoices')
   return (data ?? []) as InvoiceWithClient[]
 }
 
@@ -188,7 +189,7 @@ export async function getOverdueInvoices(orgId: string): Promise<InvoiceWithClie
     .gt('balance_due', 0)
     .in('status', ['sent', 'viewed', 'partial', 'overdue'])
     .order('due_date', { ascending: true })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load overdue invoices')
   return (data ?? []) as InvoiceWithClient[]
 }
 
@@ -204,7 +205,7 @@ export async function getInvoice(
     db.from('invoice_payments')
       .select('*').eq('invoice_id', id).order('payment_date')
   ])
-  if (inv.error) throw new Error(inv.error.message)
+  if (inv.error) throw dbError(inv.error, 'Failed to load the invoice')
   return {
     ...inv.data,
     items:    (items.data   ?? []) as InvoiceItem[],
@@ -251,7 +252,7 @@ export async function createInvoice(input: {
     created_by:           input.userId
   }).select().single()
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to create the invoice')
   return data as Invoice
 }
 
@@ -265,7 +266,7 @@ export async function updateInvoice(
 ): Promise<Invoice> {
   const { data, error } = await db
     .from('invoices').update(input).eq('id', id).select().single()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to update the invoice')
   return data as Invoice
 }
 
@@ -287,7 +288,7 @@ export async function getInvoiceByPublicToken(token: string, trackView = true): 
   const { data, error } = await db.rpc('get_invoice_by_public_token', {
     p_token: token, p_track_view: trackView
   })
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the invoice')
   return data as unknown as PublicInvoicePayload
 }
 
@@ -303,14 +304,14 @@ export async function markInvoiceSent(id: string): Promise<{ token: string; url:
     .from('invoices')
     .update({ status: 'sent', sent_at: new Date().toISOString(), public_token: token })
     .eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to mark the invoice as sent')
   return { token, url: buildPublicInvoiceUrl(token) }
 }
 
 export async function voidInvoice(id: string): Promise<void> {
   const { error } = await db
     .from('invoices').update({ status: 'void' }).eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to void the invoice')
 }
 
 // ── Invoice items ─────────────────────────────────────────────────────────────
@@ -338,7 +339,7 @@ export async function upsertItems(
 
   const { data, error } = await db
     .from('invoice_items').insert(inserts).select()
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to save the invoice items')
 
   // Recompute totals
   await db.rpc('compute_invoice_totals', { p_invoice_id: invoiceId })
@@ -369,7 +370,7 @@ export async function recordPayment(input: {
     recorded_by:  input.userId
   }).select().single()
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to record the payment')
 
   // Recompute totals (status auto-updates to paid/partial)
   await db.rpc('compute_invoice_totals', { p_invoice_id: input.invoiceId })
@@ -386,7 +387,7 @@ export async function getInvoiceSummary(orgId: string) {
     .eq('org_id', orgId)
     .neq('status', 'void')
 
-  if (error) throw new Error(error.message)
+  if (error) throw dbError(error, 'Failed to load the invoice summary')
   const rows = (data ?? []) as Pick<Invoice, 'status' | 'total' | 'balance_due' | 'amount_paid'>[]
 
   return {

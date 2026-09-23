@@ -63,10 +63,20 @@ describe('getCertificationQueue', () => {
     expect(await getCertificationQueue('org-1')).toEqual([])
   })
 
-  it('throws when the query fails', async () => {
+  it('throws when the query fails, without leaking the raw database error text', async () => {
     mockResult.data  = null
-    mockResult.error = { message: 'connection reset' }
-    await expect(getCertificationQueue('org-1')).rejects.toThrow(/connection reset/)
+    // Shaped like a real PostgrestError — the raw message names an internal
+    // relation, which must never reach the user.
+    mockResult.error = {
+      message: 'permission denied for relation transactions_v',
+      code:    '42501',
+      details: null,
+      hint:    null
+    }
+    const err = await getCertificationQueue('org-1').then(() => null, (e: Error) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err!.message).not.toContain('transactions_v')
+    expect(err!.message).toContain("You don't have permission to do that.")
   })
 })
 
@@ -87,7 +97,9 @@ describe('certifyTransaction', () => {
 
   it('throws when the function call itself fails with no server message', async () => {
     mockInvokeResult.data  = null
-    mockInvokeResult.error = { message: 'network error' }
+    // supabase-js yields a real Error subclass (FunctionsError) here, not a
+    // PostgrestError — it carries no database detail, so it passes through intact.
+    mockInvokeResult.error = new Error('network error')
     await expect(certifyTransaction('tx-1')).rejects.toThrow(/network error/)
   })
 

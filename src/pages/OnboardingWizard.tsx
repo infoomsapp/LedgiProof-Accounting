@@ -27,6 +27,7 @@ import { db }           from '../lib/supabase'
 import LogoBrand        from '../components/ui/LogoBrand'
 import LpUserBadge      from '../components/ui/LpUserBadge'
 import type { AccountType } from '../types/database.types'
+import { toSafeMessage } from '../lib/errors'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'MXN', 'ARS', 'COP']
 const MONTHS = [
@@ -142,7 +143,7 @@ export default function OnboardingWizard() {
       .single()
 
     if (orgErr || !org) {
-      setError(orgErr?.message ?? 'Could not create workspace')
+      setError(toSafeMessage(orgErr, 'Could not create workspace'))
       setCreating(false)
       return
     }
@@ -158,7 +159,7 @@ export default function OnboardingWizard() {
       })
 
     if (memErr) {
-      setError(memErr.message)
+      setError(toSafeMessage(memErr, 'Could not set up your membership'))
       setCreating(false)
       return
     }

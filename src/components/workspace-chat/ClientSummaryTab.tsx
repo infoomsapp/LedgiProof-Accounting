@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react'
 import { db } from '../../lib/supabase'
 import { formatCurrency } from '../../lib/currency'
+import { toSafeMessage } from '../../lib/errors'
 
 interface Props {
   orgId:    string
@@ -38,7 +39,7 @@ export default function ClientSummaryTab({ orgId, clientId }: Props) {
       p_org_id: orgId, p_as_of_year: now.getFullYear(), p_as_of_month: now.getMonth() + 1
     }).then(({ data, error: err }) => {
       if (!alive) return
-      if (err) { setError(err.message); return }
+      if (err) { setError(toSafeMessage(err, 'Could not load the client summary')); return }
       const rows = (data ?? []) as unknown as ClientSummaryRow[]
       setRow(rows.find(r => r.client_id === clientId) ?? null)
     })

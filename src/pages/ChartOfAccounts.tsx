@@ -53,6 +53,7 @@ import Button from '../components/ui/Button'
 import ClientPickerDropdown from '../components/clients/ClientPickerDropdown'
 import ApplyTemplateModal   from '../components/clients/ApplyTemplateModal'
 import type { Account } from '../types/database.types'
+import { dbError } from '../lib/errors'
 
 type AccountType   = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
 type NormalBalance = 'debit' | 'credit'
@@ -296,7 +297,7 @@ export default function ChartOfAccounts() {
         p_org_id:  orgId,
         p_user_id: userId
       })
-      if (rpcErr) throw new Error(rpcErr.message)
+      if (rpcErr) throw dbError(rpcErr, 'Could not seed the chart of accounts')
       await accountsQ.refetch()
     } catch (e: any) {
       setError(e?.message ?? 'Could not seed accounts')
@@ -391,7 +392,7 @@ export default function ChartOfAccounts() {
             is_legacy:      false,
             created_by:     userId
           })
-          if (insErr) throw new Error(insErr.message)
+          if (insErr) throw dbError(insErr, 'Could not create the account')
           await accountsQ.refetch()
         } else {
           throw new Error('Cannot create account in firm-overview mode. Select a client first.')

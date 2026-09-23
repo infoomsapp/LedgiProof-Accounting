@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { getOverdueInvoices } from '../../services/invoice.service'
 import { formatCurrency } from '../../lib/currency'
 
@@ -18,6 +19,7 @@ function daysOverdue(due: string): number {
 }
 
 export default function OverdueInvoicesCard({ orgId }: { orgId: string }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const q = useQuery({
     queryKey: ['solo-overdue-invoices', orgId],
@@ -41,9 +43,9 @@ export default function OverdueInvoicesCard({ orgId }: { orgId: string }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--sem-red)' }}>⏰ Overdue invoices</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--sem-red)' }}>{t('solo.overdueInvoices')}</div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 3 }}>
-            Unpaid and past their due date
+            {t('solo.overdueInvoicesSub')}
           </div>
         </div>
         <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--sem-red)', fontFamily: 'monospace' }}>
@@ -65,10 +67,10 @@ export default function OverdueInvoicesCard({ orgId }: { orgId: string }) {
           >
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 12.5, color: 'var(--lp-text)' }}>
-                {r.invoice_number} · {r.clients?.company_name ?? r.clients?.display_name ?? 'Client'}
+                {r.invoice_number} · {r.clients?.company_name ?? r.clients?.display_name ?? t('solo.clientFallback')}
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--sem-red)', marginTop: 1 }}>
-                {daysOverdue(r.due_date)} days overdue
+                {t('solo.daysOverdue', { count: daysOverdue(r.due_date) })}
               </div>
             </div>
             <span style={{ fontFamily: 'monospace', fontSize: 12.5, fontWeight: 600, color: 'var(--lp-text)', whiteSpace: 'nowrap' }}>

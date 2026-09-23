@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import logoSrc from '../assets/logo.png'
 import '../styles/web.css'
 
 type Segment = 'self_employed' | 'bookkeeper'
@@ -130,7 +131,7 @@ export default function Pricing() {
       {/* ── Topbar ─────────────────────────────────────────────────── */}
       <header className="web-topbar">
         <Link to="/" className="web-topbar-logo">
-          <LogoMark />
+          <img src={logoSrc} alt="" className="web-topbar-logo-mark" draggable={false} />
           <span>LedgiProof</span>
         </Link>
         <nav className="web-topbar-nav">
@@ -284,22 +285,6 @@ export default function Pricing() {
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
-
-function LogoMark() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
-      <rect width="32" height="32" rx="7" fill="url(#lpg2)" />
-      <path d="M9 22V10h2v10h6v2H9zm10-12h2l4 12h-2.2l-1-3h-3.6l-1 3H15l4-12zm.4 2.5L18 17h2.8L19.4 12.5z"
-        fill="#fff" />
-      <defs>
-        <linearGradient id="lpg2" x1="0" y1="0" x2="32" y2="32">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="100%" stopColor="#06b6d4" />
-        </linearGradient>
-      </defs>
-    </svg>
-  )
-}
 
 function SegmentBtn({
   active, onClick, children

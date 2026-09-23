@@ -9,6 +9,7 @@
 import { useState, type FormEvent } from 'react'
 import { useAuthStore } from '../store/auth.store'
 import LogoBrand from '../components/ui/LogoBrand'
+import BackToSiteLink from '../components/ui/BackToSiteLink'
 
 interface LoginProps {
   onGoToSignUp?:       () => void
@@ -55,6 +56,8 @@ export default function Login({ onGoToSignUp, onGoToForgotPassword }: LoginProps
       alignItems: 'center', justifyContent: 'center',
       background: 'var(--lp-bg)'
     }}>
+
+      <BackToSiteLink />
 
       <div style={{ width: 360, padding: '0 16px' }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>

@@ -11,6 +11,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuthStore } from '../store/auth.store'
 import LogoBrand from '../components/ui/LogoBrand'
+import BackToSiteLink from '../components/ui/BackToSiteLink'
 import PrivacyConsentCheckbox from '../components/consent/PrivacyConsentCheckbox'
 import { recordSignupConsents } from '../services/consent.service'
 import type { AccountType, SubscriptionPlan } from '../types/database.types'
@@ -153,6 +154,8 @@ export default function SignUp({
       justifyContent: 'center', background: 'var(--lp-bg)',
       overflowY: 'auto', padding: '20px 16px'
     }}>
+
+      <BackToSiteLink />
 
       <div style={{ width: 380, margin: 'auto' }}>
 
@@ -417,6 +420,8 @@ function ChooseAccountTypeScreen({
       justifyContent: 'center', background: 'var(--lp-bg)',
       padding: '20px 16px', overflow: 'auto'
     }}>
+
+      <BackToSiteLink />
 
       <div style={{ width: 460, margin: 'auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>

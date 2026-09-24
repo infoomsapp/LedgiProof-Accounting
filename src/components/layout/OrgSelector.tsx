@@ -16,6 +16,7 @@ import { db }            from '../../lib/supabase'
 import SemaphoreSpinner   from '../ui/SemaphoreSpinner'
 import CreatePersonalOrgDialog from './CreatePersonalOrgDialog'
 import { partitionOrgs, classifyOrg, describeOrgCategory } from '../../lib/org-helpers'
+import Icon, { type IconName } from '../ui/Icon'
 import type { Organization, OrganizationMembership, AccountType, SystemRole } from '../../types/database.types'
 
 // Roles for which the Personal/Firm toggle is meaningful (vs. pyme_client/auditor)
@@ -149,7 +150,7 @@ export default function OrgSelector() {
         }}>
           <ModeToggleBtn
             label={hasPersonal ? 'Personal' : 'Personal +'}
-            emoji="👤"
+            icon="person"
             active={activeCategory === 'personal'}
             disabled={!!switching}
             isPlaceholder={!hasPersonal}
@@ -157,7 +158,7 @@ export default function OrgSelector() {
           />
           <ModeToggleBtn
             label="Firm"
-            emoji="🏢"
+            icon="building"
             active={activeCategory === 'firm'}
             disabled={!!switching}
             onClick={() => switchToCategory('firm')}
@@ -176,7 +177,7 @@ export default function OrgSelector() {
             }}
           >
             <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
-              {hasToggle ? `${activeDesc.emoji} ${activeDesc.label}` : 'Workspace'}
+              {hasToggle ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name={activeDesc.icon} size={10} />{activeDesc.label}</span> : 'Workspace'}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
               <div style={{
@@ -240,7 +241,7 @@ export default function OrgSelector() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 13
                     }}>
-                      {orgDesc.emoji}
+                      <Icon name={orgDesc.icon} size={13} />
                     </div>
 
                     <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -290,8 +291,8 @@ export default function OrgSelector() {
       ) : (
         /* Single-org compact display (toggle-eligible bookkeeper case) */
         <div>
-          <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
-            {`${activeDesc.emoji} ${activeDesc.label}`}
+          <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Icon name={activeDesc.icon} size={10} />{activeDesc.label}
           </div>
           <div style={{
             fontSize: 12.5, fontWeight: 500, color: 'var(--lp-text)',
@@ -318,10 +319,10 @@ export default function OrgSelector() {
 // ── Mode toggle button (used in the Personal/Firm toggle pill) ──────────────
 
 function ModeToggleBtn({
-  label, emoji, active, disabled, isPlaceholder, onClick
+  label, icon, active, disabled, isPlaceholder, onClick
 }: {
   label:    string
-  emoji:    string
+  icon:     IconName
   active:   boolean
   disabled: boolean
   /** P5.C: when true, this side has no org yet — render as a "create" CTA */
@@ -356,7 +357,7 @@ function ModeToggleBtn({
         transition:    'background 0.12s, opacity 0.12s'
       }}
     >
-      <span style={{ fontSize: 12 }}>{emoji}</span>
+      <Icon name={icon} size={12} />
       <span>{label}</span>
     </button>
   )

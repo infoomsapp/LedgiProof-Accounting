@@ -9,14 +9,21 @@ import { useScope }     from '../../hooks/useScope'
 import { db }           from '../../lib/supabase'
 import { formatCurrency } from '../../lib/currency'
 import { formatDate }   from '../../lib/dates'
+import Icon, { type IconName } from '../ui/Icon'
 
 interface SearchResult {
-  type:    'transaction' | 'invoice' | 'client' | 'document'
-  id:      string
-  title:   string
-  sub:     string
-  icon:    string
-  path:    string
+  type:      'transaction' | 'invoice' | 'client' | 'document'
+  id:        string
+  title:     string
+  sub:       string
+  /** Only set for type: 'transaction' -- rendered as a colored dot instead of an Icon. */
+  semaphore?: string
+  icon:      IconName
+  path:      string
+}
+
+const SEM_DOT_COLOR: Record<string, string> = {
+  red: '#ef4444', amber: '#f59e0b', green: '#22c55e', blue: '#3b82f6'
 }
 
 // Sanitizes a search term for safe use inside a PostgREST .ilike()/.or() filter
@@ -125,7 +132,8 @@ export default function GlobalSearch() {
         id:    r.id,
         title: r.description ?? r.reference ?? 'Transaction',
         sub:   `${r.transaction_date} · ${formatCurrency(r.amount, r.currency)}`,
-        icon:  r.semaphore === 'red' ? '🔴' : r.semaphore === 'amber' ? '🟡' : r.semaphore === 'blue' ? '🔵' : '🟢',
+        semaphore: r.semaphore,
+        icon:  'transactions' as const,
         path:  '/transactions'
       })),
       ...(invRes.data ?? []).map((r: any) => ({
@@ -133,7 +141,7 @@ export default function GlobalSearch() {
         id:    r.id,
         title: r.invoice_number,
         sub:   `${(r.clients as any)?.display_name ?? ''} · ${formatCurrency(r.total, r.currency)}`,
-        icon:  '🧾',
+        icon:  'invoices' as const,
         path:  '/invoices'
       })),
       ...(clientRes.data ?? []).map((r: any) => ({
@@ -141,7 +149,7 @@ export default function GlobalSearch() {
         id:    r.id,
         title: r.display_name,
         sub:   r.company_name ?? r.email ?? '',
-        icon:  '🧑‍💼',
+        icon:  'person' as const,
         path:  '/clients'
       })),
       ...(docRes.data ?? []).map((r: any) => ({
@@ -149,7 +157,7 @@ export default function GlobalSearch() {
         id:    r.id,
         title: r.filename,
         sub:   `${(r.clients as any)?.company_name ?? (r.clients as any)?.display_name ?? 'Firm'} · ${formatDate(r.created_at)}`,
-        icon:  '📎',
+        icon:  'accounts' as const,
         path:  r.client_id ? `/clients/${r.client_id}` : '/clients'
       }))
     ]
@@ -257,7 +265,7 @@ export default function GlobalSearch() {
             <div style={{ maxHeight: 380, overflowY: 'auto' }}>
               {query.trim().length < 2 ? (
                 <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', color: '#94a3b8', marginBottom: 8 }}><Icon name="search" size={24} /></div>
                   <div style={{ fontSize: 13, color: '#475569' }}>
                     Type at least 2 characters to search
                   </div>
@@ -283,7 +291,11 @@ export default function GlobalSearch() {
                         transition: 'background 0.08s'
                       }}
                     >
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>{r.icon}</span>
+                      <span style={{ flexShrink: 0, display: 'flex', color: r.semaphore ? (SEM_DOT_COLOR[r.semaphore] ?? SEM_DOT_COLOR.blue) : 'var(--lp-text-muted)' }}>
+                        {r.type === 'transaction'
+                          ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: SEM_DOT_COLOR[r.semaphore ?? 'blue'] ?? SEM_DOT_COLOR.blue }} />
+                          : <Icon name={r.icon} size={15} />}
+                      </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: 'var(--lp-text)', marginBottom: 2,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

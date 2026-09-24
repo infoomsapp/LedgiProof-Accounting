@@ -9,6 +9,7 @@ import LogoBrand           from '../ui/LogoBrand'
 import NotificationBell    from './NotificationBell'
 import ImpersonationBanner from '../admin/ImpersonationBanner'
 import GlobalChatBubble    from '../workspace-chat/GlobalChatBubble'
+import Icon, { type IconName } from '../ui/Icon'
 
 export default function ClientPortalShell() {
   const { profile, signOut } = useAuthStore()
@@ -60,12 +61,12 @@ export default function ClientPortalShell() {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '0 10px' }}>
-          {[
-            { to: '/client',              label: 'Overview',        icon: '🏠', end: true },
-            { to: '/client/transactions', label: 'My Transactions', icon: '📊' },
-            { to: '/client/bank',         label: 'Connect Bank',    icon: '🏦' },
-            { to: '/client/settings',     label: 'Settings',        icon: '⚙️' }
-          ].map(item => (
+          {([
+            { to: '/client',              label: 'Overview',        icon: 'workspace'    as IconName, end: true },
+            { to: '/client/transactions', label: 'My Transactions', icon: 'chartBar'     as IconName },
+            { to: '/client/bank',         label: 'Connect Bank',    icon: 'bank'         as IconName },
+            { to: '/client/settings',     label: 'Settings',        icon: 'settingsGear' as IconName }
+          ]).map(item => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -84,7 +85,7 @@ export default function ClientPortalShell() {
                 background: isActive ? 'rgba(167,139,250,0.1)' : 'transparent'
               })}
             >
-              <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
+              <span style={{ flexShrink: 0, display: 'flex' }}><Icon name={item.icon} size={14} /></span>
               {item.label}
             </NavLink>
           ))}

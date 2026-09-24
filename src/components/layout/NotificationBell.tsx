@@ -10,21 +10,22 @@ import { useChatBubbleStore }  from '../../store/chat-bubble.store'
 import { useNotifications }    from '../../hooks/useNotifications'
 import type { Notification }   from '../../hooks/useNotifications'
 import { db } from '../../lib/supabase'
+import Icon, { type IconName } from '../ui/Icon'
 
-const TYPE_ICON: Record<string, string> = {
-  review_requested:            '💬',
-  document_requested:          '📎',
-  document_accepted:           '✅',
-  document_rejected:           '❌',
-  review_confirmed:            '✓',
-  transaction_escalated:       '🔴',
-  bank_disconnected:           '🏦',
-  new_message:                 '✉️',
-  note_pending_approval:       '📝',
-  note_approved:               '✅',
-  note_reminder:               '⏰',
-  document_request_fulfilled:  '📤',
-  sensitive_data_flagged:      '🛡️'
+const TYPE_ICON: Record<string, IconName> = {
+  review_requested:            'chat',
+  document_requested:          'attachment',
+  document_accepted:           'checklist',
+  document_rejected:           'xCircle',
+  review_confirmed:            'checklist',
+  transaction_escalated:       'warning',
+  bank_disconnected:           'bank',
+  new_message:                 'mail',
+  note_pending_approval:       'edit',
+  note_approved:               'checklist',
+  note_reminder:               'time',
+  document_request_fulfilled:  'send',
+  sensitive_data_flagged:      'shield'
 }
 
 function timeAgo(iso: string): string {
@@ -158,7 +159,7 @@ export default function NotificationBell() {
             </div>
           ) : items.length === 0 ? (
             <div style={{ padding: '28px 16px', textAlign: 'center' }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>🔔</div>
+              <div style={{ display: 'flex', justifyContent: 'center', color: '#94a3b8', marginBottom: 8 }}><Icon name="bell" size={22} /></div>
               <div style={{ fontSize: 13, color: '#475569' }}>No notifications yet</div>
             </div>
           ) : (
@@ -178,8 +179,8 @@ export default function NotificationBell() {
                   ? 'none' : 'rgba(59,130,246,0.05)'}
               >
                 {/* Icon */}
-                <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>
-                  {TYPE_ICON[n.type] ?? '🔔'}
+                <span style={{ flexShrink: 0, marginTop: 1, display: 'flex', color: 'var(--lp-text-muted)' }}>
+                  <Icon name={TYPE_ICON[n.type] ?? 'bell'} size={14} />
                 </span>
 
                 <div style={{ flex: 1, minWidth: 0 }}>

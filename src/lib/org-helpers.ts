@@ -100,35 +100,35 @@ export function partitionOrgs(
 }
 
 /**
- * UI helper: emoji + label for displaying the org category.
+ * UI helper: icon + label for displaying the org category.
  */
 export function describeOrgCategory(cat: OrgCategory): {
-  emoji:  string
+  icon:   'person' | 'building' | 'briefcase' | 'folder'
   label:  string
   color:  string  // CSS var reference
 } {
   switch (cat) {
     case 'personal':
       return {
-        emoji: '👤',
+        icon: 'person',
         label: 'Personal',
         color: 'var(--lp-violet)'
       }
     case 'firm':
       return {
-        emoji: '🏢',
+        icon: 'building',
         label: 'Firm',
         color: 'var(--lp-accent)'
       }
     case 'client_company':
       return {
-        emoji: '💼',
+        icon: 'briefcase',
         label: 'Client',
         color: 'var(--sem-green)'
       }
     default:
       return {
-        emoji: '📁',
+        icon: 'folder',
         label: 'Workspace',
         color: 'var(--lp-text-muted)'
       }

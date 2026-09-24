@@ -15,6 +15,7 @@ import { useClientPortalStore } from '../../store/client-portal.store'
 import LogoBrand from '../ui/LogoBrand'
 import NotificationBell from './NotificationBell'
 import GlobalChatBubble from '../workspace-chat/GlobalChatBubble'
+import Icon, { type IconName } from '../ui/Icon'
 
 export default function PortalShell() {
   const { profile, signOut } = useAuthStore()
@@ -74,10 +75,10 @@ export default function PortalShell() {
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '0 10px' }}>
-          {[
-            { to: '/portal',            label: 'Overview',  icon: '📊', end: true },
-            { to: '/portal/documents',  label: 'Documents', icon: '📁', end: false }
-          ].map(item => (
+          {([
+            { to: '/portal',            label: 'Overview',  icon: 'chartBar' as IconName, end: true },
+            { to: '/portal/documents',  label: 'Documents', icon: 'folder'   as IconName, end: false }
+          ]).map(item => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -91,7 +92,7 @@ export default function PortalShell() {
                 background: isActive ? 'rgba(167,139,250,0.1)' : 'transparent'
               })}
             >
-              <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
+              <span style={{ flexShrink: 0, display: 'flex' }}><Icon name={item.icon} size={14} /></span>
               {item.label}
             </NavLink>
           ))}

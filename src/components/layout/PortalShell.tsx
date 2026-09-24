@@ -77,6 +77,7 @@ export default function PortalShell() {
         <nav style={{ flex: 1, padding: '0 10px' }}>
           {([
             { to: '/portal',            label: 'Overview',  icon: 'chartBar' as IconName, end: true },
+            { to: '/portal/invoices',   label: 'Invoices',  icon: 'invoices' as IconName, end: false },
             { to: '/portal/documents',  label: 'Documents', icon: 'folder'   as IconName, end: false }
           ]).map(item => (
             <NavLink

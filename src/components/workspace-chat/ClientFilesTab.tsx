@@ -12,6 +12,7 @@ import { uploadDocument, getDocumentSignedUrl, formatBytes, validateFile } from 
 import { formatDate } from '../../lib/dates'
 import { toSafeMessage } from '../../lib/errors'
 import Icon, { type IconName } from '../ui/Icon'
+import DocumentViewerModal, { openDocumentSignedUrl, type ViewingDocument } from '../ui/DocumentViewerModal'
 
 interface Props {
   orgId:    string
@@ -38,6 +39,7 @@ export default function ClientFilesTab({ orgId, clientId }: Props) {
   const [docs,      setDocs]      = useState<DocumentRow[] | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error,     setError]     = useState<string | null>(null)
+  const [viewing,   setViewing]   = useState<ViewingDocument | null>(null)
 
   const load = useCallback(async () => {
     const { data, error: err } = await db
@@ -71,9 +73,9 @@ export default function ClientFilesTab({ orgId, clientId }: Props) {
   async function handleView(doc: DocumentRow) {
     try {
       const signed = await getDocumentSignedUrl(doc.id)
-      window.open(signed.signedUrl, '_blank', 'noopener,noreferrer')
+      openDocumentSignedUrl(signed, setViewing)
     } catch (e: any) {
-      setError(e?.message ?? 'Could not open document')
+      setError(toSafeMessage(e, 'Could not open document'))
     }
   }
 
@@ -141,6 +143,8 @@ export default function ClientFilesTab({ orgId, clientId }: Props) {
           ))
         )}
       </div>
+
+      <DocumentViewerModal doc={viewing} onClose={() => setViewing(null)} />
     </div>
   )
 }

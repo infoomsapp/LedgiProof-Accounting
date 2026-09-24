@@ -5,6 +5,7 @@ import { useNavigate }                       from 'react-router-dom'
 import type { WorkspaceMessage, ContextRef } from '../../services/workspace-chat.service'
 import { getDocumentSignedUrl }              from '../../services/upload.service'
 import Icon                                  from '../ui/Icon'
+import DocumentViewerModal, { openDocumentSignedUrl, type ViewingDocument } from '../ui/DocumentViewerModal'
 
 interface Props {
   message:    WorkspaceMessage
@@ -220,6 +221,7 @@ function ContextRefChip({
 function AttachmentChip({ documentId, spaced }: { documentId: string; spaced: boolean }) {
   const [opening, setOpening] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
+  const [viewing, setViewing] = useState<ViewingDocument | null>(null)
 
   async function handleOpen() {
     if (opening) return
@@ -227,7 +229,7 @@ function AttachmentChip({ documentId, spaced }: { documentId: string; spaced: bo
     setError(null)
     try {
       const signed = await getDocumentSignedUrl(documentId)
-      window.open(signed.signedUrl, '_blank', 'noopener,noreferrer')
+      openDocumentSignedUrl(signed, setViewing)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open file')
     } finally {
@@ -259,6 +261,7 @@ function AttachmentChip({ documentId, spaced }: { documentId: string; spaced: bo
       {error && (
         <div style={{ fontSize: 10.5, color: 'var(--sem-red)', marginTop: 3 }}>{error}</div>
       )}
+      <DocumentViewerModal doc={viewing} onClose={() => setViewing(null)} />
     </div>
   )
 }

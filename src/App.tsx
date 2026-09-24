@@ -82,9 +82,11 @@ import ClientPortalShell    from './components/layout/ClientPortalShell'
 import PortalShell          from './components/layout/PortalShell'
 import PortalOverview       from './pages/portal/PortalOverview'
 import PortalDocuments      from './pages/portal/PortalDocuments'
+import PortalInvoices       from './pages/portal/PortalInvoices'
 import ClientDashboard       from './pages/client/ClientDashboard'
 import ClientConnectBank     from './pages/client/ClientConnectBank'
 import ClientTransactions    from './pages/client/ClientTransactions'
+import ClientInvoices        from './pages/client/ClientInvoices'
 import ClientAccountSettings from './pages/client/ClientAccountSettings'
 import SuperAdmin from './components/admin/SuperAdmin'
 import SemaphoreSpinner from './components/ui/SemaphoreSpinner'
@@ -97,6 +99,7 @@ import Unauthorized from './pages/Unauthorized'
 import FirmRouteRedirect       from './components/auth/FirmRouteRedirect'
 import ClientContextRoute      from './components/layout/ClientContextRoute'
 import ClientWorkspaceOverview from './pages/ClientWorkspaceOverview'
+import ClientDocuments from './pages/ClientDocuments'
 
 // ── Spinner (branded — 4 semaphore colors) ────────────────────────────────
 // Thin wrapper kept for backward compatibility with existing call sites.
@@ -292,6 +295,7 @@ export default function App() {
             <Route path="/portal" element={<PortalShell />}>
               <Route index             element={<PortalOverview />} />
               <Route path="documents"  element={<PortalDocuments />} />
+              <Route path="invoices"   element={<PortalInvoices />} />
             </Route>
             <Route path="reset-password" element={<ResetPasswordRoute />} />
             <Route path="*" element={<Navigate to="/portal" replace />} />
@@ -569,6 +573,9 @@ export default function App() {
             <Route path="invoices"      element={
               <ErrorBoundary section="client invoices"><Invoices /></ErrorBoundary>
             } />
+            <Route path="documents"     element={
+              <ErrorBoundary section="client documents"><ClientDocuments /></ErrorBoundary>
+            } />
             <Route path="estimates"     element={
               <ErrorBoundary section="client estimates"><Estimates /></ErrorBoundary>
             } />
@@ -626,6 +633,9 @@ export default function App() {
           } />
           <Route path="transactions"  element={
             <ErrorBoundary section="client transactions"><ClientTransactions /></ErrorBoundary>
+          } />
+          <Route path="invoices"      element={
+            <ErrorBoundary section="client invoices"><ClientInvoices /></ErrorBoundary>
           } />
           <Route path="settings"      element={
             <ErrorBoundary section="client settings"><ClientAccountSettings /></ErrorBoundary>

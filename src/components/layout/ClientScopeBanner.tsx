@@ -29,6 +29,7 @@ interface WorkspaceTab {
 const BASE_TABS: WorkspaceTab[] = [
   { to: 'transactions',   label: 'Transactions'   },
   { to: 'invoices',       label: 'Invoices'       },
+  { to: 'documents',      label: 'Documents'      },
   { to: 'estimates',      label: 'Estimates'      },
   { to: 'imports',        label: 'Bank'           },
   { to: 'accounts',       label: 'Accounts'       },

@@ -308,6 +308,23 @@ export async function markInvoiceSent(id: string): Promise<{ token: string; url:
   return { token, url: buildPublicInvoiceUrl(token) }
 }
 
+/**
+ * Emails the client their invoice's pay link (send-invoice-email edge fn).
+ * Separate call from markInvoiceSent() on purpose: marking sent must
+ * succeed even if the email fails to go out (network blip, no RESEND key
+ * configured yet) -- the accountant still gets the link back either way and
+ * can share it manually, same fallback the UI already had before this
+ * existed.
+ */
+export async function sendInvoiceEmail(invoiceId: string): Promise<void> {
+  const { data, error } = await db.functions.invoke('send-invoice-email', {
+    body: { invoice_id: invoiceId }
+  })
+  if (error) throw dbError(error, 'Failed to email the invoice')
+  const result = data as { error?: string } | null
+  if (result?.error) throw new Error(result.error)
+}
+
 export async function voidInvoice(id: string): Promise<void> {
   const { error } = await db
     .from('invoices').update({ status: 'void' }).eq('id', id)

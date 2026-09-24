@@ -1,7 +1,10 @@
 // PATH: src/components/workspace-chat/GlobalChatBubble.tsx
 //
 // Floating chat bubble — persists across all pages inside AppShell.
-// Renders as a 52×52 circle fixed at bottom-right.
+// Renders as a 52×52 circle, draggable anywhere on screen and free-standing
+// (not fixed to a corner) — same drag-then-snap-to-nearest-edge feel as
+// Messenger's chat heads, minus the system-level overlay that feature needs
+// on Android (this bubble only ever floats within the web app itself).
 // Opens a floating WorkspaceChatPanel panel when clicked.
 //
 // Semaphore color rules (derived from inbox conversation summary):
@@ -10,15 +13,57 @@
 //   amber  — 1–2 clients have sent unread messages
 //   red    — 3+ clients have sent unread messages (busy inbox)
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { useWorkspaceChat }    from '../../hooks/useWorkspaceChat'
 import { useChatBubbleStore }  from '../../store/chat-bubble.store'
 import WorkspaceChatPanel      from './WorkspaceChatPanel'
+import ChatBrandIcon           from './ChatBrandIcon'
 import type { WorkspaceConversation } from '../../services/workspace-chat.service'
 
 interface Props {
   orgId:     string
   clientId?: string   // set for PYME bubble (client portal); omit for bookkeeper
+}
+
+const BUBBLE_SIZE   = 52
+const EDGE_MARGIN   = 20
+const POS_STORAGE_KEY = 'lp_chat_bubble_pos' // {xFrac, yFrac} of usable width/height
+
+function defaultPos() {
+  return {
+    left: window.innerWidth  - BUBBLE_SIZE - EDGE_MARGIN,
+    top:  window.innerHeight - BUBBLE_SIZE - EDGE_MARGIN,
+  }
+}
+
+function loadPos(): { left: number; top: number } {
+  if (typeof window === 'undefined') return { left: 0, top: 0 }
+  try {
+    const raw = window.localStorage.getItem(POS_STORAGE_KEY)
+    if (!raw) return defaultPos()
+    const { xFrac, yFrac } = JSON.parse(raw) as { xFrac: number; yFrac: number }
+    const maxX = window.innerWidth  - BUBBLE_SIZE
+    const maxY = window.innerHeight - BUBBLE_SIZE
+    return {
+      left: Math.min(Math.max(xFrac * maxX, 0), maxX),
+      top:  Math.min(Math.max(yFrac * maxY, 0), maxY),
+    }
+  } catch {
+    return defaultPos()
+  }
+}
+
+function savePos(left: number, top: number) {
+  try {
+    const maxX = window.innerWidth  - BUBBLE_SIZE
+    const maxY = window.innerHeight - BUBBLE_SIZE
+    window.localStorage.setItem(POS_STORAGE_KEY, JSON.stringify({
+      xFrac: maxX > 0 ? left / maxX : 0,
+      yFrac: maxY > 0 ? top  / maxY : 0,
+    }))
+  } catch {
+    // A lost position just falls back to the default corner next load.
+  }
 }
 
 function getSemaphoreColor(conversations: WorkspaceConversation[]): {
@@ -48,6 +93,63 @@ export default function GlobalChatBubble({ orgId, clientId }: Props) {
   const unread    = chat.inbox?.unread_total  ?? 0
   const semaphore = getSemaphoreColor(convs)
 
+  // ── Draggable position ────────────────────────────────────────────────────
+  const [pos, setPos]           = useState<{ left: number; top: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const dragOffset = useRef({ dx: 0, dy: 0 })
+  const movedRef    = useRef(false) // distinguishes a drag from a plain click
+
+  useEffect(() => {
+    setPos(loadPos())
+    function onResize() {
+      setPos(p => {
+        if (!p) return p
+        const maxX = window.innerWidth  - BUBBLE_SIZE
+        const maxY = window.innerHeight - BUBBLE_SIZE
+        return { left: Math.min(p.left, maxX), top: Math.min(p.top, maxY) }
+      })
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  const onBubblePointerDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    if (open || !pos) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    movedRef.current = false
+    dragOffset.current = { dx: e.clientX - pos.left, dy: e.clientY - pos.top }
+    setDragging(true)
+  }, [open, pos])
+
+  const onBubblePointerMove = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragging) return
+    movedRef.current = true
+    const maxX = window.innerWidth  - BUBBLE_SIZE
+    const maxY = window.innerHeight - BUBBLE_SIZE
+    setPos({
+      left: Math.min(Math.max(e.clientX - dragOffset.current.dx, 0), maxX),
+      top:  Math.min(Math.max(e.clientY - dragOffset.current.dy, 0), maxY),
+    })
+  }, [dragging])
+
+  const onBubblePointerUp = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragging) return
+    setDragging(false)
+    setPos(p => {
+      if (!p) return p
+      const maxX = window.innerWidth - BUBBLE_SIZE
+      // Snap to the nearest horizontal edge, same rule Messenger's chat
+      // heads use — vertical position stays wherever it was released.
+      const center = p.left + BUBBLE_SIZE / 2
+      const snappedLeft = center < window.innerWidth / 2 ? EDGE_MARGIN : maxX - EDGE_MARGIN
+      const next = { left: Math.min(Math.max(snappedLeft, 0), maxX), top: p.top }
+      savePos(next.left, next.top)
+      return next
+    })
+    // A drag that never moved is just a click — let the button's onClick fire.
+    if (movedRef.current) e.preventDefault()
+  }, [dragging])
+
   // Close panel when clicking outside
   useEffect(() => {
     if (!open) return
@@ -67,6 +169,22 @@ export default function GlobalChatBubble({ orgId, clientId }: Props) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, closeChat])
+
+  // Not positioned yet (first paint, before the mount effect reads the
+  // saved/default position) — render nothing rather than flash at 0,0.
+  if (!pos) return null
+
+  // The panel opens anchored to whichever side the bubble is currently
+  // sitting on, so it never appears disconnected from a bubble that's been
+  // dragged away from the default bottom-right corner.
+  const onRightHalf = pos.left + BUBBLE_SIZE / 2 > window.innerWidth / 2
+  const panelWidth   = 440
+  const panelHeight  = 580
+  const panelLeft = Math.min(
+    Math.max(onRightHalf ? pos.left + BUBBLE_SIZE - panelWidth : pos.left, 12),
+    window.innerWidth - panelWidth - 12
+  )
+  const panelTop = Math.max(pos.top - panelHeight - 14, 12)
 
   return (
     <>
@@ -91,10 +209,10 @@ export default function GlobalChatBubble({ orgId, clientId }: Props) {
           ref={panelRef}
           style={{
             position:     'fixed',
-            bottom:       86,
-            right:        20,
-            width:        440,
-            height:       580,
+            left:         panelLeft,
+            top:          panelTop,
+            width:        panelWidth,
+            height:       panelHeight,
             zIndex:       9997,
             borderRadius: 16,
             overflow:     'hidden',
@@ -123,27 +241,37 @@ export default function GlobalChatBubble({ orgId, clientId }: Props) {
 
       {/* ── Bubble button ──────────────────────────────────────────────────── */}
       <button
-        onClick={() => open ? closeChat() : openChat()}
+        onClick={() => {
+          // A drag that actually moved the bubble shouldn't also toggle the
+          // panel — pointerup already snapped it; this click is a side effect
+          // of the same gesture, not a separate tap.
+          if (movedRef.current) { movedRef.current = false; return }
+          open ? closeChat() : openChat()
+        }}
+        onPointerDown={onBubblePointerDown}
+        onPointerMove={onBubblePointerMove}
+        onPointerUp={onBubblePointerUp}
         title={open ? 'Close messages' : (semaphore.label)}
         style={{
           position:     'fixed',
-          bottom:       20,
-          right:        20,
+          left:         pos.left,
+          top:          pos.top,
           width:        52,
           height:       52,
           borderRadius: '50%',
           zIndex:       9998,
           border:       `2.5px solid ${open ? 'var(--lp-accent)' : semaphore.ring}`,
-          background:   open ? 'var(--lp-accent)' : 'var(--lp-surface)',
+          background:   open ? 'var(--lp-accent)' : 'transparent',
           boxShadow:    open
             ? '0 4px 20px rgba(0,0,0,0.20)'
             : `0 4px 16px rgba(0,0,0,0.14), 0 0 0 4px ${semaphore.glow}`,
-          cursor:       'pointer',
+          cursor:       dragging ? 'grabbing' : 'grab',
           display:      'flex',
           alignItems:   'center',
           justifyContent: 'center',
-          transition:   'all 0.18s ease',
+          transition:   dragging ? 'none' : 'left 0.22s ease, top 0.22s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease',
           flexShrink:   0,
+          touchAction:  'none',
         }}
         onMouseEnter={e => {
           if (!open) e.currentTarget.style.transform = 'scale(1.08)'
@@ -152,14 +280,18 @@ export default function GlobalChatBubble({ orgId, clientId }: Props) {
           e.currentTarget.style.transform = 'scale(1)'
         }}
       >
-        {/* Chat icon */}
-        <svg
-          width="22" height="22" viewBox="0 0 24 24"
-          fill="none" stroke={open ? '#fff' : 'var(--lp-text-muted)'}
-          strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
+        {/* Closed: the chat feature's own brand mark, sized to leave the
+            semaphore ring visible around it. Open: a plain close glyph on
+            the accent-filled button — a brand mark would read oddly as a
+            "close" affordance. */}
+        {open ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        ) : (
+          <ChatBrandIcon size={40} />
+        )}
 
         {/* Unread badge — pulses to draw the eye, same animation used on
             unread inbox rows */}

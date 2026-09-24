@@ -16,6 +16,7 @@ import type { Client } from '../../types/database.types'
 import type { WorkspaceConversation, WorkspaceInboxResponse, ContextRef } from '../../services/workspace-chat.service'
 import { formatDateShort } from '../../lib/dates'
 import Icon, { type IconName } from '../ui/Icon'
+import ChatBrandIcon from './ChatBrandIcon'
 
 type ConvTab = 'chat' | 'summary' | 'files' | 'requests' | 'notes'
 
@@ -1419,7 +1420,7 @@ function EmptyConversation({ isPyme }: { isPyme: boolean }) {
       alignItems: 'center', justifyContent: 'center',
       textAlign: 'center', padding: 24,
     }}>
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, opacity: 0.5 }}><Icon name="chat" size={28} /></div>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}><ChatBrandIcon size={32} /></div>
       <div style={{ fontSize: 13, color: 'var(--lp-text)', fontWeight: 500, marginBottom: 4 }}>
         {isPyme ? 'No conversation yet' : 'Select a conversation'}
       </div>

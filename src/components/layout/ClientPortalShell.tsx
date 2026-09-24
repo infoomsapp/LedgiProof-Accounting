@@ -64,6 +64,7 @@ export default function ClientPortalShell() {
           {([
             { to: '/client',              label: 'Overview',        icon: 'workspace'    as IconName, end: true },
             { to: '/client/transactions', label: 'My Transactions', icon: 'chartBar'     as IconName },
+            { to: '/client/invoices',     label: 'My Invoices',     icon: 'invoices'     as IconName },
             { to: '/client/bank',         label: 'Connect Bank',    icon: 'bank'         as IconName },
             { to: '/client/settings',     label: 'Settings',        icon: 'settingsGear' as IconName }
           ]).map(item => (

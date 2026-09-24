@@ -10,7 +10,7 @@ import { useScope }      from '../hooks/useScope'
 import {
   getInvoices, getInvoice, createInvoice, updateInvoice,
   upsertItems, recordPayment, voidInvoice, getClients,
-  markInvoiceSent,
+  markInvoiceSent, sendInvoiceEmail,
   type InvoiceWithClient
 } from '../services/invoice.service'
 import {
@@ -131,6 +131,8 @@ export default function Invoices() {
   const [printing,    setPrinting]      = useState(false)
   const [linkCopiedId, setLinkCopiedId] = useState<string | null>(null)
   const [sendingId,    setSendingId]     = useState<string | null>(null)
+  const [emailingId,   setEmailingId]    = useState<string | null>(null)
+  const [emailSentId,  setEmailSentId]   = useState<string | null>(null)
   const [branding,    setBranding]      = useState<Branding | null>(null)
   const [tab,         setTab]           = useState<'invoices' | 'recurring'>('invoices')
 
@@ -233,6 +235,29 @@ export default function Invoices() {
       alert(`Could not create the link: ${e?.message ?? 'unknown error'}`)
     } finally {
       setSendingId(null)
+    }
+  }
+
+  // ── Email the invoice to the client ───────────────────────────────────────
+  // Closes the gap "Send link" alone left: that button only ever copies a
+  // URL to the clipboard, so the accountant still had to paste it into some
+  // other channel themselves. This actually emails it. Ensures the invoice
+  // is marked sent (and has a token) first, same as handleSendLink, since a
+  // draft invoice has neither yet.
+  async function handleEmailInvoice(inv: InvoiceWithClient) {
+    setEmailingId(inv.id)
+    try {
+      if (inv.status === 'draft' || !inv.public_token) {
+        await markInvoiceSent(inv.id)
+      }
+      await sendInvoiceEmail(inv.id)
+      setEmailSentId(inv.id)
+      setTimeout(() => setEmailSentId(null), 2500)
+      await load()
+    } catch (e: any) {
+      alert(`Could not email the invoice: ${e?.message ?? 'unknown error'}`)
+    } finally {
+      setEmailingId(null)
     }
   }
 
@@ -582,6 +607,29 @@ export default function Invoices() {
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                         >
                           {sendingId === inv.id ? '…' : linkCopiedId === inv.id ? '✓ Copied' : <><Icon name="link" size={12} /> Send link</>}
+                        </button>
+                        <button
+                          onClick={() => handleEmailInvoice(inv)}
+                          disabled={emailingId === inv.id || inv.status === 'void' || !inv.clients?.email}
+                          title={inv.clients?.email
+                            ? `Email the invoice to ${inv.clients.email}`
+                            : 'This client has no email address on file'}
+                          style={{
+                            background:   'transparent',
+                            border:       '0.5px solid var(--lp-border)',
+                            color:        emailSentId === inv.id ? 'var(--sem-green)' : 'var(--lp-accent)',
+                            borderRadius: 6,
+                            padding:      '3px 8px',
+                            fontSize:     10.5,
+                            cursor:       (inv.status === 'void' || !inv.clients?.email) ? 'not-allowed' : 'pointer',
+                            fontFamily:   'inherit',
+                            opacity:      (inv.status === 'void' || !inv.clients?.email) ? 0.5 : 1,
+                            whiteSpace:   'nowrap'
+                          }}
+                          onMouseEnter={e => { if (inv.status !== 'void' && inv.clients?.email) e.currentTarget.style.background = 'var(--lp-surface-2)' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                        >
+                          {emailingId === inv.id ? '…' : emailSentId === inv.id ? '✓ Emailed' : <><Icon name="mail" size={12} /> Email</>}
                         </button>
                         <button
                           onClick={() => handleVoidInvoice(inv)}

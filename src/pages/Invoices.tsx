@@ -138,7 +138,12 @@ export default function Invoices() {
 
   // Editor modal
   const [showEditor,  setShowEditor]    = useState(false)
+  // editorMode existed as dead state: it was declared, set to 'create' once,
+  // and never read. The Edit button called loadDetail(), which only opens the
+  // read-only panel, so the app has never actually been able to change an
+  // invoice. Both halves are wired up now.
   const [editorMode,  setEditorMode]    = useState<'create' | 'edit'>('create')
+  const [editingId,   setEditingId]     = useState<string | null>(null)
   const [editClientId, setEditClientId] = useState('')
   const [editDueDate,  setEditDueDate]  = useState('')
   const [editTitle,    setEditTitle]    = useState('')
@@ -266,6 +271,7 @@ export default function Invoices() {
     const due = new Date()
     due.setDate(due.getDate() + 30)
     setEditorMode('create')
+    setEditingId(null)
     // 🆕 Sprint 3 — In firm-client scope, pre-fill the client from URL.
     // The bookkeeper is already 'inside' this client's workspace.
     setEditClientId(scope.clientId ?? clients[0]?.id ?? '')
@@ -273,6 +279,35 @@ export default function Invoices() {
     setEditTitle(''); setEditNotes('')
     setEditItems([{ sort_order:0, item_type:'service', description:'',
                     quantity:1, unit_price:0, discount_pct:0, tax_rate:0 }])
+    setTaxNote(null)
+    setPulledTimeIds([])
+    setShowEditor(true)
+  }
+
+  // ── Open editor on an existing DRAFT ──────────────────────────────────────
+  async function openEdit(id: string) {
+    const inv = await getInvoice(id, orgId)
+    if (inv.status !== 'draft') return   // the button is already gated; belt and braces
+    setEditorMode('edit')
+    setEditingId(id)
+    setEditClientId(inv.client_id)
+    setEditDueDate((inv.due_date ?? '').slice(0, 10))
+    setEditTitle(inv.title ?? '')
+    setEditNotes(inv.notes ?? '')
+    setEditItems(
+      inv.items.length > 0
+        ? inv.items.map((it, i) => ({
+            sort_order:   i,
+            item_type:    it.item_type,
+            description:  it.description,
+            quantity:     it.quantity,
+            unit_price:   it.unit_price,
+            discount_pct: it.discount_pct,
+            tax_rate:     it.tax_rate
+          }))
+        : [{ sort_order:0, item_type:'service', description:'',
+             quantity:1, unit_price:0, discount_pct:0, tax_rate:0 }]
+    )
     setTaxNote(null)
     setPulledTimeIds([])
     setShowEditor(true)
@@ -349,6 +384,29 @@ export default function Invoices() {
     // here -- every invoice silently defaulted to USD regardless of what
     // currency the client was configured for.
     const clientCurrency = clients.find(c => c.id === editClientId)?.default_currency
+
+    // Editing an existing draft: update the header, then rewrite the lines.
+    // upsertItems deletes and reinserts, so it is the same call either way.
+    if (editorMode === 'edit' && editingId) {
+      await updateInvoice(editingId, {
+        client_id: editClientId,
+        due_date:  editDueDate,
+        title:     editTitle || null,
+        notes:     editNotes || null,
+        ...(clientCurrency ? { currency: clientCurrency } : {})
+      })
+      await upsertItems(editingId, orgId, editItems.filter(i => i.description))
+      if (pulledTimeIds.length > 0) {
+        await markEntriesBilled(pulledTimeIds, editingId)
+        setPulledTimeIds([])
+      }
+      setSaving(false)
+      setShowEditor(false)
+      await load()
+      await loadDetail(editingId)
+      return
+    }
+
     const inv = await createInvoice({
       orgId, userId,
       clientId:  editClientId,
@@ -566,7 +624,7 @@ export default function Invoices() {
                           <Icon name="chat" size={14} />
                         </button>
                         <button
-                          onClick={() => loadDetail(inv.id)}
+                          onClick={e => { e.stopPropagation(); openEdit(inv.id) }}
                           disabled={!canEdit}
                           title={canEdit
                             ? 'Open invoice for editing'
@@ -811,7 +869,7 @@ export default function Invoices() {
       <Modal
         open={showEditor}
         onClose={() => setShowEditor(false)}
-        title="New Invoice"
+        title={editorMode === 'edit' ? 'Edit Invoice' : 'New Invoice'}
         width={700}
         footer={
           <>
@@ -822,7 +880,7 @@ export default function Invoices() {
               disabled={!editClientId || !editDueDate}
               onClick={handleSave}
             >
-              Create invoice
+              {editorMode === 'edit' ? 'Save changes' : 'Create invoice'}
             </Button>
           </>
         }

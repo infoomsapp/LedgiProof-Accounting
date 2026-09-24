@@ -259,11 +259,17 @@ export async function createInvoice(input: {
 export async function updateInvoice(
   id: string,
   input: Partial<Pick<Invoice,
+    'client_id' |
     'title' | 'notes' | 'footer' | 'terms' |
     'due_date' | 'issue_date' | 'currency' | 'status' |
     'sent_at' | 'sent_to' | 'viewed_at'
   >>
 ): Promise<Invoice> {
+  // client_id is editable ON A DRAFT and nothing more: snapshot_bill_to only
+  // freezes the client's billing details once status leaves 'draft', so until
+  // then the invoice carries no snapshot to contradict. Picking the wrong
+  // client on a draft is a typing mistake, not an accounting event; once it is
+  // issued the caller must not be offering this field at all.
   const { data, error } = await db
     .from('invoices').update(input).eq('id', id).select().single()
   if (error) throw dbError(error, 'Failed to update the invoice')

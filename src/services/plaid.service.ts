@@ -258,25 +258,31 @@ export async function getBankConnections(
   // and even while it worked, it was shipping the encrypted Plaid token to
   // every browser that opened this page for no reason. Only the edge functions
   // (service_role) need those two.
-  let q = supabase
-    .from('bank_connections')
-    .select(
-      'id, org_id, client_id, provider, plaid_item_id, ' +
-      'institution_id, institution_name, ' +
-      'account_id, account_name, account_type, account_subtype, mask, ' +
-      'is_active, last_synced_at, sync_status, sync_error, ' +
-      'connected_by, connected_at, connected_by_portal, client_authorized_at, ' +
-      'disconnected_at, created_at, updated_at'
-    )
-    .eq('org_id', filters.orgId)
-    .eq('is_active', true)
-    .order('connected_at', { ascending: false })
+  // Single string literal, not runtime-concatenated pieces: supabase-js's
+  // typed query builder parses the select list at the TYPE level to infer
+  // the row shape, and needs one literal string to do it -- a `+`-joined
+  // value can widen to plain `string` depending on the exact TS version's
+  // literal-inference behavior, which makes the builder fall back to
+  // `GenericStringError[]` instead of the real row type (exactly what broke
+  // both call sites of this function).
+  const BANK_CONNECTION_COLUMNS = 'id, org_id, client_id, provider, plaid_item_id, institution_id, institution_name, account_id, account_name, account_type, account_subtype, mask, is_active, last_synced_at, sync_status, sync_error, connected_by, connected_at, connected_by_portal, client_authorized_at, disconnected_at, created_at, updated_at' as const
 
-  if (filters.clientId) {
-    q = q.eq('client_id', filters.clientId)
-  }
-
-  const { data, error } = await q
+  const { data, error } = await (
+    filters.clientId
+      ? supabase
+          .from('bank_connections')
+          .select(BANK_CONNECTION_COLUMNS)
+          .eq('org_id', filters.orgId)
+          .eq('is_active', true)
+          .eq('client_id', filters.clientId)
+          .order('connected_at', { ascending: false })
+      : supabase
+          .from('bank_connections')
+          .select(BANK_CONNECTION_COLUMNS)
+          .eq('org_id', filters.orgId)
+          .eq('is_active', true)
+          .order('connected_at', { ascending: false })
+  )
 
   if (error) throw dbError(error, 'Failed to load bank connections')
   return data ?? []

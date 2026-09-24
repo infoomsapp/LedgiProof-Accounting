@@ -38,6 +38,7 @@ import MileageCard            from '../components/solo/MileageCard'
 import PendingReviewCard      from '../components/solo/PendingReviewCard'
 import OverdueInvoicesCard    from '../components/solo/OverdueInvoicesCard'
 import RecurringSubscriptionsCard from '../components/solo/RecurringSubscriptionsCard'
+import Icon, { type IconName } from '../components/ui/Icon'
 import TaxSetAsideCard        from '../components/solo/TaxSetAsideCard'
 import UploadReceiptDialog    from '../components/upload/UploadReceiptDialog'
 import { formatCurrency } from '../lib/currency'
@@ -282,18 +283,18 @@ export default function SoloDashboard() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
             gap: 10, marginBottom: 16
           }}>
-            <Kpi label={t('solo.kpiIncome',   { quarter: sd.quarter })} value={fmtCur(d.quarter_kpis.income)}   color="var(--sem-green)" icon="📥" />
-            <Kpi label={t('solo.kpiExpenses', { quarter: sd.quarter })} value={fmtCur(d.quarter_kpis.expenses)} color="var(--sem-red-soft)" icon="📤" />
+            <Kpi label={t('solo.kpiIncome',   { quarter: sd.quarter })} value={fmtCur(d.quarter_kpis.income)}   color="var(--sem-green)" icon="income" />
+            <Kpi label={t('solo.kpiExpenses', { quarter: sd.quarter })} value={fmtCur(d.quarter_kpis.expenses)} color="var(--sem-red-soft)" icon="expense" />
             <Kpi label={t('solo.kpiNetProfitQuarter', { quarter: sd.quarter })}
                  value={fmtCur(d.quarter_kpis.net_profit)}
                  sub={t('solo.marginPct', { pct: d.quarter_kpis.margin_pct })}
                  color={d.quarter_kpis.net_profit >= 0 ? 'var(--sem-green)' : 'var(--sem-red)'}
-                 icon="💹" />
+                 icon="trendUp" />
             <Kpi label={t('solo.ytdNetProfit')}
                  value={fmtCur(d.ytd.net_profit)}
                  sub={t('dashboard.transactionsCount', { count: d.ytd.tx_count })}
                  color={d.ytd.net_profit >= 0 ? 'var(--sem-green)' : 'var(--sem-red)'}
-                 icon="📊"
+                 icon="chartBar"
                  onClick={() => navigate('/transactions')} />
           </div>
           <RecurringSubscriptionsCard orgId={orgId} />
@@ -332,7 +333,7 @@ export default function SoloDashboard() {
                       borderTop: i > 0 ? '0.5px solid rgba(255,255,255,0.03)' : 'none'
                     }}
                   >
-                    <span style={{ fontSize: 12 }}>{semIcon(tx.semaphore)}</span>
+                    <span style={{ display: 'flex', alignItems: 'center' }}><SemDot s={tx.semaphore} /></span>
                     <div style={{ minWidth: 0 }}>
                       <div style={{
                         fontSize: 12.5, color: 'var(--lp-text)',
@@ -436,7 +437,7 @@ function Kpi({
   label, value, sub, color, icon, onClick
 }: {
   label: string; value: string; sub?: string
-  color: string; icon: string; onClick?: () => void
+  color: string; icon: IconName; onClick?: () => void
 }) {
   return (
     <div
@@ -461,7 +462,7 @@ function Kpi({
         }}>
           {label}
         </span>
-        <span style={{ fontSize: 14 }}>{icon}</span>
+        <span style={{ color, display: 'flex' }}><Icon name={icon} size={14} /></span>
       </div>
       <div style={{
         fontSize: 20, fontWeight: 700, color,
@@ -478,11 +479,13 @@ function Kpi({
   )
 }
 
-function semIcon(s: string): string {
-  return s === 'red'   ? '🔴'
-       : s === 'amber' ? '🟡'
-       : s === 'green' ? '🟢'
-       : '🔵'
+const SEM_DOT_COLOR: Record<string, string> = {
+  red: '#ef4444', amber: '#f59e0b', green: '#22c55e', blue: '#3b82f6'
+}
+
+function SemDot({ s }: { s: string }) {
+  const color = SEM_DOT_COLOR[s] ?? SEM_DOT_COLOR.blue
+  return <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, boxShadow: `0 0 5px ${color}`, display: 'inline-block' }} />
 }
 
 const lblHeader: React.CSSProperties = {

@@ -130,9 +130,11 @@ export default function PendingReviewCard({ pending, recentTx }: Props) {
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            <span style={{ fontSize: 14 }}>
-              {tx.semaphore === 'red' ? '🔴' : '🟡'}
-            </span>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+              background: tx.semaphore === 'red' ? '#ef4444' : '#f59e0b',
+              boxShadow: `0 0 5px ${tx.semaphore === 'red' ? '#ef4444' : '#f59e0b'}`
+            }} />
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{

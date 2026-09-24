@@ -22,6 +22,7 @@ import { useUserRole }     from '../hooks/useUserRole'
 import { db }              from '../lib/supabase'
 import Modal               from '../components/ui/modal'
 import Button              from '../components/ui/Button'
+import Icon                from '../components/ui/Icon'
 import type { LpRole } from '../types/database.types'
 import { ROLE_CONFIG, getAssignableRoles } from '../lib/role-config'
 import { formatDate } from '../lib/dates'
@@ -340,7 +341,7 @@ export default function Team() {
                               onMouseEnter={e => { e.currentTarget.style.background = 'var(--sem-red-bg)' }}
                               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                             >
-                              🗑 Remove
+                              <Icon name="trash" size={11} /> Remove
                             </button>
                           ) : (
                             <span style={{ fontSize: 11, color: 'var(--lp-text-muted)' }}>

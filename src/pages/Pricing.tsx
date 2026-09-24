@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import logoSrc from '../assets/logo.png'
+import Icon from '../components/ui/Icon'
 import '../styles/web.css'
 
 type Segment = 'self_employed' | 'bookkeeper'
@@ -220,7 +221,7 @@ export default function Pricing() {
             fontSize: 13,
             color: 'var(--web-text-muted)'
           }}>
-            <span style={{ fontSize: 18 }}>💳</span>
+            <span style={{ color: 'var(--web-text-muted)', display: 'flex' }}><Icon name="billing" size={18} /></span>
             <span>
               <strong style={{ color: 'var(--web-text)' }}>Banking on Starter:</strong>{' '}
               Plaid bank connections cost $1.50/mo per account on the Starter plan.

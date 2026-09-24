@@ -19,6 +19,7 @@ import {
 } from '../types/database.types'
 import Modal           from '../components/ui/modal'
 import Button          from '../components/ui/Button'
+import Icon            from '../components/ui/Icon'
 import InvoicePrint    from '../components/Invoices/InvoicePrint'
 import RecurringInvoicesTab from '../components/Invoices/RecurringInvoicesTab'
 import AddClientDialog from '../components/clients/AddClientDialog'
@@ -398,13 +399,14 @@ export default function Invoices() {
 
         {/* Tab switcher: one-off invoices vs recurring schedules */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-          {([['invoices', '🧾 Invoices'], ['recurring', '🔁 Recurring']] as const).map(([t, label]) => (
+          {([['invoices', 'invoices' as const, 'Invoices'], ['recurring', 'repeat' as const, 'Recurring']] as const).map(([t, iconName, label]) => (
             <button key={t} onClick={() => setTab(t)} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
               padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5,
               background: tab === t ? 'var(--sem-blue-bg-strong)' : 'transparent',
               color: tab === t ? 'var(--lp-accent)' : 'var(--lp-text-muted)',
               border: 'none', fontWeight: tab === t ? 600 : 400
-            }}>{label}</button>
+            }}><Icon name={iconName} size={13} />{label}</button>
           ))}
         </div>
 
@@ -446,7 +448,7 @@ export default function Invoices() {
           <div style={{ color: 'var(--lp-text-muted)', fontSize: 13 }}>Loading…</div>
         ) : visible.length === 0 ? (
           <div className="lp-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🧾</div>
+            <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--lp-text-muted)', marginBottom: 12 }}><Icon name="invoices" size={32} strokeWidth={1.3} /></div>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>No invoices yet</div>
             <div style={{ fontSize: 13, color: 'var(--lp-text-muted)', marginBottom: 20 }}>
               Create your first invoice to start billing clients.
@@ -536,7 +538,7 @@ export default function Invoices() {
                           onMouseEnter={e => { e.currentTarget.style.background = 'var(--chat-bubble-mine-bg)' }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                         >
-                          💬
+                          <Icon name="chat" size={14} />
                         </button>
                         <button
                           onClick={() => loadDetail(inv.id)}
@@ -558,7 +560,7 @@ export default function Invoices() {
                           onMouseEnter={e => { if (canEdit) e.currentTarget.style.background = 'var(--lp-surface-2)' }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                         >
-                          ✏ Edit
+                          <Icon name="edit" size={12} /> Edit
                         </button>
                         <button
                           onClick={() => handleSendLink(inv)}
@@ -579,7 +581,7 @@ export default function Invoices() {
                           onMouseEnter={e => { if (inv.status !== 'void') e.currentTarget.style.background = 'var(--lp-surface-2)' }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                         >
-                          {sendingId === inv.id ? '…' : linkCopiedId === inv.id ? '✓ Copied' : '🔗 Send link'}
+                          {sendingId === inv.id ? '…' : linkCopiedId === inv.id ? '✓ Copied' : <><Icon name="link" size={12} /> Send link</>}
                         </button>
                         <button
                           onClick={() => handleVoidInvoice(inv)}
@@ -725,7 +727,7 @@ export default function Invoices() {
           {/* Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'auto', paddingTop: 12 }}>
             <Button variant="ghost" onClick={() => setPrinting(true)}>
-              🖨 Print / Save PDF
+              <Icon name="print" size={13} /> Print / Save PDF
             </Button>
             {detail.status !== 'paid' && detail.status !== 'void' && (
               <Button variant="success" onClick={() => setShowPayment(true)}>
@@ -818,7 +820,7 @@ export default function Invoices() {
                 className="lp-btn-outline"
                 title="Fill each line's tax % from the client's state sales-tax rate"
               >
-                {taxResolving ? 'Resolving…' : '🧮 Auto-fill sales tax'}
+                {taxResolving ? 'Resolving…' : <><Icon name="calculator" size={12} /> Auto-fill sales tax</>}
               </button>
             </div>
             {taxNote && (

@@ -15,6 +15,7 @@ import {
   type WorkflowState
 } from '../../../../services/bookkeeper-dashboard.service'
 import { formatDate } from '../../../../lib/dates'
+import Icon, { type IconName } from '../../../ui/Icon'
 
 interface Props {
   clients:  KanbanClient[]
@@ -28,13 +29,13 @@ type SemColor = 'amber' | 'red' | 'blue' | 'green'
 const COLUMNS: Array<{
   state:    WorkflowState
   labelKey: string
-  icon:     string
+  icon:     IconName
   sem:      SemColor
 }> = [
-  { state: 'todo',        labelKey: 'dashboard.kanbanTodo',        icon: '📋', sem: 'amber' },
-  { state: 'in_review',   labelKey: 'dashboard.kanbanInReview',    icon: '🔍', sem: 'red' },
-  { state: 'reconciling', labelKey: 'dashboard.kanbanReconciling', icon: '⚖️', sem: 'blue' },
-  { state: 'closed',      labelKey: 'dashboard.kanbanClosed',      icon: '✓',  sem: 'green' }
+  { state: 'todo',        labelKey: 'dashboard.kanbanTodo',        icon: 'clipboardList', sem: 'amber' },
+  { state: 'in_review',   labelKey: 'dashboard.kanbanInReview',    icon: 'search',        sem: 'red' },
+  { state: 'reconciling', labelKey: 'dashboard.kanbanReconciling', icon: 'scale',         sem: 'blue' },
+  { state: 'closed',      labelKey: 'dashboard.kanbanClosed',      icon: 'checklist',     sem: 'green' }
 ]
 
 function semTint(sem: SemColor) {
@@ -100,7 +101,7 @@ export default function MultiClientKanban({ clients, onUpdate }: Props) {
 function KanbanColumn({
   column, clients, onSelect, menuFor, onUpdate
 }: {
-  column:   { state: WorkflowState; labelKey: string; icon: string; sem: SemColor }
+  column:   { state: WorkflowState; labelKey: string; icon: IconName; sem: SemColor }
   clients:  KanbanClient[]
   onSelect: (clientId: string) => void
   menuFor:  string | null
@@ -128,7 +129,7 @@ function KanbanColumn({
           fontSize: 11, color: tint.text, fontWeight: 600,
           textTransform: 'uppercase', letterSpacing: '0.06em'
         }}>
-          <span>{column.icon}</span>
+          <Icon name={column.icon} size={12} />
           {t(column.labelKey)}
         </span>
         <span style={{
@@ -241,22 +242,24 @@ function ClientCard({
               title={client.expires_at
                 ? t('dashboard.manualUntil', { date: formatDate(client.expires_at) })
                 : t('dashboard.manualNoExpiry')}
-              style={{ fontSize: 10, flexShrink: 0 }}
+              style={{ flexShrink: 0, display: 'flex', color: 'var(--lp-text-muted)' }}
             >
-              🔒
+              <Icon name="lock" size={10} />
             </span>
           )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
           {client.red_count > 0 && (
-            <span style={{ color: 'var(--sem-red)', fontWeight: 600 }}>
-              {client.red_count} 🔴
+            <span style={{ color: 'var(--sem-red)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--sem-red)' }} />
+              {client.red_count}
             </span>
           )}
           {client.amber_count > 0 && (
-            <span style={{ color: 'var(--sem-amber)' }}>
-              {client.amber_count} 🟡
+            <span style={{ color: 'var(--sem-amber)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--sem-amber)' }} />
+              {client.amber_count}
             </span>
           )}
           {client.red_count === 0 && client.amber_count === 0 && (
@@ -282,7 +285,7 @@ function ClientCard({
           overflow: 'hidden'
         }}>
           <MenuItem
-            icon="👁️"
+            icon="eye"
             label={t('dashboard.viewAsClient')}
             onClick={viewAsClient}
           />
@@ -301,7 +304,7 @@ function ClientCard({
             <>
               <Divider />
               <MenuItem
-                icon="🔄"
+                icon="refresh"
                 label={t('dashboard.clearOverride')}
                 hint={t('dashboard.backToAuto')}
                 onClick={clearOverride}
@@ -317,7 +320,7 @@ function ClientCard({
 function MenuItem({
   icon, label, hint, onClick
 }: {
-  icon: string; label: string; hint?: string; onClick: () => void
+  icon: IconName; label: string; hint?: string; onClick: () => void
 }) {
   return (
     <button
@@ -332,7 +335,7 @@ function MenuItem({
       onMouseEnter={e => e.currentTarget.style.background = 'var(--sem-blue-bg-strong)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
-      <span>{icon}</span>
+      <Icon name={icon} size={13} />
       <span style={{ flex: 1 }}>{label}</span>
       {hint && <span style={{ fontSize: 10, color: 'var(--lp-text-muted)' }}>{hint}</span>}
     </button>

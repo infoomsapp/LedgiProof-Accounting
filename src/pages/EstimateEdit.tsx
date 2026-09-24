@@ -35,6 +35,7 @@ import EstimatePrint                    from '../components/estimates/EstimatePr
 import SendEstimateDialog               from '../components/estimates/SendEstimateDialog'
 import EstimateActivityPanel            from '../components/estimates/EstimateActivityPanel'
 import SemaphoreSpinner                 from '../components/ui/SemaphoreSpinner'
+import Icon                             from '../components/ui/Icon'
 import { type Estimate } from '../types/estimate'
 import { formatCurrency } from '../lib/currency'
 
@@ -226,7 +227,7 @@ export default function EstimateEdit() {
             fontWeight: 600, textTransform: 'uppercase',
             letterSpacing: '0.06em'
           }}>
-            🔒 Locked
+            <Icon name="lock" size={9} /> Locked
           </span>
         )}
 
@@ -263,7 +264,7 @@ export default function EstimateEdit() {
           className="lp-btn lp-btn-ghost"
           title="Print / save as PDF"
         >
-          🖨 Print
+          <Icon name="print" size={13} /> Print
         </button>
 
         {!readonly && (
@@ -271,7 +272,7 @@ export default function EstimateEdit() {
             onClick={() => setSendDialogOpen(true)}
             className="lp-btn lp-btn-primary"
           >
-            📤 Send
+            <Icon name="send" size={13} /> Send
           </button>
         )}
 
@@ -300,7 +301,7 @@ export default function EstimateEdit() {
             className="lp-btn lp-btn-danger"
             title="Delete this draft"
           >
-            🗑 Delete
+            <Icon name="trash" size={13} /> Delete
           </button>
         )}
       </div>

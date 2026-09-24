@@ -34,7 +34,7 @@ interface ClientPortalState {
   loading:            boolean
 
   loadMemberships:     (userId: string) => Promise<void>
-  setActiveMembership: (id: string) => void
+  setActiveMembership: (id: string) => Promise<void>
   clearClientPortalState: () => void
 }
 
@@ -85,16 +85,35 @@ export const useClientPortalStore = create<ClientPortalState>((set, get) => ({
     // default to the first one. A stale localStorage value (e.g. the firm
     // revoked access) just falls back rather than pointing at nothing.
     const storedId = window.localStorage.getItem(ACTIVE_MEMBERSHIP_STORAGE_KEY)
-    const nextActiveId =
-      (storedId && memberships.some(m => m.membershipId === storedId))
-        ? storedId
-        : (memberships[0]?.membershipId ?? null)
+    const nextActive: ClientPortalMembership | null =
+      (storedId ? memberships.find(m => m.membershipId === storedId) : undefined)
+        ?? memberships[0]
+        ?? null
 
-    set({ memberships, activeMembershipId: nextActiveId, loading: false })
+    set({ memberships, activeMembershipId: nextActive?.membershipId ?? null, loading: false })
+
+    // 🐛 Real bug fixed: this store's own `activeMembershipId` previously had
+    // no effect on RLS -- every read gated on is_client_user()/
+    // current_client_id() actually follows profiles.client_id, which was
+    // only ever set once at first accept, never on reload or on switching.
+    // A profile with 2+ memberships could show "viewing Client B" in this
+    // UI while every query still silently returned Client A's rows (or
+    // nothing, if Client A was never accepted through the fixed RPC). Keep
+    // the DB's notion of "active" in sync with whichever one this store
+    // just resolved to, every load -- not just on an explicit switch.
+    if (nextActive) {
+      try {
+        await db.rpc('switch_active_client_portal_membership', { p_client_id: nextActive.clientId })
+      } catch {
+        // Best-effort on load -- an explicit switch (below) surfaces its own error instead.
+      }
+    }
   },
 
-  setActiveMembership: (id: string) => {
-    if (!get().memberships.some(m => m.membershipId === id)) return
+  setActiveMembership: async (id: string) => {
+    const membership = get().memberships.find(m => m.membershipId === id)
+    if (!membership) return
+    await db.rpc('switch_active_client_portal_membership', { p_client_id: membership.clientId })
     window.localStorage.setItem(ACTIVE_MEMBERSHIP_STORAGE_KEY, id)
     set({ activeMembershipId: id })
   },

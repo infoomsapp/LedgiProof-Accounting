@@ -805,6 +805,24 @@ export type Database = {
           },
         ]
       }
+      billing_exempt_users: {
+        Row: {
+          created_at: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cgc_validations: {
         Row: {
           cgc_confidence: number | null
@@ -7731,6 +7749,11 @@ export type Database = {
         Returns: string
       }
       lp_assert_can_import: { Args: { p_org_id: string }; Returns: undefined }
+      lp_assert_invite_acceptor: {
+        Args: { p_invited_email: string; p_user_id: string }
+        Returns: undefined
+      }
+      lp_is_billing_exempt: { Args: { p_user_id: string }; Returns: boolean }
       lp_recompute_estimate_totals: {
         Args: { p_estimate_id: string }
         Returns: undefined
@@ -8129,6 +8152,10 @@ export type Database = {
           p_token: string
         }
         Returns: Json
+      }
+      switch_active_client_portal_membership: {
+        Args: { p_client_id: string }
+        Returns: undefined
       }
       tx_payment_reportability: {
         Args: { pm: Database["public"]["Enums"]["payment_method_type"] }

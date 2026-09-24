@@ -3020,6 +3020,56 @@ export type Database = {
           },
         ]
       }
+      mileage_connections: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          label: string
+          last_received_at: string | null
+          org_id: string
+          provider: string
+          revoked_at: string | null
+          status: string
+          token_hash: string
+          token_prefix: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          label: string
+          last_received_at?: string | null
+          org_id: string
+          provider?: string
+          revoked_at?: string | null
+          status?: string
+          token_hash: string
+          token_prefix: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          label?: string
+          last_received_at?: string | null
+          org_id?: string
+          provider?: string
+          revoked_at?: string | null
+          status?: string
+          token_hash?: string
+          token_prefix?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mileage_connections_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mileage_entries: {
         Row: {
           category: string
@@ -3033,6 +3083,8 @@ export type Database = {
           org_id: string
           purpose: string | null
           rate: number
+          source: string
+          source_ref: string | null
         }
         Insert: {
           category?: string
@@ -3046,6 +3098,8 @@ export type Database = {
           org_id: string
           purpose?: string | null
           rate: number
+          source?: string
+          source_ref?: string | null
         }
         Update: {
           category?: string
@@ -3059,6 +3113,8 @@ export type Database = {
           org_id?: string
           purpose?: string | null
           rate?: number
+          source?: string
+          source_ref?: string | null
         }
         Relationships: [
           {
@@ -8621,6 +8677,7 @@ export const Constants = {
     },
   },
 } as const
+
 // ── Convenience aliases ──────────────────────────────────────────────────────
 // Hand-maintained re-exports on top of the generated Database type above —
 // regenerating this file from the live schema (via the Supabase MCP
@@ -8681,6 +8738,9 @@ export type RecurringChecklist      = PublicSchema["Tables"]["recurring_checklis
 export type RecurringChecklistItem  = PublicSchema["Tables"]["recurring_checklist_items"]["Row"]
 export type ChecklistRun            = PublicSchema["Tables"]["checklist_runs"]["Row"]
 export type ChecklistRunItem        = PublicSchema["Tables"]["checklist_run_items"]["Row"]
+
+// Added 2026-09-23 alongside the mileage_connections table (ControlMiles integration).
+export type MileageConnection = PublicSchema["Tables"]["mileage_connections"]["Row"]
 
 // ── Config maps (label/color/bg/border, theme-aware via CSS custom
 // properties) — actual runtime values, not just types, so components can

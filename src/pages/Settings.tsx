@@ -20,16 +20,17 @@ import BillingTab   from '../components/settings/BillingTab'
 import BrandingTab  from '../components/settings/BrandingTab'
 import BillsTab      from '../components/settings/BillsTab'
 import ApiAccessTab  from '../components/settings/ApiAccessTab'
+import ConnectionsTab from '../components/settings/ConnectionsTab'
 import Vendors        from './Vendors'
 import Worksheet1099  from './Worksheet1099'
 
 import LpUserBadge  from '../components/ui/LpUserBadge'
 import { LP_TIER_CONFIG, type LpRole } from '../types/database.types'
 
-type Tab = 'workspace' | 'account' | 'tax' | 'branding' | 'users' | 'billing' | 'vendors' | 'worksheet1099' | 'bills' | 'api'
+type Tab = 'workspace' | 'account' | 'tax' | 'branding' | 'connections' | 'users' | 'billing' | 'vendors' | 'worksheet1099' | 'bills' | 'api'
 
 const ALL_TAB_IDS: readonly Tab[] = [
-  'workspace', 'account', 'tax', 'branding', 'users', 'billing', 'vendors', 'worksheet1099', 'bills', 'api'
+  'workspace', 'account', 'tax', 'branding', 'connections', 'users', 'billing', 'vendors', 'worksheet1099', 'bills', 'api'
 ]
 
 // Vendors/Worksheet1099 are full standalone pages with their own
@@ -78,6 +79,7 @@ export default function Settings() {
     ['account',   `👤 ${t('settings.tabAccount')}`],
     ...(isFirmWorkspace ? [] : [['tax', `🧾 ${t('settings.tabTax')}`] as [Tab, string]]),
     ['branding',  `🎨 ${t('settings.tabBranding')}`],
+    ['connections', '🔗 Connections'],
     ...(role.isBookkeeperFirm ? [
       ['vendors',       `🧾 ${t('settings.tabVendors')}`] as [Tab, string],
       ['worksheet1099', `📋 ${t('settings.tabWorksheet1099')}`] as [Tab, string]
@@ -242,6 +244,7 @@ export default function Settings() {
       {tab === 'account'      && <AccountTab   onMessage={setMsg} />}
       {tab === 'tax'          && <TaxInfoTab   onMessage={setMsg} />}
       {tab === 'branding'     && <BrandingTab  onMessage={setMsg} />}
+      {tab === 'connections'  && <ConnectionsTab onMessage={setMsg} />}
       {tab === 'vendors'       && role.isBookkeeperFirm && <EmbeddedPage><Vendors /></EmbeddedPage>}
       {tab === 'worksheet1099' && role.isBookkeeperFirm && <EmbeddedPage><Worksheet1099 /></EmbeddedPage>}
       {tab === 'bills'         && (role.isBookkeeperFirm || role.isAccountantFirm) && <BillsTab onMessage={setMsg} />}

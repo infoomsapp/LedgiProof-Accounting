@@ -28,7 +28,7 @@
 import { useState, useMemo }      from 'react'
 import { useNavigate }            from 'react-router-dom'
 import { useTranslation }         from 'react-i18next'
-import { BarChart3, CreditCard, Gauge, MessageCircle } from 'lucide-react'
+import { BarChart3, CreditCard, Gauge, MessageCircle, Car } from 'lucide-react'
 import { useAuthStore }           from '../store/auth.store'
 import { useChatBubbleStore }     from '../store/chat-bubble.store'
 import { usePymeDashboard }       from '../hooks/usePymeDashboard'
@@ -38,6 +38,8 @@ import PendingActionsCard         from '../components/pyme/PendingActionsCard'
 import ReceiptRequestsCard        from '../components/pyme/ReceiptRequestsCard'
 import WorkspaceChatPanel         from '../components/workspace-chat/WorkspaceChatPanel'
 import UploadReceiptDialog        from '../components/upload/UploadReceiptDialog'
+import MileageCard                from '../components/solo/MileageCard'
+import { useMileageSummary, useMileageEntries, useAddMileage } from '../hooks/useMileage'
 
 // 🆕 V2 dashboard components (Sprint A.1: moved to v2/shared/)
 import DashboardLayout            from '../components/dashboard/v2/shared/DashboardLayout'
@@ -54,12 +56,17 @@ export default function PymeDashboard() {
   const navigate     = useNavigate()
   const { t }        = useTranslation()
   const { openChat } = useChatBubbleStore()
-  const { profile }  = useAuthStore()
+  const { profile, session } = useAuthStore()
 
   // PYME users have profile.client_id pointing at their own client record
   const clientId = profile?.client_id ?? null
 
   const pd = usePymeDashboard(clientId, !!clientId)
+
+  const mileageYear    = new Date().getFullYear()
+  const mileage         = useMileageSummary(pd.data?.firm.org_id ?? '', mileageYear, clientId)
+  const mileageEntries  = useMileageEntries(pd.data?.firm.org_id ?? '', mileageYear, clientId)
+  const addMileage      = useAddMileage(pd.data?.firm.org_id ?? '', mileageYear, clientId)
 
   // Upload modal state — optionally tied to a specific receipt_request
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -491,6 +498,34 @@ export default function PymeDashboard() {
                   compact={true}
                 />
               </div>
+            </SectionCard>
+
+            {/* Mileage tracking — same manual entry card SoloDashboard uses,
+                available here too since a PYME client tracks their own
+                business miles the same way a solo self-employed user does. */}
+            <SectionCard
+              title={t('solo.mileageYtd')}
+              icon={Car}
+              style={{ marginBottom: 12 }}
+              compact
+            >
+              <MileageCard
+                totalMilesYTD={mileage.data?.totalMiles ?? 0}
+                totalDeduction={mileage.data?.totalDeduction ?? 0}
+                entries={mileageEntries.data ?? []}
+                saving={addMileage.isPending}
+                onAddMileage={async (entry) => {
+                  if (!session?.user?.id || !clientId) return
+                  await addMileage.mutateAsync({
+                    orgId:    d.firm.org_id,
+                    clientId,
+                    userId:   session.user.id,
+                    miles:    entry.miles,
+                    date:     entry.date,
+                    purpose:  entry.purpose || null,
+                  })
+                }}
+              />
             </SectionCard>
 
             {/* Activity Sidebar */}

@@ -47,7 +47,7 @@ interface AuthState {
     password: string,
     name: string,
     options?: SignUpOptions
-  ) => Promise<{ needsConfirmation: boolean }>
+  ) => Promise<{ needsConfirmation: boolean; alreadyRegistered: boolean }>
   signOut: () => Promise<void>
   verifyMfa: (code: string) => Promise<void>
   enrollMfa: () => Promise<{ qrCode: string; secret: string; factorId: string } | null>
@@ -346,10 +346,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (error) {
       set({ loading: false, error: error.message })
-      return { needsConfirmation: false }
+      return { needsConfirmation: false, alreadyRegistered: false }
     }
 
-    const needsConfirmation = !data.session
+    // Supabase silently no-ops signUp() for an email that's already
+    // registered (no error, no session) to avoid leaking which emails
+    // exist. Its own documented signal is an empty identities array --
+    // without checking it, the caller can't tell that case apart from a
+    // real new signup pending confirmation, and ends up telling someone
+    // with an existing account to "check your email" for a message that
+    // was never sent.
+    const alreadyRegistered = !data.session && (data.user?.identities?.length ?? 0) === 0
+    const needsConfirmation = !data.session && !alreadyRegistered
+
+    if (alreadyRegistered) {
+      set({ loading: false })
+      return { needsConfirmation: false, alreadyRegistered: true }
+    }
 
     if (data.session && data.user) {
       // Email auto-confirmed — finish setup immediately
@@ -379,7 +392,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
     }
 
-    return { needsConfirmation }
+    return { needsConfirmation, alreadyRegistered: false }
   },
 
   // ── Sign out ────────────────────────────────────────────────────────────

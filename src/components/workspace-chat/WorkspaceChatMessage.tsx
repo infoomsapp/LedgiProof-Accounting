@@ -1,23 +1,42 @@
 // PATH: src/components/workspace-chat/WorkspaceChatMessage.tsx
+//
+// Bubble layout, mirroring the mobile app's _MessageBubble (chat_thread_
+// screen.dart) exactly: mine on the right, theirs on the left, and a tagged
+// message painted in its tag's color on BOTH sides — the point is that the
+// reason stands out, not who sent it. Same three semaphore colors as
+// message_tag_style.dart (amber/green/red), same hierarchy (sender name
+// above the bubble, tag badge inside it, timestamp below).
 
 import { useState }                          from 'react'
 import { useNavigate }                       from 'react-router-dom'
-import type { WorkspaceMessage, ContextRef } from '../../services/workspace-chat.service'
+import type { WorkspaceMessage, ContextRef, MessageTag } from '../../services/workspace-chat.service'
 import { getDocumentSignedUrl }              from '../../services/upload.service'
 import Icon                                  from '../ui/Icon'
 import DocumentViewerModal, { openDocumentSignedUrl, type ViewingDocument } from '../ui/DocumentViewerModal'
+import { TAG_COLORS, TAG_LABELS, TAG_ICONS } from './messageTagStyle'
 
 interface Props {
-  message:    WorkspaceMessage
-  viewerRole: 'bookkeeper' | 'client'
-  firmName?:  string
+  message:        WorkspaceMessage
+  viewerRole:     'bookkeeper' | 'client'
+  firmName?:      string
+  currentUserId?: string | null
+  /** Staff can delete any message in their org's conversations, matching
+   *  the conversation-level delete's own owner/admin split. */
+  canModerate?:   boolean
+  onDelete?:      (messageId: string) => void
 }
 
-export default function WorkspaceChatMessage({ message, viewerRole, firmName }: Props) {
+export default function WorkspaceChatMessage({
+  message, viewerRole, firmName, currentUserId = null, canModerate = false, onDelete
+}: Props) {
   const navigate     = useNavigate()
+  const [hovered, setHovered] = useState(false)
   const isSystem     = message.sender_role === 'system'
   const isInternal   = !message.client_visible && message.sender_role === 'bookkeeper'
   const isBookkeeper = message.sender_role === 'bookkeeper'
+  const isMine       = !!currentUserId && message.sender_id === currentUserId
+  const tag: MessageTag = message.message_tag ?? 'normal'
+  const tagged       = tag !== 'normal'
 
   // ── System / event message ────────────────────────────────────────────────
   if (isSystem) {
@@ -41,47 +60,33 @@ export default function WorkspaceChatMessage({ message, viewerRole, firmName }: 
     senderLabel = `${message.sender_name ?? 'Team'} (${firmName})`
   }
 
-  const initials = senderLabel
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase() ?? '')
-    .join('')
+  const tc = TAG_COLORS[tag]
 
-  const avatarBg    = isBookkeeper ? 'rgba(167,139,250,0.18)' : 'rgba(20,184,166,0.15)'
-  const avatarColor = isBookkeeper ? 'var(--lp-accent)'       : '#14b8a6'
-  const avatarBorder= isBookkeeper ? 'rgba(167,139,250,0.35)' : 'rgba(20,184,166,0.30)'
+  // Untagged keeps the ordinary mine/theirs contrast (the app's own bubble
+  // tokens, already built for this and simply never wired up before); a
+  // tagged message overrides that with its tag's colors on both sides.
+  const bubbleBg     = tagged ? tc.bg     : isInternal ? 'var(--chat-bubble-internal-bg)'     : isMine ? 'var(--chat-bubble-mine-bg)'     : 'var(--chat-bubble-other-bg)'
+  const bubbleBorder = tagged ? tc.border : isInternal ? 'var(--chat-bubble-internal-border)' : isMine ? 'var(--chat-bubble-mine-border)' : 'var(--chat-bubble-other-border)'
+  const bubbleText   = tagged ? 'var(--lp-text)' : isInternal ? 'var(--chat-bubble-internal-text)' : isMine ? 'var(--chat-bubble-mine-text)' : 'var(--chat-bubble-other-text)'
 
-  // ── Feed-style message ────────────────────────────────────────────────────
+  const canDeleteThis = !!onDelete && !message.is_deleted && (isMine || canModerate)
+
   return (
-    <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-
-      {/* Avatar */}
-      <div style={{
-        width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-        background: avatarBg, color: avatarColor, marginTop: 2,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 11.5, fontWeight: 700, userSelect: 'none',
-        border: `1.5px solid ${avatarBorder}`,
-      }}>
-        {initials || '?'}
-      </div>
-
-      {/* Body column */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-
-        {/* Header row: name · badges · time */}
+    <div
+      style={{
+        display: 'flex', flexDirection: 'column',
+        alignItems: isMine ? 'flex-end' : 'flex-start',
+        marginBottom: 12,
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {!isMine && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          marginBottom: 3, flexWrap: 'wrap',
+          fontSize: 11, color: 'var(--chat-sender-label)', marginBottom: 3,
+          marginLeft: 4, display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          <span style={{
-            fontSize: 12.5, fontWeight: 600,
-            color: 'var(--lp-text)', lineHeight: 1,
-          }}>
-            {senderLabel}
-          </span>
-
+          <span style={{ fontWeight: 600 }}>{senderLabel}</span>
           {message.ai_generated && (
             <span style={{
               fontSize: 9, padding: '1px 5px', borderRadius: 100,
@@ -92,60 +97,109 @@ export default function WorkspaceChatMessage({ message, viewerRole, firmName }: 
               AI
             </span>
           )}
+        </div>
+      )}
 
-          {isInternal && (
-            <span style={{
-              fontSize: 9.5, padding: '1px 7px', borderRadius: 4,
-              background: 'rgba(167,139,250,0.1)',
-              color: 'var(--chat-sender-label-internal)', fontWeight: 500,
-              border: '0.5px dashed var(--chat-bubble-internal-border)',
-              display: 'inline-flex', alignItems: 'center', gap: 3,
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, maxWidth: '78%' }}>
+        {isMine && canDeleteThis && (
+          <DeleteButton visible={hovered} onClick={() => onDelete!(message.id)} />
+        )}
+
+        <div style={{
+          padding: '9px 13px', borderRadius: 12,
+          background: bubbleBg,
+          border: `${tagged ? 1.2 : 1}px solid ${bubbleBorder}`,
+          minWidth: 0,
+        }}>
+          {isInternal && !tagged && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 9.5, fontWeight: 600, color: 'var(--chat-sender-label-internal)',
+              marginBottom: 4,
             }}>
               <Icon name="lock" size={9} /> Internal
-            </span>
+            </div>
           )}
 
-          <span style={{
-            fontSize: 10.5, color: 'var(--chat-timestamp)',
-            marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0,
-          }}>
-            {formatTime(message.created_at)}
-            {message.sender_role === viewerRole && (
-              <span style={{ marginLeft: 4 }} title={readReceiptTitle(message, viewerRole)}>
-                {readReceiptIcon(message, viewerRole)}
+          {tagged && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6,
+            }}>
+              <Icon name={TAG_ICONS[tag]} size={13} />
+              <span style={{
+                fontSize: 10, fontWeight: 800, letterSpacing: '0.06em',
+                color: tc.ink, textTransform: 'uppercase',
+              }}>
+                {TAG_LABELS[tag]}
               </span>
-            )}
-          </span>
+            </div>
+          )}
+
+          {message.is_deleted ? (
+            <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--lp-text-muted)' }}>
+              This message was deleted
+            </div>
+          ) : (
+            <>
+              {message.document_id && (
+                <AttachmentChip documentId={message.document_id} spaced={false} />
+              )}
+
+              {(message.body ?? '').trim().length > 0 && (
+                <div style={{
+                  fontSize: 13.5, color: bubbleText, lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  marginTop: message.document_id ? 7 : 0,
+                }}>
+                  {renderBodyWithMentions(message.body!)}
+                </div>
+              )}
+
+              {message.context_ref && (
+                <div style={{ marginTop: message.body ? 6 : 0 }}>
+                  <ContextRefChip ref_={message.context_ref} navigate={navigate} />
+                </div>
+              )}
+            </>
+          )}
         </div>
 
-        {/* Message body */}
-        {message.body && (
-          <div style={{
-            fontSize: 13, color: isInternal ? 'var(--lp-text-muted)' : 'var(--lp-text)',
-            lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            ...(isInternal ? {
-              borderLeft: '2px solid var(--chat-bubble-internal-border)',
-              paddingLeft: 8, marginLeft: 1,
-            } : {})
-          }}>
-            {renderBodyWithMentions(message.body)}
-          </div>
+        {!isMine && canDeleteThis && (
+          <DeleteButton visible={hovered} onClick={() => onDelete!(message.id)} />
         )}
+      </div>
 
-        {/* Document attachment */}
-        {message.document_id && (
-          <AttachmentChip documentId={message.document_id} spaced={!!message.body} />
+      <div style={{
+        fontSize: 10.5, color: 'var(--chat-timestamp)', marginTop: 3,
+        marginLeft: isMine ? 0 : 4, marginRight: isMine ? 4 : 0,
+      }}>
+        {formatTime(message.created_at)}
+        {message.sender_role === viewerRole && !message.is_deleted && (
+          <span style={{ marginLeft: 4 }} title={readReceiptTitle(message, viewerRole)}>
+            {readReceiptIcon(message, viewerRole)}
+          </span>
         )}
-
-        {/* Context ref chip */}
-        {message.context_ref && (
-          <div style={{ marginTop: message.body ? 6 : 0 }}>
-            <ContextRefChip ref_={message.context_ref} navigate={navigate} />
-          </div>
-        )}
-
       </div>
     </div>
+  )
+}
+
+function DeleteButton({ visible, onClick }: { visible: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Delete message"
+      style={{
+        opacity: visible ? 1 : 0, transition: 'opacity 0.12s',
+        background: 'none', border: 'none', cursor: 'pointer',
+        color: 'var(--lp-text-muted)', padding: 4, flexShrink: 0,
+        display: 'flex', alignItems: 'center',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.color = 'var(--sem-red)' }}
+      onMouseLeave={e => { e.currentTarget.style.color = 'var(--lp-text-muted)' }}
+    >
+      <Icon name="trash" size={13} />
+    </button>
   )
 }
 
@@ -214,9 +268,7 @@ function ContextRefChip({
 
 // ── Attachment chip — click to open the document in a new tab ──────────────────
 // Fetches a short-lived signed URL on demand (not eagerly on every render) via
-// the same getDocumentSignedUrl() the rest of the app already exposes but
-// nothing was actually calling yet — chat messages could carry a document_id
-// but had no way to open it.
+// the same getDocumentSignedUrl() the rest of the app already exposes.
 
 function AttachmentChip({ documentId, spaced }: { documentId: string; spaced: boolean }) {
   const [opening, setOpening] = useState(false)

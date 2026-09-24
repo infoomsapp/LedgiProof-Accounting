@@ -15,6 +15,8 @@ import {
   markWorkspaceConversationUnread,
   archiveWorkspaceConversation,
   restoreWorkspaceConversation,
+  deleteWorkspaceConversation,
+  deleteWorkspaceMessage,
   type WorkspaceInboxResponse,
   type WorkspaceMessage,
   type WorkspaceConversation,
@@ -45,12 +47,14 @@ export interface UseWorkspaceChat {
   loadOlder:        () => Promise<void>
 
   // Actions
-  send:             (body: string, opts?: { clientVisible?: boolean; contextRef?: import('../services/workspace-chat.service').ContextRef; documentId?: string }) => Promise<boolean>
+  send:             (body: string, opts?: { clientVisible?: boolean; contextRef?: import('../services/workspace-chat.service').ContextRef; documentId?: string; messageTag?: import('../services/workspace-chat.service').MessageTag }) => Promise<boolean>
   sending:          boolean
 
   archive:          (convId: string) => Promise<void>
   restore:          (convId: string) => Promise<void>
   markUnread:       (convId: string) => Promise<void>
+  deleteConversation: (convId: string) => Promise<void>
+  deleteMessage:      (messageId: string) => Promise<void>
 
   error:            string | null
 }
@@ -232,7 +236,7 @@ export function useWorkspaceChat(
   // ── Send message ──────────────────────────────────────────────────────────
   const send = useCallback(async (
     body: string,
-    opts: { clientVisible?: boolean; contextRef?: import('../services/workspace-chat.service').ContextRef; documentId?: string } = {}
+    opts: { clientVisible?: boolean; contextRef?: import('../services/workspace-chat.service').ContextRef; documentId?: string; messageTag?: import('../services/workspace-chat.service').MessageTag } = {}
   ): Promise<boolean> => {
     if (!orgId || sending) return false
 
@@ -257,7 +261,8 @@ export function useWorkspaceChat(
         ...(trimmed.length > 0               ? { body:          trimmed              } : {}),
         ...(opts.clientVisible !== undefined  ? { clientVisible: opts.clientVisible  } : {}),
         ...(opts.contextRef    !== undefined  ? { contextRef:    opts.contextRef     } : {}),
-        ...(opts.documentId    !== undefined  ? { documentId:    opts.documentId     } : {})
+        ...(opts.documentId    !== undefined  ? { documentId:    opts.documentId     } : {}),
+        ...(opts.messageTag    !== undefined  ? { messageTag:    opts.messageTag     } : {})
       })
       await Promise.all([
         refreshInbox(),
@@ -296,6 +301,32 @@ export function useWorkspaceChat(
       setError(e?.message ?? 'Could not restore')
     }
   }, [refreshInbox])
+
+  // Permanent (soft-delete server-side, but gone from every list here) --
+  // unlike archive, this doesn't come back. Closes the active conversation
+  // first if it's the one being deleted, same as archive does.
+  const deleteConversation = useCallback(async (convId: string) => {
+    try {
+      await deleteWorkspaceConversation(convId)
+      if (activeConvId === convId) closeConversation()
+      await refreshInbox()
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not delete')
+    }
+  }, [activeConvId, closeConversation, refreshInbox])
+
+  // Soft-deletes one message. Reloads from the server rather than patching
+  // the local array in place -- get_workspace_messages is what actually
+  // masks the body, and re-fetching keeps that single source of truth
+  // instead of duplicating its masking logic here.
+  const deleteMessage = useCallback(async (messageId: string) => {
+    try {
+      await deleteWorkspaceMessage(messageId)
+      if (activeConvId) await loadMessages(activeConvId)
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not delete the message')
+    }
+  }, [activeConvId, loadMessages])
 
   // "Mark as unread" (⋮ menu) — a follow-up flag, not a literal per-message
   // read-state change (see the RPC's own comment). Closes back to the inbox
@@ -336,6 +367,8 @@ export function useWorkspaceChat(
     archive,
     restore,
     markUnread,
+    deleteConversation,
+    deleteMessage,
 
     error
   }

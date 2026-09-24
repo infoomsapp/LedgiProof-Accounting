@@ -257,6 +257,64 @@ export type Database = {
           },
         ]
       }
+      accountant_invite_requests: {
+        Row: {
+          accountant_email: string
+          accountant_name: string | null
+          created_at: string
+          id: string
+          note: string | null
+          org_id: string
+          requested_by: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          accountant_email: string
+          accountant_name?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          org_id: string
+          requested_by: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          accountant_email?: string
+          accountant_name?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          org_id?: string
+          requested_by?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accountant_invite_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accountant_invite_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accountant_invite_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           client_id: string | null
@@ -6210,6 +6268,8 @@ export type Database = {
           created_at: string
           created_by_role: Database["public"]["Enums"]["message_sender_role"]
           created_by_user_id: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           is_archived: boolean
           last_message_at: string | null
@@ -6232,6 +6292,8 @@ export type Database = {
           created_at?: string
           created_by_role: Database["public"]["Enums"]["message_sender_role"]
           created_by_user_id?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           is_archived?: boolean
           last_message_at?: string | null
@@ -6254,6 +6316,8 @@ export type Database = {
           created_at?: string
           created_by_role?: Database["public"]["Enums"]["message_sender_role"]
           created_by_user_id?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           is_archived?: boolean
           last_message_at?: string | null
@@ -6283,6 +6347,20 @@ export type Database = {
           {
             foreignKeyName: "workspace_conversations_created_by_user_id_fkey"
             columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_conversations_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_conversations_deleted_by_fkey"
+            columns: ["deleted_by"]
             isOneToOne: false
             referencedRelation: "v_user_directory"
             referencedColumns: ["id"]
@@ -6481,6 +6559,8 @@ export type Database = {
           context_ref: Json | null
           conversation_id: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
           document_id: string | null
           email_status: string | null
           event_type: string | null
@@ -6488,6 +6568,7 @@ export type Database = {
           flagged_sensitive: boolean
           id: string
           message_kind: string
+          message_tag: string
           org_id: string
           previous_hash: string | null
           raw_hash: string | null
@@ -6507,6 +6588,8 @@ export type Database = {
           context_ref?: Json | null
           conversation_id: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           document_id?: string | null
           email_status?: string | null
           event_type?: string | null
@@ -6514,6 +6597,7 @@ export type Database = {
           flagged_sensitive?: boolean
           id?: string
           message_kind?: string
+          message_tag?: string
           org_id: string
           previous_hash?: string | null
           raw_hash?: string | null
@@ -6533,6 +6617,8 @@ export type Database = {
           context_ref?: Json | null
           conversation_id?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           document_id?: string | null
           email_status?: string | null
           event_type?: string | null
@@ -6540,6 +6626,7 @@ export type Database = {
           flagged_sensitive?: boolean
           id?: string
           message_kind?: string
+          message_tag?: string
           org_id?: string
           previous_hash?: string | null
           raw_hash?: string | null
@@ -6563,6 +6650,20 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "workspace_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_messages_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_messages_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
             referencedColumns: ["id"]
           },
           {
@@ -7270,6 +7371,14 @@ export type Database = {
       current_user_id: { Args: never; Returns: string }
       decrypt_tin: { Args: { p_enc: string }; Returns: string }
       delete_estimate_item: { Args: { p_item_id: string }; Returns: undefined }
+      delete_workspace_conversation: {
+        Args: { p_conversation_id: string }
+        Returns: Json
+      }
+      delete_workspace_message: {
+        Args: { p_message_id: string }
+        Returns: Json
+      }
       demote_admin: {
         Args: { p_requesting_admin_id: string; p_target_user_id: string }
         Returns: Json
@@ -7753,6 +7862,10 @@ export type Database = {
         Args: { p_invited_email: string; p_user_id: string }
         Returns: undefined
       }
+      lp_ensure_personal_books: {
+        Args: { p_org_id: string; p_user_id: string }
+        Returns: string
+      }
       lp_is_billing_exempt: { Args: { p_user_id: string }; Returns: boolean }
       lp_recompute_estimate_totals: {
         Args: { p_estimate_id: string }
@@ -8111,6 +8224,7 @@ export type Database = {
           p_context_ref?: Json
           p_document_id?: string
           p_message_kind?: string
+          p_message_tag?: string
           p_org_id: string
         }
         Returns: Json

@@ -51,8 +51,16 @@ export default function Dashboard() {
     return <ReadOnlyDashboard />
   }
 
-  // 2. PYME client → portal view
-  if (accountType === 'pyme_client') {
+  // 2. PYME client → portal view. user_type is the authoritative signal --
+  // accept_client_portal_invitation() always sets it to 'client_user' the
+  // moment someone accepts a portal invite, even when their profile
+  // predates that (e.g. an account originally created as staff). It never
+  // touches account_type/system_role, so a profile can be a real, active
+  // portal client while still carrying its old 'bookkeeper' account_type --
+  // checking account_type alone routed that account into the staff-side
+  // dashboards (which then correctly denied every staff-only write via RLS)
+  // instead of the portal view it actually has access to.
+  if (accountType === 'pyme_client' || profile.user_type === 'client_user') {
     return <PymeDashboard />
   }
 

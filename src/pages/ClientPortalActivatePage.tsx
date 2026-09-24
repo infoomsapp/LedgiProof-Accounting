@@ -135,6 +135,14 @@ export default function ClientPortalActivatePage() {
       }
     )
 
+    if (result?.alreadyRegistered) {
+      // This email already has an account -- signUp() no-ops silently
+      // (no email sent), so route straight to sign-in instead of showing
+      // a "check your email" message that would never be fulfilled.
+      window.location.href = `/login?client_invite=${token}&email=${encodeURIComponent(meta.email)}&existing=1`
+      return
+    }
+
     if (result?.needsConfirmation) {
       window.location.href = `/login?client_invite=${token}`
       return

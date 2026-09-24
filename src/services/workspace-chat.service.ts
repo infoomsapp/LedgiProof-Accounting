@@ -11,6 +11,10 @@ import { dbError } from '../lib/errors'
 
 export type MessageSenderRole = 'bookkeeper' | 'client' | 'system'
 export type MessageKind       = 'in' | 'out' | 'system' | 'ai'
+// Mirrors the mobile app's MessageTag exactly (workspace_chat_service.dart) --
+// same four states, same three semaphore colors (amber/green/red) plus the
+// untagged default, same meaning on both platforms.
+export type MessageTag        = 'normal' | 'pending' | 'invoice' | 'urgent'
 
 export type ContextRefType = 'transaction' | 'account' | 'period'
 
@@ -40,6 +44,7 @@ export interface WorkspaceConversation {
 
 export interface WorkspaceInboxResponse {
   org_id:        string
+  org_name:      string | null
   archived:      boolean
   role:          'bookkeeper' | 'client'
   total:         number
@@ -56,6 +61,7 @@ export interface WorkspaceMessage {
   document_id:         string | null
   channels:            string[]
   message_kind:        MessageKind
+  message_tag:         MessageTag
   event_type:          string | null
   ai_generated:        boolean
   client_visible:      boolean
@@ -66,6 +72,7 @@ export interface WorkspaceMessage {
   sender_name:         string | null
   sender_lp_code:      string | null
   context_ref:         ContextRef | null
+  is_deleted:          boolean
 }
 
 export interface WorkspaceMessagesResponse {
@@ -112,6 +119,7 @@ export interface SendWorkspaceMessageInput {
   body?:           string
   documentId?:     string
   messageKind?:    MessageKind
+  messageTag?:     MessageTag
   clientVisible?:  boolean
   contextRef?:     ContextRef
 }
@@ -133,6 +141,7 @@ export async function sendWorkspaceMessage(input: SendWorkspaceMessageInput): Pr
     ...(input.body ? { p_body: input.body } : {}),           // omitted when falsy → DB DEFAULT NULL
     ...(input.documentId ? { p_document_id: input.documentId } : {}),  // omitted when absent → DB DEFAULT NULL
     p_message_kind:   input.messageKind   ?? 'in',
+    p_message_tag:    input.messageTag    ?? 'normal',
     p_client_visible: input.clientVisible ?? true,
     // ContextRef is a plain string-valued interface without a declared index
     // signature, so it isn't nominally a Json (jsonb payload) even though every
@@ -186,4 +195,34 @@ export async function restoreWorkspaceConversation(
     p_conversation_id: conversationId
   })
   if (error) throw dbError(error, 'Failed to restore the conversation')
+}
+
+// Permanently removes a conversation from every list (not archived-and-
+// still-there — gone). Soft-delete server-side (workspace_messages carries
+// a real hash chain the product's own audit story depends on; a hard
+// DELETE mid-chain would break verifiability for everything after it),
+// but the UI never needs to know that — this call is the user-facing
+// "delete", full stop. Staff-only (owner/admin) — enforced server-side by
+// the RPC itself, not just hidden client-side.
+export async function deleteWorkspaceConversation(
+  conversationId: string
+): Promise<void> {
+  const { error } = await db.rpc('delete_workspace_conversation', {
+    p_conversation_id: conversationId
+  })
+  if (error) throw dbError(error, 'Failed to delete the conversation')
+}
+
+// Soft-deletes one message (same hash-chain reasoning as the conversation
+// delete above — the raw row and its hash columns are untouched, only
+// deleted_at/deleted_by are set, and get_workspace_messages masks the body
+// server-side for every viewer from then on). Your own message, or staff
+// moderating any message in their org — enforced server-side by the RPC.
+export async function deleteWorkspaceMessage(
+  messageId: string
+): Promise<void> {
+  const { error } = await db.rpc('delete_workspace_message', {
+    p_message_id: messageId
+  })
+  if (error) throw dbError(error, 'Failed to delete the message')
 }

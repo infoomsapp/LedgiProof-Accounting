@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useMemo, useCallback, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuthStore }       from '../../store/auth.store'
 import { useWorkspaceChat }   from '../../hooks/useWorkspaceChat'
 import WorkspaceChatMessage   from './WorkspaceChatMessage'
 import ContextRefPicker       from './ContextRefPicker'
@@ -13,7 +14,8 @@ import MentionPicker, { getMentionQuery, insertMention } from './MentionPicker'
 import { validateFile, uploadDocument } from '../../services/upload.service'
 import { getClients } from '../../services/invoice.service'
 import type { Client } from '../../types/database.types'
-import type { WorkspaceConversation, WorkspaceInboxResponse, ContextRef } from '../../services/workspace-chat.service'
+import type { WorkspaceConversation, WorkspaceInboxResponse, ContextRef, MessageTag } from '../../services/workspace-chat.service'
+import { TAG_COLORS, TAG_LABELS, TAG_ICONS } from './messageTagStyle'
 import { formatDateShort } from '../../lib/dates'
 import Icon, { type IconName } from '../ui/Icon'
 import ChatBrandIcon from './ChatBrandIcon'
@@ -49,12 +51,14 @@ function containsSensitivePattern(text: string): boolean {
   return SSN_PATTERN.test(text) || CARD_PATTERN.test(text)
 }
 
+
 export default function WorkspaceChatPanel({
   orgId, clientId, firmName, compact = false, searchQuery = '',
   onActiveConversationChange, focusClientId, focusTab, bubbleMode = false, onClose
 }: Props) {
   const chat = useWorkspaceChat(orgId, clientId, true)
   const navigate = useNavigate()
+  const currentUserId = useAuthStore(s => s.session?.user?.id) ?? null
 
   const [activeTab,       setActiveTab]       = useState<ConvTab>('chat')
   const [menuOpen,        setMenuOpen]        = useState(false)
@@ -69,6 +73,9 @@ export default function WorkspaceChatPanel({
 
   const [draft,          setDraft]          = useState('')
   const [internalOnly,   setInternalOnly]   = useState(false)
+  // Mirrors the mobile app's three-tag composer exactly (same meaning, same
+  // three semaphore colors) -- available to both sides, same as mobile.
+  const [messageTag,     setMessageTag]     = useState<MessageTag>('normal')
   const [contextRef,     setContextRef]     = useState<ContextRef | null>(null)
   const [pickerOpen,     setPickerOpen]     = useState(false)
   const [mentionQuery,   setMentionQuery]   = useState<string | null>(null)
@@ -404,6 +411,7 @@ export default function WorkspaceChatPanel({
     const savedRef      = contextRef
     const savedFile     = pendingFile
     const wasInternal   = internalOnly
+    const wasTag        = messageTag
 
     setDraft('')
     setMentionQuery(null)
@@ -413,6 +421,7 @@ export default function WorkspaceChatPanel({
 
     const ok = await chat.send(body, {
       clientVisible: !wasInternal,
+      messageTag: wasTag,
       ...(savedRef  !== null ? { contextRef: savedRef }             : {}),
       ...(savedFile !== null ? { documentId: savedFile.documentId } : {}),
     })
@@ -422,10 +431,12 @@ export default function WorkspaceChatPanel({
       setContextRef(savedRef)
       setPendingFile(savedFile)
       setInternalOnly(wasInternal)
+      setMessageTag(wasTag)
       return
     }
 
     setInternalOnly(false)
+    setMessageTag('normal')
     composerRef.current?.focus()
   }
 
@@ -521,6 +532,12 @@ export default function WorkspaceChatPanel({
                   <WorkspaceChatMessage
                     message={m}
                     viewerRole={viewerRole}
+                    currentUserId={currentUserId}
+                    canModerate={!isPyme}
+                    onDelete={(id) => {
+                      if (!window.confirm('Delete this message? This cannot be undone.')) return
+                      void chat.deleteMessage(id)
+                    }}
                     {...(firmName !== undefined ? { firmName } : {})}
                   />
                 </div>
@@ -759,6 +776,28 @@ export default function WorkspaceChatPanel({
 
         <div style={{ flex: 1 }} />
 
+        {(['pending', 'invoice', 'urgent'] as MessageTag[]).map(tag => {
+          const active = messageTag === tag
+          const c = TAG_COLORS[tag]
+          return (
+            <button
+              key={tag}
+              onClick={() => setMessageTag(t => (t === tag ? 'normal' : tag))}
+              title={TAG_LABELS[tag]}
+              style={{
+                ...toolBtn,
+                fontSize: 11, padding: '4px 8px', borderRadius: 6,
+                color:      active ? c.ink : 'var(--lp-text-muted)',
+                background: active ? c.bg  : 'transparent',
+                border:     active ? `0.5px dashed ${c.border}` : '0.5px solid transparent',
+                fontWeight: active ? 600 : 400,
+              }}
+            >
+              <Icon name={TAG_ICONS[tag]} size={11} />{active ? ` ${TAG_LABELS[tag]}` : ''}
+            </button>
+          )
+        })}
+
         <button
           onClick={handleSend}
           disabled={chat.sending || uploading || !canSend}
@@ -790,7 +829,12 @@ export default function WorkspaceChatPanel({
 
   // ── Conversation header label ──────────────────────────────────────────────
   const convHeaderLabel = isPyme
-    ? (firmName ?? 'Your firm')
+    // The bubble's own inbox load always carries the real org name now, so
+    // it wins over the firmName prop (only PymeDashboard's inline panel
+    // ever passed one -- GlobalChatBubble never did, which showed the
+    // generic "Your firm" fallback to every client using the floating
+    // chat instead of their actual accountant's name).
+    ? (chat.inbox?.org_name ?? firmName ?? 'Your firm')
     : newConvClient
       ? `New · ${newConvClient.name}`
       : (activeConv?.client_name ?? 'Select a conversation')
@@ -858,6 +902,11 @@ export default function WorkspaceChatPanel({
           onViewProfile={() => { if (activeConv) navigate(`/clients/${activeConv.client_id}`) }}
           onMarkUnread={() => { if (activeConv) chat.markUnread(activeConv.id) }}
           onArchiveToggle={() => activeConv && (activeConv.is_archived ? chat.restore(activeConv.id) : chat.archive(activeConv.id))}
+          onDelete={() => {
+            if (!activeConv) return
+            if (!window.confirm('Delete this conversation? This removes it from your inbox for good — it will not delete the client.')) return
+            void chat.deleteConversation(activeConv.id)
+          }}
           {...(onClose ? { onCloseMessages: onClose } : {})}
         />
 
@@ -976,7 +1025,7 @@ export default function WorkspaceChatPanel({
 function ConversationHeader({
   convHeaderLabel, activeConv, isPyme, activeTab, setActiveTab,
   menuOpen, setMenuOpen, menuRef, onBack, onViewProfile, onMarkUnread,
-  onArchiveToggle, onCloseMessages
+  onArchiveToggle, onDelete, onCloseMessages
 }: {
   convHeaderLabel: string
   activeConv:      WorkspaceConversation | undefined
@@ -990,6 +1039,7 @@ function ConversationHeader({
   onViewProfile:   () => void
   onMarkUnread:    () => void
   onArchiveToggle: () => void
+  onDelete:        () => void
   onCloseMessages?: () => void
 }) {
   // Staff sees all 5 tabs; the client side (isPyme — both self-service PYME
@@ -1076,6 +1126,12 @@ function ConversationHeader({
                 <MenuItem
                   label={activeConv.is_archived ? 'Restore conversation' : 'Archive conversation'}
                   onClick={() => { onArchiveToggle(); setMenuOpen(false) }}
+                />
+                <div style={{ borderTop: '0.5px solid var(--lp-border)', margin: '4px 0' }} />
+                <MenuItem
+                  label="Delete conversation"
+                  danger
+                  onClick={() => { onDelete(); setMenuOpen(false) }}
                 />
                 {onCloseMessages && (
                   <>

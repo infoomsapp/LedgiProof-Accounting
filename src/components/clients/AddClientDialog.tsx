@@ -25,6 +25,10 @@ import { toSafeMessage } from '../../lib/errors'
 import { checkClientLimit } from '../../services/seat-limits.service'
 import UpgradeModal from '../billing/UpgradeModal'
 import type { SubscriptionPlan } from '../../types/database.types'
+import {
+  createClientPortalInvitation, sendClientInvitationEmail,
+  CLIENT_PORTAL_ROLE_CONFIG, type ClientPortalRole
+} from '../../services/client-portal.service'
 
 interface Props {
   open:    boolean
@@ -66,6 +70,17 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
   // The client is already in the DB; user can retry the template from CoA page.
   const [partialWarning, setPartialWarning] = useState<{ clientId: string; message: string } | null>(null)
 
+  // 🆕 One-step portal invite (matches QuickBooks Online Accountant's single
+  // "Add Client" action, which creates the client AND sends the invite in
+  // one save -- previously this app required a second trip to the separate
+  // "Client Invites" tab to pick the just-created client from a dropdown and
+  // re-type their email). Off by default: not every client needs portal
+  // login (many are bookkeeper-managed only), so this stays an explicit,
+  // optional checkbox rather than always firing.
+  const [inviteToPortal, setInviteToPortal] = useState(false)
+  const [portalRole, setPortalRole] = useState<ClientPortalRole>('client_contact')
+  const [inviteWarning, setInviteWarning] = useState<string | null>(null)
+
   // Plan seat limit ("Up to N clients") -- real enforcement, see
   // seat-limits.service.ts for why this isn't the usage_tracking system.
   const [limitModal, setLimitModal] = useState<{ used: number; limit: number; plan: SubscriptionPlan } | null>(null)
@@ -79,6 +94,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
     setError(null); setShowOptional(false)
     // 🆕 Sprint 5 Paso 5.5
     setTemplateId(''); setPartialWarning(null)
+    setInviteToPortal(false); setPortalRole('client_contact'); setInviteWarning(null)
   }
 
   function handleClose() {
@@ -96,8 +112,13 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
       setError('Not authenticated')
       return
     }
+    if (inviteToPortal && !email.trim()) {
+      setError('Email is required to invite this client to the portal')
+      return
+    }
     setError(null)
     setPartialWarning(null)
+    setInviteWarning(null)
     setSaving(true)
 
     try {
@@ -162,7 +183,39 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
         }
       }
 
-      // ── Success path: client created (+ template applied if selected)
+      // ── Step 3: optionally send the portal invite, same save ────────────
+      // Client already exists at this point regardless of what happens
+      // below -- an invite failure is surfaced as a warning, never rolls
+      // back the client (same partial-failure shape as the template step).
+      if (inviteToPortal) {
+        try {
+          const inv = await createClientPortalInvitation({
+            clientId: c.id,
+            email:    email.trim(),
+            role:     portalRole
+          })
+          const emailResult = await sendClientInvitationEmail({ invitationId: inv.invitation_id })
+          if (!emailResult.sent) {
+            setInviteWarning(
+              `Client created, but the portal invitation email couldn't be sent (${emailResult.error ?? 'unknown error'}). ` +
+              `You can resend it from the Client Invites tab.`
+            )
+            onCreated?.(c.id)
+            setSaving(false)
+            return
+          }
+        } catch (inviteErr: any) {
+          setInviteWarning(
+            `Client created, but the portal invitation failed: ${toSafeMessage(inviteErr, 'unknown error')}. ` +
+            `You can send it from the Client Invites tab.`
+          )
+          onCreated?.(c.id)
+          setSaving(false)
+          return
+        }
+      }
+
+      // ── Success path: client created (+ template applied, + portal invite sent, if selected)
       reset()
       onCreated?.(c.id)
       onClose()
@@ -197,7 +250,10 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
             disabled={saving || displayName.trim().length === 0}
             onClick={handleSubmit}
           >
-            {templateId ? 'Create client + apply template' : 'Create client'}
+            {templateId && inviteToPortal ? 'Create client + apply template + invite'
+              : templateId ? 'Create client + apply template'
+              : inviteToPortal ? 'Create client + send invite'
+              : 'Create client'}
           </Button>
         </>
       }
@@ -249,6 +305,42 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
             style={{ width: '100%' }}
           />
         </Field>
+      </div>
+
+      {/* 🆕 One-step portal invite -- see the state comment above for why
+          this replaces the old two-tab flow. */}
+      <div style={{
+        padding: 12, borderRadius: 8, marginBottom: 12,
+        background: 'var(--lp-surface-2)', border: '0.5px solid var(--lp-border)'
+      }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, color: 'var(--lp-text)' }}>
+          <input
+            type="checkbox"
+            checked={inviteToPortal}
+            onChange={e => setInviteToPortal(e.target.checked)}
+          />
+          Invite this client to the client portal now
+        </label>
+        <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', marginTop: 3, marginLeft: 24 }}>
+          Sends a login invite to the email above. Leave unchecked if this client is bookkeeper-managed only.
+        </div>
+        {inviteToPortal && (
+          <div style={{ marginTop: 10, marginLeft: 24 }}>
+            <label style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>
+              Portal access level
+            </label>
+            <select
+              value={portalRole}
+              onChange={e => setPortalRole(e.target.value as ClientPortalRole)}
+              className="lp-input"
+              style={{ width: '100%' }}
+            >
+              {(Object.keys(CLIENT_PORTAL_ROLE_CONFIG) as ClientPortalRole[]).map(r => (
+                <option key={r} value={r}>{CLIENT_PORTAL_ROLE_CONFIG[r].label} — {CLIENT_PORTAL_ROLE_CONFIG[r].description}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Toggle for optional fields */}
@@ -420,6 +512,31 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
           </div>
           <div style={{ marginBottom: 10 }}>
             {partialWarning.message}
+          </div>
+          <Button variant="ghost" onClick={handleAcknowledgePartial}>
+            Got it — close dialog
+          </Button>
+        </div>
+      )}
+
+      {/* 🆕 Portal-invite partial-failure warning -- client (and template, if
+          any) already exist either way; only the invite email step failed. */}
+      {inviteWarning && (
+        <div style={{
+          padding:      '12px 14px',
+          background:   'var(--sem-amber-bg)',
+          border:       '0.5px solid var(--sem-amber-border)',
+          borderRadius: 8,
+          fontSize:     12.5,
+          color:        'var(--lp-text)',
+          marginTop:    12,
+          lineHeight:   1.5
+        }}>
+          <div style={{ fontWeight: 600, color: 'var(--sem-amber)', marginBottom: 6 }}>
+            Client created — invite needs a retry
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            {inviteWarning}
           </div>
           <Button variant="ghost" onClick={handleAcknowledgePartial}>
             Got it — close dialog

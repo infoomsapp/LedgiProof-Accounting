@@ -422,7 +422,7 @@ export default function PymeDashboard() {
                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      <span style={{ fontSize: 13 }}>{semIcon(tx.semaphore)}</span>
+                      <span style={{ display: 'flex', alignItems: 'center' }}><SemDot s={tx.semaphore} /></span>
 
                       <div style={{ minWidth: 0 }}>
                         <div style={{
@@ -439,8 +439,8 @@ export default function PymeDashboard() {
                             </span>
                           )}
                           {tx.has_message_thread && (
-                            <span style={{ marginLeft: 6, color: 'var(--sem-cyan)' }}>
-                              · 💬
+                            <span style={{ marginLeft: 6, color: 'var(--sem-cyan)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                              · <MessageCircle size={11} />
                             </span>
                           )}
                         </div>
@@ -538,9 +538,11 @@ export default function PymeDashboard() {
 
 // ────────────────────────────────────────────
 
-function semIcon(s: string): string {
-  return s === 'red'   ? '🔴'
-       : s === 'amber' ? '🟡'
-       : s === 'green' ? '🟢'
-       : '🔵'
+const SEM_DOT_COLOR: Record<string, string> = {
+  red: '#ef4444', amber: '#f59e0b', green: '#22c55e', blue: '#3b82f6'
+}
+
+function SemDot({ s }: { s: string }) {
+  const color = SEM_DOT_COLOR[s] ?? SEM_DOT_COLOR.blue
+  return <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, boxShadow: `0 0 5px ${color}`, display: 'inline-block' }} />
 }

@@ -14,6 +14,7 @@ import TransactionDetail     from '../components/transactions/TransactionDetail'
 import NewTransactionDialog  from '../components/transactions/NewTransactionDialog'
 import { exportTransactionsCSV, downloadCSV } from '../services/export.service'
 import { approveTransaction, lockTransaction } from '../services/transactions.service'
+import Icon from '../components/ui/Icon'
 import { postTransactionToLedger } from '../services/journal.service'
 import { askAi } from '../services/ai-assistant.service'
 import { db } from '../lib/supabase'
@@ -550,7 +551,7 @@ export default function Transactions() {
         ) : visible.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>📄</div>
+              <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--lp-text-muted)', marginBottom: 10 }}><Icon name="transactions" size={28} strokeWidth={1.3} /></div>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>
                 {t('transactions.noTransactions')}
               </div>
@@ -644,8 +645,8 @@ export default function Transactions() {
                         color: tx.amount >= 0 ? 'var(--lp-text)' : '#f87171' }}>
                       {fmt(tx.amount, tx.currency)}
                     </td>
-                    <td style={{ textAlign: 'center', fontSize: 12 }}>
-                      {tx.locked_at ? '🔒' : ''}
+                    <td style={{ textAlign: 'center', color: 'var(--lp-text-muted)' }}>
+                      {tx.locked_at && <span style={{ display: 'inline-flex' }}><Icon name="lock" size={11} /></span>}
                     </td>
                   </tr>
                 ))}

@@ -302,10 +302,27 @@ Deno.serve(async (req) => {
 
     const { data: membership } = await admin.from('organization_memberships')
       .select('role').eq('user_id', user.id).eq('org_id', body.org_id).eq('is_active', true).maybeSingle()
-    if (!membership) return respond({ error: 'Not a member of this organization' }, 403)
+
+    const clientId = body.client_id ?? null
+
+    // Built for the mobile app's Capture sheet, which now also offers
+    // "Manual expense" inside a portal-client workspace (client_portal_users)
+    // -- that caller never has an organization_memberships row at all, so
+    // without this fallback every manual expense a portal client logged on
+    // mobile failed with "Not a member of this organization" regardless of
+    // clientId. client_viewer stays excluded, matching every other write
+    // path a portal client has (mileage, etc) -- only owner/contact log
+    // their own expenses.
+    let portalAuthorized = false
+    if (!membership && clientId) {
+      const { data: portalMembership } = await admin.from('client_portal_users')
+        .select('role').eq('profile_id', user.id).eq('client_id', clientId).eq('is_active', true).maybeSingle()
+      portalAuthorized = !!portalMembership && portalMembership.role !== 'client_viewer'
+    }
+
+    if (!membership && !portalAuthorized) return respond({ error: 'Not a member of this organization' }, 403)
 
     const currency = body.currency ?? 'USD'
-    const clientId = body.client_id ?? null
 
     // 1. raw_hash
     const rawHash = await buildRawHash({

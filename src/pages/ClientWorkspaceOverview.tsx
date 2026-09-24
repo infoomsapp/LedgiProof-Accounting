@@ -20,36 +20,37 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useScope }    from '../hooks/useScope'
 import { useUserRole } from '../hooks/useUserRole'
+import Icon, { type IconName } from '../components/ui/Icon'
 
 // `titleKey`/`hintKey` hold i18n KEYS (module scope can't call hooks) —
 // resolved with t() at the render site below.
 interface NavCard {
   to:       string
-  icon:     string
+  icon:     IconName
   titleKey: string
   hintKey:  string
 }
 
 const BASE_NAV_CARDS: NavCard[] = [
-  { to: 'transactions',   icon: '💳', titleKey: 'clientWorkspace.cardTransactions',    hintKey: 'clientWorkspace.cardTransactionsHint' },
-  { to: 'invoices',       icon: '📄', titleKey: 'clientWorkspace.cardInvoices',        hintKey: 'clientWorkspace.cardInvoicesHint' },
-  { to: 'estimates',      icon: '📋', titleKey: 'clientWorkspace.cardEstimates',       hintKey: 'clientWorkspace.cardEstimatesHint' },
-  { to: 'imports',        icon: '🏦', titleKey: 'clientWorkspace.cardBankConnections', hintKey: 'clientWorkspace.cardBankConnectionsHint' },
-  { to: 'accounts',       icon: '📚', titleKey: 'clientWorkspace.cardChartOfAccounts', hintKey: 'clientWorkspace.cardChartOfAccountsHint' },
-  { to: 'reconciliation', icon: '⚖️',  titleKey: 'clientWorkspace.cardReconciliation',  hintKey: 'clientWorkspace.cardReconciliationHint' },
-  { to: 'reports',        icon: '📊', titleKey: 'clientWorkspace.cardReports',         hintKey: 'clientWorkspace.cardReportsHint' },
-  { to: 'time',           icon: '⏱️', titleKey: 'clientWorkspace.cardTime',            hintKey: 'clientWorkspace.cardTimeHint' },
-  { to: 'checklists',     icon: '✅', titleKey: 'clientWorkspace.cardChecklists',      hintKey: 'clientWorkspace.cardChecklistsHint' }
+  { to: 'transactions',   icon: 'transactions',   titleKey: 'clientWorkspace.cardTransactions',    hintKey: 'clientWorkspace.cardTransactionsHint' },
+  { to: 'invoices',       icon: 'invoices',       titleKey: 'clientWorkspace.cardInvoices',        hintKey: 'clientWorkspace.cardInvoicesHint' },
+  { to: 'estimates',      icon: 'estimates',      titleKey: 'clientWorkspace.cardEstimates',       hintKey: 'clientWorkspace.cardEstimatesHint' },
+  { to: 'imports',        icon: 'bank',           titleKey: 'clientWorkspace.cardBankConnections', hintKey: 'clientWorkspace.cardBankConnectionsHint' },
+  { to: 'accounts',       icon: 'accounts',       titleKey: 'clientWorkspace.cardChartOfAccounts', hintKey: 'clientWorkspace.cardChartOfAccountsHint' },
+  { to: 'reconciliation', icon: 'reconciliation', titleKey: 'clientWorkspace.cardReconciliation',  hintKey: 'clientWorkspace.cardReconciliationHint' },
+  { to: 'reports',        icon: 'reports',        titleKey: 'clientWorkspace.cardReports',         hintKey: 'clientWorkspace.cardReportsHint' },
+  { to: 'time',           icon: 'time',           titleKey: 'clientWorkspace.cardTime',            hintKey: 'clientWorkspace.cardTimeHint' },
+  { to: 'checklists',     icon: 'checklist',      titleKey: 'clientWorkspace.cardChecklists',      hintKey: 'clientWorkspace.cardChecklistsHint' }
 ]
 
 const PAYROLL_NAV_CARD: NavCard =
-  { to: 'payroll', icon: '🧾', titleKey: 'clientWorkspace.cardPayroll', hintKey: 'clientWorkspace.cardPayrollHint' }
+  { to: 'payroll', icon: 'payroll', titleKey: 'clientWorkspace.cardPayroll', hintKey: 'clientWorkspace.cardPayrollHint' }
 
 const JOURNAL_NAV_CARD: NavCard =
-  { to: 'journal', icon: '📒', titleKey: 'clientWorkspace.cardJournal', hintKey: 'clientWorkspace.cardJournalHint' }
+  { to: 'journal', icon: 'journal', titleKey: 'clientWorkspace.cardJournal', hintKey: 'clientWorkspace.cardJournalHint' }
 
 const PERIODS_NAV_CARD: NavCard =
-  { to: 'periods', icon: '🔒', titleKey: 'clientWorkspace.cardPeriods', hintKey: 'clientWorkspace.cardPeriodsHint' }
+  { to: 'periods', icon: 'periods', titleKey: 'clientWorkspace.cardPeriods', hintKey: 'clientWorkspace.cardPeriodsHint' }
 
 export default function ClientWorkspaceOverview() {
   const { t }    = useTranslation()
@@ -146,7 +147,7 @@ export default function ClientWorkspaceOverview() {
               e.currentTarget.style.borderColor = 'var(--lp-border)'
             }}
           >
-            <div style={{ fontSize: 17, marginBottom: 6 }}>{card.icon}</div>
+            <div style={{ color: 'var(--lp-accent)', marginBottom: 8 }}><Icon name={card.icon} size={19} /></div>
             <div style={{
               fontSize:    12.5,
               fontWeight:  600,

@@ -19,6 +19,7 @@ import ImpersonationBanner    from '../admin/ImpersonationBanner'
 import { LP_TIER_CONFIG }     from '../../types/database.types'
 import type { AccountType }   from '../../types/database.types'
 import GlobalChatBubble       from '../workspace-chat/GlobalChatBubble'
+import Icon                   from '../ui/Icon'
 
 interface NavItem {
   to:    string
@@ -277,7 +278,7 @@ export default function AppShell() {
           justifyContent: 'center',
           gap:          8
         }}>
-          <span>👤</span>
+          <Icon name="person" size={13} />
           <span>
             You're in <strong>Personal mode</strong> — these are your own books, not your firm's clients.
           </span>

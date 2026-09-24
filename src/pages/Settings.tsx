@@ -25,6 +25,7 @@ import Vendors        from './Vendors'
 import Worksheet1099  from './Worksheet1099'
 
 import LpUserBadge  from '../components/ui/LpUserBadge'
+import Icon, { type IconName } from '../components/ui/Icon'
 import { LP_TIER_CONFIG, type LpRole } from '../types/database.types'
 
 type Tab = 'workspace' | 'account' | 'tax' | 'branding' | 'connections' | 'users' | 'billing' | 'vendors' | 'worksheet1099' | 'bills' | 'api'
@@ -53,15 +54,15 @@ export default function Settings() {
   // ────────────────────────────────────────────────────────────────────────
 
   const workspaceLabel =
-    role.kind === 'solo_owner'     ? `🏢 ${t('nav.myBusiness')}` :
-    role.kind === 'pyme_owner'     ? `🏢 ${t('nav.myCompany')}`  :
-    role.kind === 'pyme_staff'     ? `🏢 ${t('nav.myCompany')}`  :
+    role.kind === 'solo_owner'     ? t('nav.myBusiness') :
+    role.kind === 'pyme_owner'     ? t('nav.myCompany')  :
+    role.kind === 'pyme_staff'     ? t('nav.myCompany')  :
     role.kind === 'bookkeeper_owner' ||
     role.kind === 'bookkeeper_admin' ||
-    role.kind === 'bookkeeper_staff' ? `🏢 ${t('nav.myFirm')}` :
-    `🏢 ${t('nav.workspace')}`
+    role.kind === 'bookkeeper_staff' ? t('nav.myFirm') :
+    t('nav.workspace')
 
-  const usersLabel = role.isSuperAdmin ? '🛡 All Users' : `👥 ${t('nav.myTeam')}`
+  const usersLabel = role.isSuperAdmin ? 'All Users' : t('nav.myTeam')
 
   // Tax info is org-level (state, EIN, business type/code) — meaningful for
   // a personal/solo/pyme workspace's own filing, not for a firm workspace
@@ -74,20 +75,20 @@ export default function Settings() {
   // tools — relevant to bookkeeper firms (who manage 1099 prep for their
   // small-business clients directly) but not accountant firms (whose CPAs
   // handle that per-client, inside the client's own workspace).
-  const tabs: Array<[Tab, string]> = [
-    ['workspace', workspaceLabel],
-    ['account',   `👤 ${t('settings.tabAccount')}`],
-    ...(isFirmWorkspace ? [] : [['tax', `🧾 ${t('settings.tabTax')}`] as [Tab, string]]),
-    ['branding',  `🎨 ${t('settings.tabBranding')}`],
-    ['connections', '🔗 Connections'],
+  const tabs: Array<[Tab, IconName, string]> = [
+    ['workspace', 'workspace', workspaceLabel],
+    ['account',   'person', t('settings.tabAccount')],
+    ...(isFirmWorkspace ? [] : [['tax', 'taxInfo', t('settings.tabTax')] as [Tab, IconName, string]]),
+    ['branding',  'branding', t('settings.tabBranding')],
+    ['connections', 'connection', 'Connections'],
     ...(role.isBookkeeperFirm ? [
-      ['vendors',       `🧾 ${t('settings.tabVendors')}`] as [Tab, string],
-      ['worksheet1099', `📋 ${t('settings.tabWorksheet1099')}`] as [Tab, string]
+      ['vendors',       'vendors',   t('settings.tabVendors')] as [Tab, IconName, string],
+      ['worksheet1099', 'worksheet', t('settings.tabWorksheet1099')] as [Tab, IconName, string]
     ] : []),
-    ...(role.isBookkeeperFirm || role.isAccountantFirm ? [['bills', '💵 Bills'] as [Tab, string]] : []),
-    ...(role.isAccountantFirm ? [['api', '🔌 API access'] as [Tab, string]] : []),
-    ...(role.canViewUsersTab ? [['users', usersLabel] as [Tab, string]] : []),
-    ...(role.showBillingTab  ? [['billing', `💳 ${t('settings.tabBilling')}`] as [Tab, string]] : [])
+    ...(role.isBookkeeperFirm || role.isAccountantFirm ? [['bills', 'bills', 'Bills'] as [Tab, IconName, string]] : []),
+    ...(role.isAccountantFirm ? [['api', 'apiAccess', 'API access'] as [Tab, IconName, string]] : []),
+    ...(role.canViewUsersTab ? [['users', 'users', usersLabel] as [Tab, IconName, string]] : []),
+    ...(role.showBillingTab  ? [['billing', 'billing', t('settings.tabBilling')] as [Tab, IconName, string]] : [])
   ]
 
   // Deep-link support: /settings?tab=billing lands directly on that tab
@@ -209,11 +210,12 @@ export default function Settings() {
         display: 'flex', gap: 0, marginBottom: 24,
         borderBottom: '0.5px solid var(--lp-border)', flexWrap: 'wrap'
       }}>
-        {tabs.map(([t, label]) => (
+        {tabs.map(([t, iconName, label]) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             style={{
+              display: 'flex', alignItems: 'center', gap: 6,
               padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer',
               fontFamily: 'inherit', fontSize: 13,
               color: tab === t ? 'var(--lp-text)' : 'var(--lp-text-muted)',
@@ -222,6 +224,7 @@ export default function Settings() {
               marginBottom: -1, transition: 'all 0.12s'
             }}
           >
+            <Icon name={iconName} size={14} />
             {label}
           </button>
         ))}

@@ -11,6 +11,7 @@ import {
   listMileageConnections, createMileageConnection, revokeMileageConnection,
   type MileageConnection
 } from '../../services/mileage-connections.service'
+import Icon from '../ui/Icon'
 
 interface Props {
   onMessage: (m: { type: 'ok' | 'err'; text: string }) => void
@@ -75,7 +76,9 @@ export default function ConnectionsTab({ onMessage }: Props) {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <div className="lp-page-title" style={{ fontSize: 16 }}>🔗 Connections</div>
+        <div className="lp-page-title" style={{ fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name="connection" size={17} /> Connections
+        </div>
         <div className="lp-page-sub">
           Link a ControlMiles account so its trips import automatically as mileage entries here.
         </div>
@@ -84,7 +87,7 @@ export default function ConnectionsTab({ onMessage }: Props) {
       <div className="lp-card" style={{
         marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px'
       }}>
-        <div style={{ fontSize: 26, lineHeight: 1 }}>🚗</div>
+        <div style={{ color: 'var(--lp-accent)' }}><Icon name="car" size={26} strokeWidth={1.5} /></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 4 }}>
             ControlMiles

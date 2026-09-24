@@ -19,6 +19,7 @@ import { useScope }           from '../../hooks/useScope'
 import { useUserRole }        from '../../hooks/useUserRole'
 import { useChatBubbleStore } from '../../store/chat-bubble.store'
 import WorkspaceChatPanel     from '../workspace-chat/WorkspaceChatPanel'
+import Icon                   from '../ui/Icon'
 
 interface WorkspaceTab {
   to:    string
@@ -103,8 +104,8 @@ export default function ClientScopeBanner() {
                         : 'var(--sem-blue-border)'),
         fontSize:     12.5,
       }}>
-        <span aria-hidden="true" style={{ fontSize: 14, opacity: isInactive ? 0.85 : 1 }}>
-          👤
+        <span style={{ opacity: isInactive ? 0.85 : 1, display: 'flex' }}>
+          <Icon name="person" size={14} />
         </span>
 
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -175,7 +176,7 @@ export default function ClientScopeBanner() {
             if (!chatOpen) e.currentTarget.style.background = 'transparent'
           }}
         >
-          💬 Chat
+          <Icon name="chat" size={12} /> Chat
         </button>
 
         <button

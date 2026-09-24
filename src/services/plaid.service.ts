@@ -252,9 +252,22 @@ export async function getBankConnections(
       ? { orgId: input, clientId: null }
       : { orgId: input.orgId, clientId: input.clientId ?? null }
 
+  // Explicit column list, never `*`: plaid_access_token / plaid_cursor are
+  // revoked from the `authenticated` role (migration
+  // restrict_plaid_token_columns_properly), so a `*` here now fails outright --
+  // and even while it worked, it was shipping the encrypted Plaid token to
+  // every browser that opened this page for no reason. Only the edge functions
+  // (service_role) need those two.
   let q = supabase
     .from('bank_connections')
-    .select('*')
+    .select(
+      'id, org_id, client_id, provider, plaid_item_id, ' +
+      'institution_id, institution_name, ' +
+      'account_id, account_name, account_type, account_subtype, mask, ' +
+      'is_active, last_synced_at, sync_status, sync_error, ' +
+      'connected_by, connected_at, connected_by_portal, client_authorized_at, ' +
+      'disconnected_at, created_at, updated_at'
+    )
     .eq('org_id', filters.orgId)
     .eq('is_active', true)
     .order('connected_at', { ascending: false })

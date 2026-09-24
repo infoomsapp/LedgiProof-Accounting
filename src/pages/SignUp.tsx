@@ -109,14 +109,33 @@ export default function SignUp({
       }
     )
 
+    // Real bug fixed 2026-09-24: needsConfirmation used to be checked AFTER
+    // already queuing a timed redirect to /accept-client-portal (or
+    // /accept-invite) via the effect below. Both fired regardless of each
+    // other: the "check your email" screen would show for ~800ms and then
+    // silently get yanked to the accept page with NO session yet (email
+    // unconfirmed), which just bounced the invitee right back to signup --
+    // a real dead end that looked like the invite link itself was broken.
+    // Confirmation-required now short-circuits straight to /login with the
+    // token preserved as a query param (not React state, which a fresh tab
+    // from the confirmation email would lose) -- Login.tsx already redirects
+    // to the right accept-* route once sign-in actually succeeds, which
+    // Supabase won't allow until the email is confirmed anyway.
+    if (result?.needsConfirmation) {
+      if (clientInviteToken) {
+        window.location.href = `/login?client_invite=${clientInviteToken}`
+      } else if (inviteToken) {
+        window.location.href = `/login?invite=${inviteToken}`
+      } else {
+        setDone(true)
+      }
+      return
+    }
+
     if (clientInviteToken) {
       setRedirectTo(`/accept-client-portal/${clientInviteToken}`)
     } else if (inviteToken) {
       setRedirectTo(`/accept-invite/${inviteToken}`)
-    }
-
-    if (result?.needsConfirmation) {
-      setDone(true)
     }
   }
 

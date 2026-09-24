@@ -682,7 +682,12 @@ function LoginRoute() {
   const navigate = useNavigate()
   return (
     <Login
-      onGoToSignUp={() => navigate('/signup')}
+      // Real bug fixed 2026-09-24: this dropped client_invite/invite query
+      // params entirely, so a genuinely-new invitee who clicked "Sign up"
+      // from the login page (see AcceptClientPortalInvite.tsx's own fix,
+      // same day) landed on a bare /signup with no memory of which
+      // invitation brought them here. Forward the same search string.
+      onGoToSignUp={() => navigate(`/signup${window.location.search}`)}
       onGoToForgotPassword={() => navigate('/forgot-password')}
     />
   )

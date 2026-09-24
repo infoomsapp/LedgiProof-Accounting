@@ -70,14 +70,18 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
   // The client is already in the DB; user can retry the template from CoA page.
   const [partialWarning, setPartialWarning] = useState<{ clientId: string; message: string } | null>(null)
 
-  // 🆕 One-step portal invite (matches QuickBooks Online Accountant's single
-  // "Add Client" action, which creates the client AND sends the invite in
-  // one save -- previously this app required a second trip to the separate
-  // "Client Invites" tab to pick the just-created client from a dropdown and
-  // re-type their email). Off by default: not every client needs portal
-  // login (many are bookkeeper-managed only), so this stays an explicit,
-  // optional checkbox rather than always firing.
-  const [inviteToPortal, setInviteToPortal] = useState(false)
+  // Matches QuickBooks Online Accountant's actual "Add Client" behavior --
+  // researched again per the user's own correction: QuickBooks doesn't ask
+  // "invite to portal, yes/no?" as a separate decision, it just sends the
+  // invite as part of adding the client whenever there's an email to send
+  // it to. The earlier checkbox (unchecked by default) was still a second
+  // decision standing between "add client" and "they're in" -- this removes
+  // it: an email means an invite goes out, full stop. A client the firm
+  // manages with no portal login just gets added with the email field left
+  // blank (there's nothing to invite without an address anyway). Portal
+  // ROLE stays a visible field (not hidden), since access LEVEL is a real
+  // choice QuickBooks itself also asks -- only the yes/no gate is gone.
+  const inviteToPortal = email.trim().length > 0
   const [portalRole, setPortalRole] = useState<ClientPortalRole>('client_contact')
   const [inviteWarning, setInviteWarning] = useState<string | null>(null)
 
@@ -94,7 +98,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
     setError(null); setShowOptional(false)
     // 🆕 Sprint 5 Paso 5.5
     setTemplateId(''); setPartialWarning(null)
-    setInviteToPortal(false); setPortalRole('client_contact'); setInviteWarning(null)
+    setPortalRole('client_contact'); setInviteWarning(null)
   }
 
   function handleClose() {
@@ -110,10 +114,6 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
     }
     if (!profile?.id) {
       setError('Not authenticated')
-      return
-    }
-    if (inviteToPortal && !email.trim()) {
-      setError('Email is required to invite this client to the portal')
       return
     }
     setError(null)
@@ -294,6 +294,9 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
             className="lp-input"
             style={{ width: '100%' }}
           />
+          <div style={{ fontSize: 10.5, color: 'var(--lp-text-muted)', marginTop: 4 }}>
+            Sends a client portal login invite. Leave blank for bookkeeper-managed-only clients.
+          </div>
         </Field>
         <Field label="Phone">
           <input
@@ -307,41 +310,33 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
         </Field>
       </div>
 
-      {/* 🆕 One-step portal invite -- see the state comment above for why
-          this replaces the old two-tab flow. */}
-      <div style={{
-        padding: 12, borderRadius: 8, marginBottom: 12,
-        background: 'var(--lp-surface-2)', border: '0.5px solid var(--lp-border)'
-      }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, color: 'var(--lp-text)' }}>
-          <input
-            type="checkbox"
-            checked={inviteToPortal}
-            onChange={e => setInviteToPortal(e.target.checked)}
-          />
-          Invite this client to the client portal now
-        </label>
-        <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', marginTop: 3, marginLeft: 24 }}>
-          Sends a login invite to the email above. Leave unchecked if this client is bookkeeper-managed only.
-        </div>
-        {inviteToPortal && (
-          <div style={{ marginTop: 10, marginLeft: 24 }}>
-            <label style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>
-              Portal access level
-            </label>
-            <select
-              value={portalRole}
-              onChange={e => setPortalRole(e.target.value as ClientPortalRole)}
-              className="lp-input"
-              style={{ width: '100%' }}
-            >
-              {(Object.keys(CLIENT_PORTAL_ROLE_CONFIG) as ClientPortalRole[]).map(r => (
-                <option key={r} value={r}>{CLIENT_PORTAL_ROLE_CONFIG[r].label} — {CLIENT_PORTAL_ROLE_CONFIG[r].description}</option>
-              ))}
-            </select>
+      {/* Portal access — no yes/no decision left (see the comment on
+          `inviteToPortal` above): an email means an invite goes out, this
+          just lets the level be adjusted before it does. Blank email = no
+          box at all, since there's nothing to invite. */}
+      {inviteToPortal && (
+        <div style={{
+          padding: 12, borderRadius: 8, marginBottom: 12,
+          background: 'var(--lp-surface-2)', border: '0.5px solid var(--lp-border)'
+        }}>
+          <div style={{ fontSize: 12.5, color: 'var(--lp-text)', marginBottom: 8 }}>
+            This client will get a portal login invite at the email above.
           </div>
-        )}
-      </div>
+          <label style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>
+            Portal access level
+          </label>
+          <select
+            value={portalRole}
+            onChange={e => setPortalRole(e.target.value as ClientPortalRole)}
+            className="lp-input"
+            style={{ width: '100%' }}
+          >
+            {(Object.keys(CLIENT_PORTAL_ROLE_CONFIG) as ClientPortalRole[]).map(r => (
+              <option key={r} value={r}>{CLIENT_PORTAL_ROLE_CONFIG[r].label} — {CLIENT_PORTAL_ROLE_CONFIG[r].description}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Toggle for optional fields */}
       <button

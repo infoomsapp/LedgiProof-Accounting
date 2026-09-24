@@ -28,7 +28,12 @@ const REVOCATION_REASON_LABELS: Record<string, string> = {
 
 export default function Login({ onGoToSignUp, onGoToForgotPassword }: LoginProps) {
   const { signIn, loading, error, clearError } = useAuthStore()
-  const [email,    setEmail]    = useState('')
+  // Pre-filled when arriving from a client-portal invite link (see
+  // AcceptClientPortalInvite.tsx) so the invitee doesn't have to re-type
+  // the exact email their invitation was sent to.
+  const [email,    setEmail]    = useState(
+    () => new URLSearchParams(window.location.search).get('email') ?? ''
+  )
   const [password, setPassword] = useState('')
 
   const revocationReason = new URLSearchParams(window.location.search).get('reason')

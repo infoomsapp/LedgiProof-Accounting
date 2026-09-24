@@ -13,6 +13,7 @@ import { getClients, updateClient }      from '../services/invoice.service'
 import Modal               from '../components/ui/modal'
 import Button              from '../components/ui/Button'
 import LpAddMenu           from '../components/clients/LpAddMenu'
+import Icon                from '../components/ui/Icon'
 import type { Client, LpRole } from '../types/database.types'
 import { ROLE_CONFIG, getAssignableRoles } from '../lib/role-config'
 import { formatDate } from '../lib/dates'
@@ -105,6 +106,20 @@ export default function Clients() {
   const workspaceRole  = (membership?.role ?? null) as LpRole | null
   const isAdmin        = role.canEditWorkspace
 
+  // Real bug found 2026-09-24: this page has no route-level guard against a
+  // personal/solo org (Decision 2 keeps /clients reachable without a client
+  // selected, on purpose -- see FirmRouteRedirect.tsx -- but that was never
+  // meant to also mean "create a client under whatever org happens to be
+  // active"). LpAddMenu's "Add Client" used membership.org_id blindly, so a
+  // firm-eligible user who navigated here while their PERSONAL workspace was
+  // active got a real `clients` row created under their personal org -- a
+  // client with no firm to manage it, structurally nonsensical, and with no
+  // portal-invite path back out of it. Confirmed live against production
+  // data (a client row named identically to a personal org, org_id pointing
+  // at that personal org, email left null). Gate creation, don't touch the
+  // page's own reachability.
+  const isFirmContext = role.isBookkeeperFirm || role.isAccountantFirm
+
   // Roles the current user is allowed to assign in this workspace.
   // Empty = "Invite member" button is hidden.
   const assignableRoles = getAssignableRoles({ workspaceRole })
@@ -128,6 +143,10 @@ export default function Clients() {
   const [clientInvites,   setClientInvites]   = useState<ClientPortalInvitationWithClient[]>([])
   const [showCpInvite,    setShowCpInvite]    = useState(false)
   const [cpClientId,      setCpClientId]      = useState<string>('')
+  // True when the modal was opened from a specific client's own row action
+  // (see openInviteFor below) rather than the old generic top-level button --
+  // skips the "which client?" dropdown since the answer is already known.
+  const [cpPreselected,   setCpPreselected]   = useState(false)
   const [cpEmail,         setCpEmail]         = useState('')
   const [cpRole,          setCpRole]          = useState<ClientPortalRole>('client_contact')
   const [cpInviting,      setCpInviting]      = useState(false)
@@ -357,6 +376,25 @@ export default function Clients() {
     }
   }
 
+  // Real gap fixed 2026-09-24: "Add Client" and "Invite to portal" used to
+  // be two disconnected entry points -- one generic top-level button opening
+  // a modal that made you find the client again in a dropdown, separate from
+  // the client's own row. Confusing enough that it directly caused a real
+  // support back-and-forth (a client that already existed with the right
+  // email sat un-invited because the two flows never pointed at each other).
+  // Now every client row carries its own "Invite to portal" action, which
+  // opens this exact same modal pre-scoped to that client -- one action per
+  // client, not a generic action plus a lookup.
+  function openInviteFor(c: Client) {
+    setCpClientId(c.id)
+    setCpEmail(c.email ?? '')
+    setCpPreselected(true)
+    setCpRole('client_contact')
+    setCpResult(null)
+    setCpError(null)
+    setShowCpInvite(true)
+  }
+
   return (
     <div style={{ padding: '28px 32px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
@@ -367,28 +405,19 @@ export default function Clients() {
           <p className="lp-page-sub">Your billing clients and portal invitations · Team members live in <a href="/team" style={{ color: 'var(--lp-accent)' }}>Team</a></p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {isAdmin && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setShowCpInvite(true)
-                setCpResult(null)
-                setCpEmail('')
-                setCpClientId('')
-                setCpRole('client_contact')
-                setCpError(null)
-              }}
-            >
-              + Invite to portal
-            </Button>
-          )}
           {/* 🆕 P4 — LP Add menu (Add Client / Estimate / Import Data) */}
-          <LpAddMenu
-            orgId={orgId}
-            onClientCreated={() => load()}
-          />
+          {isFirmContext && (
+            <LpAddMenu
+              orgId={orgId}
+              onClientCreated={() => load()}
+            />
+          )}
         </div>
       </div>
+
+      {!isFirmContext && (
+        <PersonalWorkspaceNotice />
+      )}
 
       {/* 🆕 B3.7 — Intent banner: shown when user came from LpAddMenu with an intent */}
       {intentActive && (() => {
@@ -588,6 +617,29 @@ export default function Clients() {
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                               >
                                 💬 Chat
+                              </button>
+
+                              {/* Invite to portal — scoped to THIS client directly, see
+                                  openInviteFor's comment for why this replaced the old
+                                  generic top-level button + dropdown. */}
+                              <button
+                                onClick={() => openInviteFor(c)}
+                                title="Invite this client to their portal"
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                                  background:   'transparent',
+                                  border:       '0.5px solid var(--lp-border)',
+                                  color:        'var(--lp-accent)',
+                                  borderRadius: 6,
+                                  padding:      '3px 9px',
+                                  fontSize:     11,
+                                  cursor:       'pointer',
+                                  fontFamily:   'inherit'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                              >
+                                <Icon name="send" size={11} /> Invite
                               </button>
 
                               {/* 🆕 P4 Fase 2.A — Edit button → dedicated page */}
@@ -912,7 +964,11 @@ export default function Clients() {
               it doesn't create a new client.
             </div>
 
-            {/* Client selector */}
+            {/* Client selector — skipped entirely when opened from a client's
+                own row action (openInviteFor already set cpClientId), since
+                the dropdown would just be re-asking a question already
+                answered by which row's button was clicked. */}
+            {!cpPreselected && (
             <div>
               <label style={{ fontSize: 12, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>
                 Which client is this for?
@@ -954,26 +1010,29 @@ export default function Clients() {
                   {cpClientId && (() => {
                     const selected = clients.find(c => c.id === cpClientId)
                     if (!selected) return null
-                    return (
-                      <div style={{
-                        marginTop: 8, padding: '8px 12px', borderRadius: 7,
-                        background: 'var(--lp-surface-2)', border: '0.5px solid var(--lp-border)',
-                        fontSize: 12, color: 'var(--lp-text)'
-                      }}>
-                        Inviting a contact for{' '}
-                        <strong>{selected.display_name ?? selected.company_name}</strong>
-                        {selected.company_name && selected.display_name !== selected.company_name && (
-                          <span style={{ color: 'var(--lp-text-muted)' }}> · {selected.company_name}</span>
-                        )}
-                        {selected.email && (
-                          <span style={{ color: 'var(--lp-text-muted)' }}> · on file: {selected.email}</span>
-                        )}
-                      </div>
-                    )
+                    return <ClientInviteTarget client={selected} />
                   })()}
                 </>
               )}
             </div>
+            )}
+
+            {/* Preselected path's own confirmation — the dropdown branch
+                above already shows this same box for the manual-pick path;
+                this is the equivalent for a row's "Invite" button, where
+                cpClientId is already known and there's no dropdown at all. */}
+            {cpPreselected && cpClientId && (() => {
+              const selected = clients.find(c => c.id === cpClientId)
+              if (!selected) return null
+              return (
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>
+                    Inviting to portal
+                  </label>
+                  <ClientInviteTarget client={selected} />
+                </div>
+              )
+            })()}
 
             {/* Email */}
             <div>
@@ -1036,6 +1095,52 @@ export default function Clients() {
           </div>
         )}
       </Modal>
+    </div>
+  )
+}
+
+// ── New, isolated component -- personal-workspace notice ──────────────────
+//
+// Shown instead of the Add Client / Invite to portal actions when the
+// active org isn't a firm. Explains why, and points at the fix (switch
+// workspace) rather than silently hiding the buttons with no explanation.
+function PersonalWorkspaceNotice() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      padding: '12px 16px', marginBottom: 16,
+      background: 'var(--sem-amber-bg)', border: '0.5px solid var(--sem-amber-border)',
+      borderRadius: 9,
+    }}>
+      <div style={{ flexShrink: 0, marginTop: 1, color: 'var(--sem-amber)' }}>
+        <Icon name="warning" size={14} />
+      </div>
+      <div style={{ fontSize: 12.5, color: 'var(--lp-text)', lineHeight: 1.6 }}>
+        You're viewing this from your personal workspace, which can't have clients of its own.
+        Switch to your firm workspace (top-left switcher) to add a client or send a portal invite.
+      </div>
+    </div>
+  )
+}
+
+// ── New, isolated component -- shared "who this invite is for" confirmation
+// box, used by both the dropdown path (manual pick) and the per-row path
+// (openInviteFor) so the two entry points look and behave identically.
+function ClientInviteTarget({ client }: { client: Client }) {
+  return (
+    <div style={{
+      marginTop: 8, padding: '8px 12px', borderRadius: 7,
+      background: 'var(--lp-surface-2)', border: '0.5px solid var(--lp-border)',
+      fontSize: 12, color: 'var(--lp-text)'
+    }}>
+      Inviting a contact for{' '}
+      <strong>{client.display_name ?? client.company_name}</strong>
+      {client.company_name && client.display_name !== client.company_name && (
+        <span style={{ color: 'var(--lp-text-muted)' }}> · {client.company_name}</span>
+      )}
+      {client.email && (
+        <span style={{ color: 'var(--lp-text-muted)' }}> · on file: {client.email}</span>
+      )}
     </div>
   )
 }

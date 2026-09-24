@@ -21,6 +21,7 @@
 
 import { useState } from 'react'
 import NewConversationDialog from './NewConversationDialog'
+import Icon, { type IconName } from '../ui/Icon'
 
 interface Props {
   orgId:           string
@@ -87,7 +88,7 @@ export default function WorkspaceChatActions({
 
           {/* + New conversation — primary CTA, ALWAYS visible */}
           <ActionButton
-            icon="+"
+            icon="plus"
             label="New chat"
             tooltip="Start a new conversation with a client"
             compact={isCompact}
@@ -98,7 +99,7 @@ export default function WorkspaceChatActions({
           {/* 📎 Send file — optional, depends on parent context */}
           {onSendFile && (
             <ActionButton
-              icon="📎"
+              icon="attachment"
               label="Send file"
               tooltip="Attach a document to the active conversation"
               compact={isCompact}
@@ -109,7 +110,7 @@ export default function WorkspaceChatActions({
           {/* 🔍 Search toggle — only on compact (full layout has inline search) */}
           {isCompact && onSearchChange && (
             <ActionButton
-              icon="🔍"
+              icon="search"
               label="Search"
               tooltip="Search conversations"
               compact={isCompact}
@@ -124,7 +125,7 @@ export default function WorkspaceChatActions({
           {/* 🗄 Archived toggle */}
           {onToggleArchived && (
             <ActionButton
-              icon={showArchived ? '📥' : '🗄'}
+              icon={showArchived ? 'inbox' : 'archive'}
               label={showArchived ? 'Active' : 'Archived'}
               tooltip={showArchived ? 'Show active conversations' : 'Show archived conversations'}
               compact={isCompact}
@@ -154,7 +155,7 @@ export default function WorkspaceChatActions({
 function ActionButton({
   icon, label, tooltip, compact, variant, active, onClick
 }: {
-  icon:      string
+  icon:      IconName
   label:     string
   tooltip:   string
   compact:   boolean
@@ -199,7 +200,7 @@ function ActionButton({
       onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
       onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
     >
-      <span style={{ fontSize: compact ? 12 : 13 }}>{icon}</span>
+      <Icon name={icon} size={compact ? 12 : 13} />
       {!compact && <span>{label}</span>}
     </button>
   )

@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
 import { db } from '../../lib/supabase'
 import { formatCurrency } from '../../lib/currency'
 import { toSafeMessage } from '../../lib/errors'
+import Icon from '../ui/Icon'
 
 interface Props {
   orgId:    string
@@ -64,7 +65,7 @@ export default function ClientSummaryTab({ orgId, clientId }: Props) {
   if (row === null) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 28, opacity: 0.4, marginBottom: 8 }}>📊</div>
+        <div style={{ display: 'flex', justifyContent: 'center', opacity: 0.4, marginBottom: 8 }}><Icon name="chartBar" size={24} /></div>
         <div style={{ fontSize: 12.5, color: 'var(--lp-text-muted)' }}>
           No posted numbers yet for this client this period.
         </div>

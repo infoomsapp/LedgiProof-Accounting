@@ -17,6 +17,7 @@ import {
 import ContextRefPicker from './ContextRefPicker'
 import type { ContextRef } from '../../services/workspace-chat.service'
 import { formatDate } from '../../lib/dates'
+import Icon from '../ui/Icon'
 
 interface Props {
   orgId:    string
@@ -163,7 +164,7 @@ export default function WorkspaceNotesTab({ orgId, clientId }: Props) {
                 background: 'var(--lp-surface)', border: '0.5px solid var(--lp-accent)',
                 fontSize: 11, color: 'var(--lp-accent)', maxWidth: '100%',
               }}>
-                <span>{contextRef.type === 'transaction' ? '💳' : contextRef.type === 'account' ? '📚' : '📅'}</span>
+                <Icon name={contextRef.type === 'transaction' ? 'billing' : contextRef.type === 'account' ? 'accounts' : 'calendar'} size={11} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
                   {contextRef.label}
                 </span>
@@ -179,9 +180,10 @@ export default function WorkspaceNotesTab({ orgId, clientId }: Props) {
                   alignSelf: 'flex-start', fontSize: 11, color: 'var(--lp-text-muted)',
                   background: 'none', border: '0.5px solid var(--lp-border)', borderRadius: 6,
                   padding: '4px 8px', cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
                 }}
               >
-                🔗 Link to a transaction
+                <Icon name="link" size={11} /> Link to a transaction
               </button>
             )}
             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -215,7 +217,7 @@ export default function WorkspaceNotesTab({ orgId, clientId }: Props) {
           </div>
         ) : notes.length === 0 ? (
           <div style={{ padding: '28px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: 28, opacity: 0.4, marginBottom: 8 }}>📝</div>
+            <div style={{ display: 'flex', justifyContent: 'center', opacity: 0.4, marginBottom: 8 }}><Icon name="edit" size={24} /></div>
             <div style={{ fontSize: 12.5, color: 'var(--lp-text-muted)' }}>
               No notes yet for this client.
             </div>
@@ -256,7 +258,7 @@ export default function WorkspaceNotesTab({ orgId, clientId }: Props) {
                     display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4,
                     fontSize: 10.5, color: 'var(--lp-accent)',
                   }}>
-                    <span>{n.context_ref.type === 'transaction' ? '💳' : n.context_ref.type === 'account' ? '📚' : '📅'}</span>
+                    <Icon name={n.context_ref.type === 'transaction' ? 'billing' : n.context_ref.type === 'account' ? 'accounts' : 'calendar'} size={10} />
                     {n.context_ref.label}
                   </div>
                 )}

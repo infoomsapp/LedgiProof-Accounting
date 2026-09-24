@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type KeyboardEvent, type CSSProperties } from 'react'
 import type { MessageChannel } from './chatmessage'
+import Icon, { type IconName } from '../ui/Icon'
 
 interface ChatInputProps {
   onSend: (text: string, channels: MessageChannel[]) => void
@@ -13,9 +14,15 @@ interface ChatInputProps {
 }
 
 const CHANNEL_LABELS: Record<MessageChannel, string> = {
-  chat: '💬 Chat',
-  sms: '📱 SMS',
-  email: '✉️ Email'
+  chat: 'Chat',
+  sms: 'SMS',
+  email: 'Email'
+}
+
+const CHANNEL_ICONS: Record<MessageChannel, IconName> = {
+  chat: 'chat',
+  sms: 'phone',
+  email: 'mail'
 }
 
 const SPINNER_STYLE: CSSProperties = {
@@ -144,7 +151,7 @@ export default function ChatInput({
                 opacity: enabled ? 1 : 0.4
               }}
             >
-              {CHANNEL_LABELS[ch]}
+              <Icon name={CHANNEL_ICONS[ch]} size={10} /> {CHANNEL_LABELS[ch]}
             </button>
           )
         })}

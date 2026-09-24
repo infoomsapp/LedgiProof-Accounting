@@ -21,6 +21,7 @@ import Button from '../ui/Button'
 import { useAuthStore } from '../../store/auth.store'
 import { useOrgStore }  from '../../store/org.store'
 import { createPersonalOrgForBookkeeper } from '../../services/org.service'
+import Icon from '../ui/Icon'
 
 interface Props {
   open:    boolean
@@ -98,8 +99,8 @@ export default function CreatePersonalOrgDialog({ open, onClose, onCreated }: Pr
         color:        'var(--lp-text)',
         marginBottom: 18
       }}>
-        <div style={{ fontWeight: 600, color: 'var(--lp-violet)', marginBottom: 4 }}>
-          👤 What is Personal mode?
+        <div style={{ fontWeight: 600, color: 'var(--lp-violet)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="person" size={13} /> What is Personal mode?
         </div>
         <div style={{ color: 'var(--lp-text-muted)' }}>
           Your personal workspace is where you track <strong>your own books</strong> —

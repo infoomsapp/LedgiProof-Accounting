@@ -19,6 +19,7 @@ import Button from '../ui/Button'
 import { getClients } from '../../services/invoice.service'
 import { sendWorkspaceMessage } from '../../services/workspace-chat.service'
 import type { Client } from '../../types/database.types'
+import Icon from '../ui/Icon'
 
 interface Props {
   open:        boolean
@@ -136,7 +137,7 @@ export default function NewConversationDialog({
           borderRadius: 10,
           border: '0.5px solid var(--lp-border)'
         }}>
-          <div style={{ fontSize: 36, marginBottom: 10, opacity: 0.5 }}>👥</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, opacity: 0.5 }}><Icon name="users" size={32} /></div>
           <div style={{
             fontSize: 14, fontWeight: 600, color: 'var(--lp-text)',
             marginBottom: 6
@@ -219,7 +220,7 @@ export default function NewConversationDialog({
               disabled={sending}
               style={{ cursor: 'pointer' }}
             />
-            🔒 Internal note — not visible to client (team-only)
+            <Icon name="lock" size={11} /> Internal note — not visible to client (team-only)
           </label>
         </div>
       )}

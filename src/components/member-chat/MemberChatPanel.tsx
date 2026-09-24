@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { useMemberChat } from '../../hooks/useMemberChat'
 import { useAuthStore } from '../../store/auth.store'
 import type { MemberConversationSummary, MemberMessage } from '../../services/member-chat.service'
+import Icon from '../ui/Icon'
 
 interface Props {
   orgId:           string
@@ -111,9 +112,9 @@ export default function MemberChatPanel({ orgId, initialConvId, searchQuery = ''
                 background: 'var(--chat-bubble-internal-bg)',
                 border: '0.5px solid var(--chat-bubble-internal-border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14
+                color: 'var(--lp-text-muted)'
               }}>
-                👤
+                <Icon name="person" size={14} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
@@ -184,7 +185,7 @@ export default function MemberChatPanel({ orgId, initialConvId, searchQuery = ''
                   textAlign: 'center', color: 'var(--lp-text-muted)',
                   fontSize: 12.5, padding: 32
                 }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>💬</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Icon name="chat" size={26} /></div>
                   No messages yet. Say hi 👋
                 </div>
               ) : (
@@ -312,11 +313,10 @@ function Inbox({
             border: 'none',
             color: showArchived ? 'var(--lp-accent)' : 'var(--lp-text-muted)',
             cursor: 'pointer',
-            fontSize: 13,
-            padding: 2
+            padding: 2, display: 'flex'
           }}
         >
-          🗄
+          <Icon name="archive" size={13} />
         </button>
       </div>
 
@@ -376,9 +376,9 @@ function Inbox({
                     ? 'var(--chat-bubble-internal-border)'
                     : 'var(--lp-border)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, flexShrink: 0
+                  color: 'var(--lp-text-muted)', flexShrink: 0
                 }}>
-                  👤
+                  <Icon name="person" size={12} />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -462,7 +462,7 @@ function MessageBubble({ message, viewerId }: { message: MemberMessage; viewerId
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word'
       }}>
-        {message.body ?? '📎 attachment'}
+        {message.body ?? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Icon name="attachment" size={11} /> attachment</span>}
       </div>
       <div style={{
         fontSize: 10,
@@ -497,14 +497,14 @@ function EmptyThread() {
       padding: 40,
       color: 'var(--lp-text-muted)'
     }}>
-      <div style={{ fontSize: 40, marginBottom: 10, opacity: 0.4 }}>👥</div>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, opacity: 0.4 }}><Icon name="users" size={36} /></div>
       <div style={{
         fontSize: 13, fontWeight: 500, color: 'var(--lp-text)', marginBottom: 4
       }}>
         Select a team conversation
       </div>
       <div style={{ fontSize: 11.5, textAlign: 'center', maxWidth: 280 }}>
-        Or go to the <strong>Team</strong> page and click 💬 Chat next to a member.
+        Or go to the <strong>Team</strong> page and click Chat next to a member.
       </div>
     </div>
   )

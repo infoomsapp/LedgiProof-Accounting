@@ -11,6 +11,7 @@ import { db } from '../../lib/supabase'
 import { uploadDocument, getDocumentSignedUrl, formatBytes, validateFile } from '../../services/upload.service'
 import { formatDate } from '../../lib/dates'
 import { toSafeMessage } from '../../lib/errors'
+import Icon, { type IconName } from '../ui/Icon'
 
 interface Props {
   orgId:    string
@@ -27,9 +28,9 @@ interface DocumentRow {
   created_at:       string
 }
 
-const KIND_ICON: Record<string, string> = {
-  attachment: '📎', receipt: '🧾', invoice: '📄',
-  statement: '📑', tax_form: '📋', contract: '📜', other: '📁'
+const KIND_ICON: Record<string, IconName> = {
+  attachment: 'attachment', receipt: 'receipt', invoice: 'invoices',
+  statement: 'reports', tax_form: 'taxInfo', contract: 'contract', other: 'folder'
 }
 
 export default function ClientFilesTab({ orgId, clientId }: Props) {
@@ -107,7 +108,7 @@ export default function ClientFilesTab({ orgId, clientId }: Props) {
           </div>
         ) : docs.length === 0 ? (
           <div style={{ padding: '28px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: 28, opacity: 0.4, marginBottom: 8 }}>📁</div>
+            <div style={{ display: 'flex', justifyContent: 'center', opacity: 0.4, marginBottom: 8 }}><Icon name="folder" size={24} /></div>
             <div style={{ fontSize: 12.5, color: 'var(--lp-text-muted)' }}>
               No documents shared yet.
             </div>
@@ -126,7 +127,7 @@ export default function ClientFilesTab({ orgId, clientId }: Props) {
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--chat-row-hover)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
-              <span style={{ fontSize: 16, flexShrink: 0 }}>{KIND_ICON[d.document_kind] ?? '📁'}</span>
+              <span style={{ flexShrink: 0, display: 'flex', color: 'var(--lp-text-muted)' }}><Icon name={KIND_ICON[d.document_kind] ?? 'folder'} size={15} /></span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--lp-text)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

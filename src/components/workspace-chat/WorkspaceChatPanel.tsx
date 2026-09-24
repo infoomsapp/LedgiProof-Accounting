@@ -15,6 +15,7 @@ import { getClients } from '../../services/invoice.service'
 import type { Client } from '../../types/database.types'
 import type { WorkspaceConversation, WorkspaceInboxResponse, ContextRef } from '../../services/workspace-chat.service'
 import { formatDateShort } from '../../lib/dates'
+import Icon, { type IconName } from '../ui/Icon'
 
 type ConvTab = 'chat' | 'summary' | 'files' | 'requests' | 'notes'
 
@@ -468,7 +469,7 @@ export default function WorkspaceChatPanel({
           alignItems: 'center', justifyContent: 'center',
           gap: 8, padding: 24, textAlign: 'center',
         }}>
-          <div style={{ fontSize: 28, opacity: 0.4 }}>✉️</div>
+          <div style={{ display: 'flex', justifyContent: 'center', opacity: 0.4 }}><Icon name="mail" size={26} /></div>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--lp-text)' }}>
             New conversation with {newConvClient.name}
           </div>
@@ -570,7 +571,7 @@ export default function WorkspaceChatPanel({
           background: 'var(--sem-amber-bg)', border: '0.5px solid var(--sem-amber-border)',
           fontSize: 11, color: 'var(--sem-amber)', lineHeight: 1.5,
         }}>
-          🛡️ Secure send is on — don't send passwords, bank login codes, full card numbers, or SSN/TIN through chat.
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="shield" size={12} /> Secure send is on — don't send passwords, bank login codes, full card numbers, or SSN/TIN through chat.</span>
         </div>
       )}
       {secureBlockedMsg && (
@@ -622,7 +623,7 @@ export default function WorkspaceChatPanel({
               background: 'var(--lp-surface)', border: '0.5px solid var(--lp-border)',
               fontSize: 11, color: 'var(--lp-text-muted)', maxWidth: '100%',
             }}>
-              <span>📎</span>
+              <Icon name="attachment" size={11} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
                 {uploading ? `Uploading… ${uploadProgress}%` : pendingFile?.name}
               </span>
@@ -641,7 +642,7 @@ export default function WorkspaceChatPanel({
               background: 'var(--lp-surface)', border: '0.5px solid var(--lp-accent)',
               fontSize: 11, color: 'var(--lp-accent)', maxWidth: '100%',
             }}>
-              <span>{contextRef.type === 'transaction' ? '💳' : contextRef.type === 'account' ? '📚' : '📅'}</span>
+              <Icon name={contextRef.type === 'transaction' ? 'billing' : contextRef.type === 'account' ? 'accounts' : 'calendar'} size={11} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
                 {contextRef.label}
               </span>
@@ -703,7 +704,7 @@ export default function WorkspaceChatPanel({
             cursor: uploading ? 'not-allowed' : 'pointer',
           }}
         >
-          🗂
+          <Icon name="attachment" size={13} />
         </button>
 
         {!isPyme && pickerClientId && (
@@ -717,7 +718,7 @@ export default function WorkspaceChatPanel({
               border: pickerOpen ? '0.5px solid var(--lp-accent)' : '0.5px solid transparent',
             }}
           >
-            📎
+            <Icon name="link" size={13} />
           </button>
         )}
 
@@ -734,7 +735,7 @@ export default function WorkspaceChatPanel({
               fontWeight: internalOnly ? 600 : 400,
             }}
           >
-            {internalOnly ? '🔒 Internal' : '🔒'}
+            <Icon name="lock" size={11} />{internalOnly ? ' Internal' : ''}
           </button>
         )}
 
@@ -751,7 +752,7 @@ export default function WorkspaceChatPanel({
               fontWeight: secureMode ? 600 : 400,
             }}
           >
-            {secureMode ? '🛡️ Secure' : '🛡️'}
+            <Icon name="shield" size={11} />{secureMode ? ' Secure' : ''}
           </button>
         )}
 
@@ -1149,7 +1150,7 @@ function DropOverlay() {
         background: 'var(--lp-surface)',
         border: '1.5px dashed var(--lp-accent)',
       }}>
-        <span style={{ fontSize: 26 }}>📄</span>
+        <span style={{ color: 'var(--lp-accent)' }}><Icon name="attachment" size={24} /></span>
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--lp-text)' }}>
           Drop to send
         </span>
@@ -1214,8 +1215,10 @@ function Inbox({
         <div style={{
           fontSize: 11, color: 'var(--lp-text-muted)',
           textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 5,
         }}>
-          {newConvMode ? '🔍 New conversation' : showArchived ? '🗂 Archived' : '💬 Inbox'}
+          <Icon name={newConvMode ? 'search' : showArchived ? 'archive' : 'chat'} size={11} />
+          {newConvMode ? 'New conversation' : showArchived ? 'Archived' : 'Inbox'}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {!newConvMode && (
@@ -1416,7 +1419,7 @@ function EmptyConversation({ isPyme }: { isPyme: boolean }) {
       alignItems: 'center', justifyContent: 'center',
       textAlign: 'center', padding: 24,
     }}>
-      <div style={{ fontSize: 32, marginBottom: 10, opacity: 0.5 }}>💬</div>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10, opacity: 0.5 }}><Icon name="chat" size={28} /></div>
       <div style={{ fontSize: 13, color: 'var(--lp-text)', fontWeight: 500, marginBottom: 4 }}>
         {isPyme ? 'No conversation yet' : 'Select a conversation'}
       </div>

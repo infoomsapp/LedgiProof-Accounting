@@ -7,6 +7,7 @@ import { db }                           from '../../lib/supabase'
 import type { ContextRef }              from '../../services/workspace-chat.service'
 import { formatDateShort }              from '../../lib/dates'
 import { formatCurrency }               from '../../lib/currency'
+import Icon                             from '../ui/Icon'
 
 interface Props {
   orgId:    string
@@ -23,11 +24,13 @@ interface PeriodRow{ client_id: string; period_month: number; period_year: numbe
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-function semaphoreIcon(s: string) {
-  if (s === 'green')  return '🟢'
-  if (s === 'amber')  return '🟡'
-  if (s === 'red')    return '🔴'
-  return '⚪'
+const SEM_DOT_COLOR: Record<string, string> = {
+  green: '#22c55e', amber: '#f59e0b', red: '#ef4444'
+}
+
+function SemDot({ s }: { s: string }) {
+  const color = SEM_DOT_COLOR[s] ?? '#94a3b8'
+  return <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, boxShadow: `0 0 4px ${color}`, display: 'inline-block' }} />
 }
 
 function periodKey(r: PeriodRow) { return `${r.period_year}-${r.period_month}` }
@@ -181,9 +184,11 @@ export default function ContextRefPicker({ orgId, clientId, onSelect, onClose }:
               color: tab === t ? 'var(--lp-accent)' : 'var(--lp-text-muted)',
               borderBottom: tab === t ? '2px solid var(--lp-accent)' : '2px solid transparent',
               textTransform: 'capitalize', transition: 'all 0.1s',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
             }}
           >
-            {t === 'transaction' ? '💳 Transactions' : t === 'account' ? '📚 Accounts' : '🔒 Periods'}
+            <Icon name={t === 'transaction' ? 'billing' : t === 'account' ? 'accounts' : 'periods'} size={11} />
+            {t === 'transaction' ? 'Transactions' : t === 'account' ? 'Accounts' : 'Periods'}
           </button>
         ))}
         <button
@@ -238,7 +243,7 @@ export default function ContextRefPicker({ orgId, clientId, onSelect, onClose }:
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
-              <span>{semaphoreIcon(r.semaphore)}</span>
+              <SemDot s={r.semaphore} />
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {r.merchant_name ?? r.description ?? '—'}
               </span>

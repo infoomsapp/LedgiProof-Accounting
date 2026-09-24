@@ -15,6 +15,7 @@ import {
 } from '../../services/document-requests.service'
 import { uploadDocument, validateFile } from '../../services/upload.service'
 import { formatDate } from '../../lib/dates'
+import Icon from '../ui/Icon'
 
 interface Props {
   orgId:      string
@@ -174,7 +175,7 @@ export default function WorkspaceRequestsTab({ orgId, clientId, viewerRole }: Pr
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--lp-text-muted)' }}>
                 <input type="checkbox" checked={isSensitive} onChange={e => setIsSensitive(e.target.checked)} />
-                🛡️ Sensitive — warn the client to handle with care
+                <Icon name="shield" size={11} /> Sensitive — warn the client to handle with care
               </label>
               <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                 <button
@@ -208,7 +209,7 @@ export default function WorkspaceRequestsTab({ orgId, clientId, viewerRole }: Pr
           </div>
         ) : requests.length === 0 ? (
           <div style={{ padding: '28px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: 28, opacity: 0.4, marginBottom: 8 }}>📋</div>
+            <div style={{ display: 'flex', justifyContent: 'center', opacity: 0.4, marginBottom: 8 }}><Icon name="clipboardList" size={24} /></div>
             <div style={{ fontSize: 12.5, color: 'var(--lp-text-muted)' }}>
               {isStaff ? 'No requests sent yet.' : 'Nothing requested from you right now.'}
             </div>
@@ -248,7 +249,7 @@ export default function WorkspaceRequestsTab({ orgId, clientId, viewerRole }: Pr
                     marginTop: 6, padding: '6px 8px', borderRadius: 6, fontSize: 10.5,
                     background: 'var(--sem-amber-bg)', border: '0.5px solid var(--sem-amber-border)', color: 'var(--sem-amber)',
                   }}>
-                    🛡️ Handle with care — avoid sending full SSN or card numbers; redact if possible.
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Icon name="shield" size={11} /> Handle with care — avoid sending full SSN or card numbers; redact if possible.</span>
                   </div>
                 )}
 

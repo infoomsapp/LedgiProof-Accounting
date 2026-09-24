@@ -4,6 +4,7 @@ import { useState }                          from 'react'
 import { useNavigate }                       from 'react-router-dom'
 import type { WorkspaceMessage, ContextRef } from '../../services/workspace-chat.service'
 import { getDocumentSignedUrl }              from '../../services/upload.service'
+import Icon                                  from '../ui/Icon'
 
 interface Props {
   message:    WorkspaceMessage
@@ -97,8 +98,9 @@ export default function WorkspaceChatMessage({ message, viewerRole, firmName }: 
               background: 'rgba(167,139,250,0.1)',
               color: 'var(--chat-sender-label-internal)', fontWeight: 500,
               border: '0.5px dashed var(--chat-bubble-internal-border)',
+              display: 'inline-flex', alignItems: 'center', gap: 3,
             }}>
-              🔒 Internal
+              <Icon name="lock" size={9} /> Internal
             </span>
           )}
 
@@ -174,7 +176,7 @@ function ContextRefChip({
   ref_:     ContextRef
   navigate: ReturnType<typeof useNavigate>
 }) {
-  const icon = ref_.type === 'transaction' ? '💳' : ref_.type === 'account' ? '📚' : '📅'
+  const iconName = ref_.type === 'transaction' ? 'billing' : ref_.type === 'account' ? 'accounts' : 'calendar'
 
   function handleClick() {
     const base = `/clients/${ref_.client_id}`
@@ -200,7 +202,7 @@ function ContextRefChip({
       onMouseEnter={e => { e.currentTarget.style.background = 'rgba(167,139,250,0.12)' }}
       onMouseLeave={e => { e.currentTarget.style.background = 'var(--chat-attachment-bg)' }}
     >
-      <span>{icon}</span>
+      <Icon name={iconName} size={12} />
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {ref_.label}
       </span>
@@ -251,7 +253,7 @@ function AttachmentChip({ documentId, spaced }: { documentId: string; spaced: bo
         onMouseEnter={e => { if (!opening) e.currentTarget.style.background = 'var(--lp-surface-2)' }}
         onMouseLeave={e => { e.currentTarget.style.background = 'var(--chat-attachment-bg)' }}
       >
-        📎 <span>{opening ? 'Opening…' : 'Attachment'}</span>
+        <Icon name="attachment" size={12} /> <span>{opening ? 'Opening…' : 'Attachment'}</span>
         {!opening && <span style={{ fontSize: 9.5, color: 'var(--lp-text-muted)' }}>↗</span>}
       </button>
       {error && (

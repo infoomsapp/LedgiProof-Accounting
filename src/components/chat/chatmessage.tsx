@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import Icon, { type IconName } from '../ui/Icon'
 
 export type MessageRole = 'out' | 'in' | 'system' | 'ai'
 export type MessageChannel = 'chat' | 'sms' | 'email'
@@ -15,10 +16,10 @@ interface ChatMessageProps {
   message: ChatMessageData
 }
 
-const CHANNEL_ICON: Record<MessageChannel, string> = {
-  chat: '💬',
-  sms: '📱',
-  email: '✉️'
+const CHANNEL_ICON: Record<MessageChannel, IconName> = {
+  chat: 'chat',
+  sms: 'phone',
+  email: 'mail'
 }
 
 function fmtTime(ts: number) {
@@ -46,7 +47,7 @@ function ChannelChips({ channels }: { channels: MessageChannel[] | undefined }) 
             fontSize: 10
           }}
         >
-          {CHANNEL_ICON[ch]}
+          <Icon name={CHANNEL_ICON[ch]} size={9} />
         </span>
       ))}
     </>

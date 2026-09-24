@@ -104,23 +104,16 @@ export default function AcceptClientPortalInvite() {
       return
     }
 
-    // Real bug fixed 2026-09-24: this always sent a logged-out visitor to
-    // SIGN UP, never checking whether the invited email might already have
-    // an account -- which is the common case for a re-invite, or simply
-    // someone testing this flow after already creating that account
-    // elsewhere. Supabase signUp() rejects a duplicate email outright, so
-    // that visitor's "accept invitation" click just broke into a raw auth
-    // error. Default to LOGIN instead (email pre-filled from the invite),
-    // with an explicit "New here? Sign up" link on that page for the
-    // genuinely-new case -- same direction StaffActivatePage.tsx's own
-    // "Already have an account? Sign in" link already treats as the
-    // exception, not the default, just flipped for this flow since here
-    // the invitee is far more likely to already exist in the system.
+    // Real bug fixed 2026-09-24, revised same day: a logged-out visitor now
+    // lands on the dedicated ClientPortalActivatePage (set-password-in-one-
+    // step, same pattern AcceptInvite.tsx already uses for staff via
+    // /staff-activate/:token) instead of bouncing through a separate
+    // login/signup page. That page's own "Already have an account? Sign in
+    // to join" link covers the case where the invited email already exists
+    // (confirmed live this session: it commonly does) — the token is not
+    // lost either way, since that link forwards it to /login itself.
     if (!session) {
-      navigate(
-        `/login?client_invite=${token}&email=${encodeURIComponent(invitation.email)}`,
-        { replace: true }
-      )
+      navigate(`/client-portal-activate/${token}`, { replace: true })
       return
     }
 

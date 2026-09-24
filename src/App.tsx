@@ -33,6 +33,7 @@ import ResetPassword  from './pages/ResetPassword'
 import AcceptInvite from './pages/AcceptInvite'
 import AcceptClientPortalInvite from './pages/AcceptClientPortalInvite'
 import StaffActivatePage from './pages/StaffActivatePage'
+import ClientPortalActivatePage from './pages/ClientPortalActivatePage'
 import OnboardingWizard from './pages/OnboardingWizard'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
@@ -323,6 +324,7 @@ export default function App() {
         <Route path="accept-invite/:token"        element={<AcceptInviteRoute />} />
         <Route path="accept-client-portal/:token" element={<AcceptClientPortalInviteRoute />} />
         <Route path="staff-activate/:token"        element={<StaffActivateRoute />} />
+        <Route path="client-portal-activate/:token" element={<ClientPortalActivatePage />} />
 
         {/* Public estimate link — works even when authenticated (standalone layout) */}
         <Route path="e/:token" element={<EstimatePublic />} />
@@ -663,6 +665,7 @@ function PublicRouter() {
         <Route path="accept-invite/:token"        element={<AcceptInviteRoute />} />
         <Route path="accept-client-portal/:token" element={<AcceptClientPortalInviteRoute />} />
         <Route path="staff-activate/:token"        element={<StaffActivateRoute />} />
+        <Route path="client-portal-activate/:token" element={<ClientPortalActivatePage />} />
         {/* Password reset flow — accessible without a session */}
         <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
         <Route path="/reset-password"  element={<ResetPasswordRoute />} />

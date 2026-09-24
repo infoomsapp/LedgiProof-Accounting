@@ -300,27 +300,19 @@ Deno.serve(async (req) => {
       return respond({ error: 'org_id, source, amount, and transaction_date are required' }, 400)
     }
 
-    const { data: membership } = await admin.from('organization_memberships')
-      .select('role').eq('user_id', user.id).eq('org_id', body.org_id).eq('is_active', true).maybeSingle()
-
     const clientId = body.client_id ?? null
 
-    // Built for the mobile app's Capture sheet, which now also offers
-    // "Manual expense" inside a portal-client workspace (client_portal_users)
-    // -- that caller never has an organization_memberships row at all, so
-    // without this fallback every manual expense a portal client logged on
-    // mobile failed with "Not a member of this organization" regardless of
-    // clientId. client_viewer stays excluded, matching every other write
-    // path a portal client has (mileage, etc) -- only owner/contact log
-    // their own expenses.
-    let portalAuthorized = false
-    if (!membership && clientId) {
-      const { data: portalMembership } = await admin.from('client_portal_users')
-        .select('role').eq('profile_id', user.id).eq('client_id', clientId).eq('is_active', true).maybeSingle()
-      portalAuthorized = !!portalMembership && portalMembership.role !== 'client_viewer'
-    }
-
-    if (!membership && !portalAuthorized) return respond({ error: 'Not a member of this organization' }, 403)
+    // The one shared authorization check every write path uses now (org
+    // member OR the matching client_portal_users membership, owner/contact
+    // only) -- see can_act_for_client() in Postgres. Called through
+    // userClient (the caller's own JWT) so auth.uid() inside the function
+    // resolves correctly; previously this logic was hand-duplicated here in
+    // TS, which is exactly how it silently went stale for a portal client.
+    const { data: authorized, error: authzErr } = await userClient.rpc('can_act_for_client', {
+      p_org_id: body.org_id,
+      p_client_id: clientId,
+    })
+    if (authzErr || !authorized) return respond({ error: 'Not a member of this organization' }, 403)
 
     const currency = body.currency ?? 'USD'
 

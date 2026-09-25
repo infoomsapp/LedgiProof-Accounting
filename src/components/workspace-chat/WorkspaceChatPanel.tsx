@@ -904,7 +904,12 @@ export default function WorkspaceChatPanel({
           onArchiveToggle={() => activeConv && (activeConv.is_archived ? chat.restore(activeConv.id) : chat.archive(activeConv.id))}
           onDelete={() => {
             if (!activeConv) return
-            if (!window.confirm('Delete this conversation? This removes it from your inbox for good — it will not delete the client.')) return
+            // WhatsApp/Messenger semantics, not a soft hide: this permanently
+            // erases the message history (ON DELETE CASCADE on
+            // workspace_messages.conversation_id). If either side messages
+            // again afterward, that starts a brand-new conversation with no
+            // memory of this one -- it does not come back.
+            if (!window.confirm('Delete this conversation? This permanently erases the message history for both sides — it cannot be undone, and it will not delete the client.')) return
             void chat.deleteConversation(activeConv.id)
           }}
           {...(onClose ? { onCloseMessages: onClose } : {})}

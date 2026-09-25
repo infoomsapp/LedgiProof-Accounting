@@ -7,18 +7,16 @@
 // on Android (this bubble only ever floats within the web app itself).
 // Opens a floating WorkspaceChatPanel panel when clicked.
 //
-// Semaphore color rules (derived from inbox conversation summary):
-//   grey   — no unread messages
-//   blue   — unread messages all from the bookkeeper side (internal)
-//   amber  — 1–2 clients have sent unread messages
-//   red    — 3+ clients have sent unread messages (busy inbox)
+// Ring color = the most important tag among unread messages (see
+// getRing in lib/chat-ring.ts): grey none · blue normal · green invoice · amber
+// outstanding · red needs a reply.
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { useWorkspaceChat }    from '../../hooks/useWorkspaceChat'
 import { useChatBubbleStore }  from '../../store/chat-bubble.store'
 import WorkspaceChatPanel      from './WorkspaceChatPanel'
 import ChatBrandIcon           from './ChatBrandIcon'
-import type { WorkspaceConversation } from '../../services/workspace-chat.service'
+import { getRing }             from '../../lib/chat-ring'
 
 interface Props {
   orgId:     string
@@ -66,32 +64,18 @@ function savePos(left: number, top: number) {
   }
 }
 
-function getSemaphoreColor(conversations: WorkspaceConversation[]): {
-  ring:   string
-  glow:   string
-  label:  string
-} {
-  const clientUnread = conversations.filter(
-    c => c.my_unread_count > 0 && c.last_message_sender_role === 'client'
-  )
-  if (clientUnread.length === 0) {
-    const anyUnread = conversations.some(c => c.my_unread_count > 0)
-    if (!anyUnread) return { ring: 'var(--lp-border)',       glow: 'transparent',                  label: 'No unread messages' }
-    return             { ring: 'var(--sem-blue)',            glow: 'rgba(59,130,246,0.25)',          label: 'Internal notes pending' }
-  }
-  if (clientUnread.length >= 3)
-    return             { ring: 'var(--sem-red)',             glow: 'rgba(239,68,68,0.30)',           label: `${clientUnread.length} clients waiting` }
-  return               { ring: 'var(--sem-amber)',           glow: 'rgba(245,158,11,0.28)',          label: `${clientUnread.length} client${clientUnread.length > 1 ? 's' : ''} waiting` }
-}
-
 export default function GlobalChatBubble({ orgId, clientId }: Props) {
   const panelRef                    = useRef<HTMLDivElement>(null)
   const { open, focusClientId, focusTab, openChat, closeChat } = useChatBubbleStore()
 
   const chat      = useWorkspaceChat(orgId, clientId ?? null, true)
   const convs     = chat.inbox?.conversations ?? []
-  const unread    = chat.inbox?.unread_total  ?? 0
-  const semaphore = getSemaphoreColor(convs)
+  // Team-channel messages count too (a plain message, so blue).
+  const teamUnread = chat.inbox?.team_unread ?? 0
+  const unread    = (chat.inbox?.unread_total ?? 0) + teamUnread
+  const semaphore = getRing(teamUnread > 0
+    ? [...convs, { my_unread_count: teamUnread, my_unread_tag: 'normal' as const }]
+    : convs)
 
   // ── Draggable position ────────────────────────────────────────────────────
   const [pos, setPos]           = useState<{ left: number; top: number } | null>(null)

@@ -25,10 +25,13 @@ interface Props {
    *  the conversation-level delete's own owner/admin split. */
   canModerate?:   boolean
   onDelete?:      (messageId: string) => void
+  /** The read-receipt mark under your own messages. The team channel has no
+   *  "other side" whose reading it could mean, so it turns this off. */
+  showReceipt?:   boolean
 }
 
 export default function WorkspaceChatMessage({
-  message, viewerRole, firmName, currentUserId = null, canModerate = false, onDelete
+  message, viewerRole, firmName, currentUserId = null, canModerate = false, onDelete, showReceipt = true
 }: Props) {
   const navigate     = useNavigate()
   const [hovered, setHovered] = useState(false)
@@ -175,7 +178,7 @@ export default function WorkspaceChatMessage({
         marginLeft: isMine ? 0 : 4, marginRight: isMine ? 4 : 0,
       }}>
         {formatTime(message.created_at)}
-        {message.sender_role === viewerRole && !message.is_deleted && (
+        {showReceipt && message.sender_role === viewerRole && !message.is_deleted && (
           <span style={{ marginLeft: 4, display: 'inline-flex', verticalAlign: 'middle' }} title={readReceiptTitle(message, viewerRole)}>
             <AuditedStatusCheck read={readByOther(message, viewerRole)} size={12} />
           </span>

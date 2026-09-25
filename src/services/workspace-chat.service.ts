@@ -36,6 +36,9 @@ export interface WorkspaceConversation {
   last_message_sender_role:    MessageSenderRole | null
   last_message_kind:           MessageKind | null
   my_unread_count:             number
+  /** Most important tag among the messages the viewer has not read (urgent >
+   *  pending > invoice > normal); null when there are none. */
+  my_unread_tag?:              MessageTag | null
   is_archived:                 boolean
   archived_at:                 string | null
   archived_by_role:            MessageSenderRole | null
@@ -49,6 +52,8 @@ export interface WorkspaceInboxResponse {
   role:          'bookkeeper' | 'client'
   total:         number
   unread_total:  number
+  /** Unread messages in the firm's team channel (0 for clients / non-firm). */
+  team_unread?:  number
   conversations: WorkspaceConversation[]
 }
 

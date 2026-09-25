@@ -4,6 +4,8 @@ import { useRef, useState, useEffect, useMemo, useCallback, type KeyboardEvent }
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore }       from '../../store/auth.store'
 import { useWorkspaceChat }   from '../../hooks/useWorkspaceChat'
+import { useUserRole }        from '../../hooks/useUserRole'
+import TeamChannelView        from './TeamChannelView'
 import WorkspaceChatMessage   from './WorkspaceChatMessage'
 import ContextRefPicker       from './ContextRefPicker'
 import ClientSummaryTab       from './ClientSummaryTab'
@@ -135,6 +137,15 @@ export default function WorkspaceChatPanel({
 
   const viewerRole = chat.inbox?.role ?? 'bookkeeper'
   const isPyme     = viewerRole === 'client'
+
+  // Team channel: firm members only. Never a client, never a personal or
+  // basic workspace (those are not firms). The database enforces the same rule.
+  const { isAccountantFirm, isBookkeeperFirm } = useUserRole()
+  const canUseTeam = !isPyme && (isAccountantFirm || isBookkeeperFirm)
+  const [teamOpen, setTeamOpen] = useState(false)
+  const teamSlot = canUseTeam
+    ? <TeamButton unread={chat.inbox?.team_unread ?? 0} onClick={() => setTeamOpen(true)} />
+    : null
 
   // ── Load clients when entering new-conv mode ──────────────────────────────
   const enterNewConvMode = useCallback(async () => {
@@ -527,6 +538,12 @@ export default function WorkspaceChatPanel({
         }}>
           Loading messages…
         </div>
+      ) : chat.messagesError && chat.messages.length === 0 && chat.activeConvId ? (
+        // A failed load is not "no messages yet" — say so and offer a retry.
+        <LoadErrorState
+          message="Could not load this conversation."
+          onRetry={() => { void chat.retryMessages() }}
+        />
       ) : (
         <>
           {chat.hasMoreMessages && (
@@ -564,9 +581,12 @@ export default function WorkspaceChatPanel({
                     message={m}
                     viewerRole={viewerRole}
                     currentUserId={currentUserId}
-                    canModerate={!isPyme}
+                    // "Delete for me": anyone may hide any message they can see
+                    // from their own side (the server still limits which ones
+                    // a firm member without owner/admin rights can hide).
+                    canModerate
                     onDelete={(id) => {
-                      if (!window.confirm('Delete this message? This cannot be undone.')) return
+                      if (!window.confirm('Delete this message for you? The other side keeps their copy.')) return
                       void chat.deleteMessage(id)
                     }}
                     {...(firmName !== undefined ? { firmName } : {})}
@@ -870,6 +890,18 @@ export default function WorkspaceChatPanel({
       ? `New · ${newConvClient.name}`
       : (activeConv?.client_name ?? 'Select a conversation')
 
+  // ── Team channel replaces the whole panel while open ──────────────────────
+  if (teamOpen && canUseTeam) {
+    return (
+      <TeamChannelView
+        orgId={orgId}
+        onBack={() => setTeamOpen(false)}
+        onRead={() => { void chat.refreshInbox() }}
+        {...(onClose ? { onClose } : {})}
+      />
+    )
+  }
+
   // ── bubbleMode: stacked (inbox → conversation) ────────────────────────────
   // Both roles use the stacked inbox→conversation layout in bubbleMode —
   // isPyme used to be excluded here and fell through to the "standard grid"
@@ -883,8 +915,11 @@ export default function WorkspaceChatPanel({
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
           <Inbox
             flat
+            {...(teamSlot ? { teamSlot } : {})}
             inbox={filteredInbox}
             loading={chat.inboxLoading}
+            loadError={chat.inboxError}
+            onRetry={() => { void chat.refreshInbox() }}
             activeConvId={chat.activeConvId}
             showArchived={chat.showArchived}
             onSelect={chat.openConversation}
@@ -915,6 +950,7 @@ export default function WorkspaceChatPanel({
         onDrop={handleDrop}
       >
         <ConversationHeader
+          {...(teamSlot ? { teamSlot } : {})}
           convHeaderLabel={convHeaderLabel}
           activeConv={activeConv}
           isPyme={isPyme}
@@ -936,12 +972,10 @@ export default function WorkspaceChatPanel({
           onExport={() => { if (activeConv) exportConversationTranscript(activeConv, chat.messages) }}
           onDelete={() => {
             if (!activeConv) return
-            // WhatsApp/Messenger semantics, not a soft hide: this permanently
-            // erases the message history (ON DELETE CASCADE on
-            // workspace_messages.conversation_id). If either side messages
-            // again afterward, that starts a brand-new conversation with no
-            // memory of this one -- it does not come back.
-            if (!window.confirm('Delete this conversation? This permanently erases the message history for both sides — it cannot be undone, and it will not delete the client.')) return
+            // WhatsApp semantics: this only clears the caller's OWN side. The
+            // other side keeps its copy, and the conversation comes back
+            // (with just the new messages) if either side writes again.
+            if (!window.confirm(`Delete this conversation on your side? ${isPyme ? 'Your accountant' : 'The client'} keeps their own copy, and it comes back if a new message arrives. This will not delete the client.`)) return
             void chat.deleteConversation(activeConv.id)
           }}
           {...(onClose ? { onCloseMessages: onClose } : {})}
@@ -978,8 +1012,11 @@ export default function WorkspaceChatPanel({
       {/* Inbox column */}
       {!(compact || isPyme) && (
         <Inbox
+          {...(teamSlot ? { teamSlot } : {})}
           inbox={filteredInbox}
           loading={chat.inboxLoading}
+          loadError={chat.inboxError}
+          onRetry={() => { void chat.refreshInbox() }}
           activeConvId={chat.activeConvId}
           showArchived={chat.showArchived}
           onSelect={chat.openConversation}
@@ -1060,10 +1097,12 @@ export default function WorkspaceChatPanel({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ConversationHeader({
-  convHeaderLabel, activeConv, isPyme, activeTab, setActiveTab,
+  teamSlot, convHeaderLabel, activeConv, isPyme, activeTab, setActiveTab,
   menuOpen, setMenuOpen, menuRef, onBack, onViewProfile, onMarkUnread,
   onArchiveToggle, onExport, onDelete, onCloseMessages
 }: {
+  /** The Team button (firm members only), kept reachable while a client chat is open. */
+  teamSlot?:       React.ReactNode
   convHeaderLabel: string
   activeConv:      WorkspaceConversation | undefined
   isPyme:          boolean
@@ -1138,7 +1177,11 @@ function ConversationHeader({
           </span>
         )}
 
-        {activeConv && !isPyme && (
+        {/* Team stays one click away while a client conversation is open, and
+            its unread badge keeps showing. */}
+        {teamSlot}
+
+        {activeConv && (
           <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
             <button
               onClick={() => setMenuOpen(v => !v)}
@@ -1159,17 +1202,23 @@ function ConversationHeader({
                 boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 20,
                 overflow: 'hidden', padding: '4px 0',
               }}>
-                <MenuItem label="View client profile" onClick={() => { onViewProfile(); setMenuOpen(false) }} />
-                <MenuItem label="Mark as unread" onClick={() => { onMarkUnread(); setMenuOpen(false) }} />
-                <MenuItem
-                  label={activeConv.is_archived ? 'Restore conversation' : 'Archive conversation'}
-                  onClick={() => { onArchiveToggle(); setMenuOpen(false) }}
-                />
-                <MenuItem
-                  label="Export chat"
-                  onClick={() => { onExport(); setMenuOpen(false) }}
-                />
-                <div style={{ borderTop: '0.5px solid var(--lp-border)', margin: '4px 0' }} />
+                {/* Staff-only actions. A client's menu is just Delete (their own
+                    side) and Close, so nothing else about their view changes. */}
+                {!isPyme && (
+                  <>
+                    <MenuItem label="View client profile" onClick={() => { onViewProfile(); setMenuOpen(false) }} />
+                    <MenuItem label="Mark as unread" onClick={() => { onMarkUnread(); setMenuOpen(false) }} />
+                    <MenuItem
+                      label={activeConv.is_archived ? 'Restore conversation' : 'Archive conversation'}
+                      onClick={() => { onArchiveToggle(); setMenuOpen(false) }}
+                    />
+                    <MenuItem
+                      label="Export chat"
+                      onClick={() => { onExport(); setMenuOpen(false) }}
+                    />
+                    <div style={{ borderTop: '0.5px solid var(--lp-border)', margin: '4px 0' }} />
+                  </>
+                )}
                 <MenuItem
                   label="Delete conversation"
                   danger
@@ -1263,7 +1312,7 @@ function DropOverlay() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Inbox({
-  inbox, loading, activeConvId, showArchived,
+  teamSlot, inbox, loading, loadError, onRetry, activeConvId, showArchived,
   onSelect, onToggleArchived, onArchive, onRestore,
   flat = false,
   onNewConversation, newConvMode,
@@ -1271,8 +1320,13 @@ function Inbox({
   filteredClients, clientsLoading, onClientPick, onCancelNew,
   onClose,
 }: {
+  /** The Team button, only for firm members; sits right next to the Inbox label. */
+  teamSlot?:        React.ReactNode
   inbox:            WorkspaceInboxResponse | null
   loading:          boolean
+  /** Set only while no inbox has loaded; a failed refresh keeps the old list. */
+  loadError:        string | null
+  onRetry:          () => void
   activeConvId:     string | null
   showArchived:     boolean
   onSelect:         (c: WorkspaceConversation) => void
@@ -1318,6 +1372,8 @@ function Inbox({
         }}>
           <Icon name={newConvMode ? 'search' : showArchived ? 'archive' : 'chat'} size={11} />
           {newConvMode ? 'New conversation' : showArchived ? 'Archived' : 'Inbox'}
+          {/* Team sits right next to Inbox; hidden while picking a client. */}
+          {!newConvMode && teamSlot}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {!newConvMode && (
@@ -1446,6 +1502,8 @@ function Inbox({
             <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--lp-text-muted)', fontStyle: 'italic' }}>
               Loading…
             </div>
+          ) : loadError && !inbox ? (
+            <LoadErrorState message="Could not load your conversations." onRetry={onRetry} />
           ) : (inbox?.conversations ?? []).length === 0 ? (
             <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--lp-text-muted)', fontStyle: 'italic' }}>
               {showArchived ? 'No archived conversations' : 'No conversations yet — click + to start one'}
@@ -1510,6 +1568,69 @@ function Inbox({
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
+
+function LoadErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div
+      role="alert"
+      style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 10, padding: 24, textAlign: 'center',
+      }}
+    >
+      <div style={{ fontSize: 12.5, color: 'var(--lp-text-muted)' }}>{message}</div>
+      <button
+        onClick={onRetry}
+        style={{
+          padding: '5px 14px', borderRadius: 100,
+          background: 'var(--chat-attachment-bg)',
+          border: '0.5px solid var(--lp-border)',
+          color: 'var(--lp-text)', fontSize: 11.5, fontWeight: 500,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}
+      >
+        Try again
+      </button>
+    </div>
+  )
+}
+
+// The Team button: a small pill with the unread count sitting on top of it.
+// Its own color (not a client semaphore color) so it never reads as one.
+function TeamButton({ unread, onClick }: { unread: number; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title={unread > 0 ? `Team chat — ${unread} unread` : 'Team chat'}
+      style={{
+        position: 'relative', flexShrink: 0,
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '3px 10px', borderRadius: 100,
+        background: 'var(--sem-blue-bg)', border: '0.5px solid var(--sem-blue-border)',
+        color: 'var(--sem-blue)', fontSize: 10.5, fontWeight: 700,
+        letterSpacing: '0.04em', textTransform: 'none',
+        cursor: 'pointer', fontFamily: 'inherit',
+      }}
+    >
+      Team
+      {unread > 0 && (
+        <span
+          aria-label={`${unread} unread team messages`}
+          style={{
+            position: 'absolute', top: -7, right: -6,
+            minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
+            background: 'var(--sem-red)', color: '#fff',
+            fontSize: 9.5, fontWeight: 800, lineHeight: '16px', textAlign: 'center',
+            border: '1.5px solid var(--lp-surface)',
+          }}
+        >
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
+    </button>
+  )
+}
 
 function EmptyConversation({ isPyme }: { isPyme: boolean }) {
   return (

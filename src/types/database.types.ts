@@ -7465,6 +7465,23 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: Json
       }
+      // Team channel (one per firm) -- added by hand, not by codegen.
+      get_team_channel: {
+        Args: { p_before?: string; p_limit?: number; p_org_id: string }
+        Returns: Json
+      }
+      send_team_message: {
+        Args: { p_body: string; p_org_id: string }
+        Returns: Json
+      }
+      mark_team_channel_read: {
+        Args: { p_org_id: string }
+        Returns: Json
+      }
+      delete_team_message: {
+        Args: { p_message_id: string }
+        Returns: Json
+      }
       demote_admin: {
         Args: { p_requesting_admin_id: string; p_target_user_id: string }
         Returns: Json

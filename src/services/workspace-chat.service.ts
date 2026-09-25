@@ -198,12 +198,17 @@ export async function restoreWorkspaceConversation(
 }
 
 // Permanently removes a conversation from every list (not archived-and-
-// still-there — gone). Soft-delete server-side (workspace_messages carries
-// a real hash chain the product's own audit story depends on; a hard
-// DELETE mid-chain would break verifiability for everything after it),
-// but the UI never needs to know that — this call is the user-facing
-// "delete", full stop. Staff-only (owner/admin) — enforced server-side by
-// the RPC itself, not just hidden client-side.
+// still-there — gone, WhatsApp/Messenger style: a message sent afterward
+// starts a brand-new conversation with no memory of this one). Real DELETE
+// server-side now (ON DELETE CASCADE wipes every workspace_messages row,
+// hash-chain fields included) — but the RPC writes a full snapshot into
+// workspace_conversation_archives in the SAME transaction, before the
+// delete runs, so the hash-chain audit trail this product depends on is
+// never actually lost, just moved off the live tables. That snapshot is
+// staff-only, append-only (see listConversationArchives/
+// getConversationArchive below). Staff-only to delete in the first place
+// (owner/admin) — enforced server-side by the RPC itself, not just hidden
+// client-side.
 export async function deleteWorkspaceConversation(
   conversationId: string
 ): Promise<void> {
@@ -211,6 +216,59 @@ export async function deleteWorkspaceConversation(
     p_conversation_id: conversationId
   })
   if (error) throw dbError(error, 'Failed to delete the conversation')
+}
+
+// ── Deleted-conversation archives ───────────────────────────────────────────
+// Read-only surface onto workspace_conversation_archives — the permanent
+// backup deleteWorkspaceConversation() always writes, regardless of whether
+// anyone used the "Export chat" button beforehand. Staff-only (owner/admin),
+// enforced server-side.
+
+export interface ConversationArchiveSummary {
+  id:                string
+  client_id:         string
+  client_name:       string | null
+  deleted_by_name:   string | null
+  deleted_at:        string
+  message_count:     number
+  first_message_at:  string | null
+  last_message_at:   string | null
+}
+
+export interface ConversationArchiveMessage {
+  id:               string
+  sender_id:        string | null
+  sender_role:      MessageSenderRole
+  sender_name:      string | null
+  sender_email:     string | null
+  body:             string | null
+  document_id:       string | null
+  document_filename: string | null
+  message_kind:     MessageKind
+  message_tag:      MessageTag
+  created_at:        string
+  raw_hash:          string | null
+  previous_hash:     string | null
+  final_hash:        string | null
+}
+
+export interface ConversationArchiveDetail extends ConversationArchiveSummary {
+  conversation_id: string
+  org_id:          string
+  snapshot:        ConversationArchiveMessage[]
+  created_at:      string
+}
+
+export async function listConversationArchives(orgId: string): Promise<ConversationArchiveSummary[]> {
+  const { data, error } = await db.rpc('list_workspace_conversation_archives', { p_org_id: orgId })
+  if (error) throw dbError(error, 'Failed to load deleted conversations')
+  return (data ?? []) as unknown as ConversationArchiveSummary[]
+}
+
+export async function getConversationArchive(archiveId: string): Promise<ConversationArchiveDetail> {
+  const { data, error } = await db.rpc('get_workspace_conversation_archive', { p_archive_id: archiveId })
+  if (error) throw dbError(error, 'Failed to load this deleted conversation')
+  return data as unknown as ConversationArchiveDetail
 }
 
 // Soft-deletes one message (same hash-chain reasoning as the conversation

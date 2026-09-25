@@ -1071,7 +1071,7 @@ export type Database = {
             foreignKeyName: "checklist_runs_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -4227,7 +4227,7 @@ export type Database = {
             foreignKeyName: "recurring_checklists_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -4831,7 +4831,7 @@ export type Database = {
             foreignKeyName: "time_entries_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -6088,7 +6088,7 @@ export type Database = {
             foreignKeyName: "vendor_bills_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "organizations"
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -6252,6 +6252,83 @@ export type Database = {
             columns: ["w9_document_id"]
             isOneToOne: false
             referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_conversation_archives: {
+        Row: {
+          client_id: string
+          client_name: string | null
+          conversation_id: string
+          created_at: string
+          deleted_at: string
+          deleted_by: string | null
+          deleted_by_name: string | null
+          first_message_at: string | null
+          id: string
+          last_message_at: string | null
+          message_count: number
+          org_id: string
+          snapshot: Json
+        }
+        Insert: {
+          client_id: string
+          client_name?: string | null
+          conversation_id: string
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          first_message_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          message_count: number
+          org_id: string
+          snapshot: Json
+        }
+        Update: {
+          client_id?: string
+          client_name?: string | null
+          conversation_id?: string
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          first_message_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          org_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_conversation_archives_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_conversation_archives_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_conversation_archives_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_conversation_archives_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -7218,6 +7295,15 @@ export type Database = {
         Args: { p_client_id: string; p_propagate?: boolean; p_tx_id: string }
         Returns: number
       }
+      can_act_for_client: {
+        Args: {
+          p_client_id?: string
+          p_org_id: string
+          p_org_roles?: Database["public"]["Enums"]["lp_role"][]
+          p_portal_roles?: Database["public"]["Enums"]["client_portal_role"][]
+        }
+        Returns: boolean
+      }
       cancel_receipt_request: {
         Args: { p_reason?: string; p_request_id: string }
         Returns: Json
@@ -7777,6 +7863,10 @@ export type Database = {
         }[]
       }
       get_w9_request: { Args: { p_token: string }; Returns: Json }
+      get_workspace_conversation_archive: {
+        Args: { p_archive_id: string }
+        Returns: Json
+      }
       get_workspace_inbox: {
         Args: { p_archived?: boolean; p_limit?: number; p_org_id: string }
         Returns: Json
@@ -7794,6 +7884,13 @@ export type Database = {
         Returns: Json
       }
       has_audit_access: { Args: { p_org_id: string }; Returns: boolean }
+      has_client_role: {
+        Args: {
+          p_client_id: string
+          p_roles: Database["public"]["Enums"]["client_portal_role"][]
+        }
+        Returns: boolean
+      }
       has_org_role: {
         Args: {
           p_org_id: string
@@ -7843,6 +7940,10 @@ export type Database = {
           p_org_id: string
           p_status?: Database["public"]["Enums"]["estimate_status"]
         }
+        Returns: Json
+      }
+      list_workspace_conversation_archives: {
+        Args: { p_org_id: string }
         Returns: Json
       }
       log_impersonation: {

@@ -22,6 +22,37 @@ import ChatBrandIcon from './ChatBrandIcon'
 
 type ConvTab = 'chat' | 'summary' | 'files' | 'requests' | 'notes'
 
+// ── Export chat (WhatsApp's own "Export chat" feature, same idea) ─────────
+// A staff member about to permanently delete a conversation (real DELETE,
+// cascades every message -- see delete_workspace_conversation) can grab a
+// plain-text copy first, independent of the server-side archive that
+// delete_workspace_conversation() always writes regardless of whether
+// anyone clicks this. Belongs next to "Delete conversation" in the ⋮ menu,
+// not gated behind it -- exporting a still-live conversation is just as
+// legitimate a use case as exporting one about to be deleted.
+function exportConversationTranscript(conv: WorkspaceConversation, messages: readonly { sender_name: string | null; sender_role: string; created_at: string; body: string | null; document_id: string | null }[]) {
+  const lines = [
+    `LedgiProof chat export — ${conv.client_name}`,
+    `Exported ${new Date().toLocaleString()}`,
+    '',
+    ...messages.map(m => {
+      const who = m.sender_name ?? (m.sender_role === 'bookkeeper' ? 'Firm' : 'Client')
+      const when = new Date(m.created_at).toLocaleString()
+      const body = m.body ?? (m.document_id ? '[attachment]' : '')
+      return `[${when}] ${who}: ${body}`
+    }),
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `chat-${(conv.client_name ?? 'client').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.txt`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 interface Props {
   orgId:     string
   clientId?: string
@@ -902,6 +933,7 @@ export default function WorkspaceChatPanel({
           onViewProfile={() => { if (activeConv) navigate(`/clients/${activeConv.client_id}`) }}
           onMarkUnread={() => { if (activeConv) chat.markUnread(activeConv.id) }}
           onArchiveToggle={() => activeConv && (activeConv.is_archived ? chat.restore(activeConv.id) : chat.archive(activeConv.id))}
+          onExport={() => { if (activeConv) exportConversationTranscript(activeConv, chat.messages) }}
           onDelete={() => {
             if (!activeConv) return
             // WhatsApp/Messenger semantics, not a soft hide: this permanently
@@ -1030,7 +1062,7 @@ export default function WorkspaceChatPanel({
 function ConversationHeader({
   convHeaderLabel, activeConv, isPyme, activeTab, setActiveTab,
   menuOpen, setMenuOpen, menuRef, onBack, onViewProfile, onMarkUnread,
-  onArchiveToggle, onDelete, onCloseMessages
+  onArchiveToggle, onExport, onDelete, onCloseMessages
 }: {
   convHeaderLabel: string
   activeConv:      WorkspaceConversation | undefined
@@ -1044,6 +1076,7 @@ function ConversationHeader({
   onViewProfile:   () => void
   onMarkUnread:    () => void
   onArchiveToggle: () => void
+  onExport:        () => void
   onDelete:        () => void
   onCloseMessages?: () => void
 }) {
@@ -1131,6 +1164,10 @@ function ConversationHeader({
                 <MenuItem
                   label={activeConv.is_archived ? 'Restore conversation' : 'Archive conversation'}
                   onClick={() => { onArchiveToggle(); setMenuOpen(false) }}
+                />
+                <MenuItem
+                  label="Export chat"
+                  onClick={() => { onExport(); setMenuOpen(false) }}
                 />
                 <div style={{ borderTop: '0.5px solid var(--lp-border)', margin: '4px 0' }} />
                 <MenuItem

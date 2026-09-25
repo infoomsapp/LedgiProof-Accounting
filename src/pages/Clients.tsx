@@ -14,7 +14,6 @@ import Modal               from '../components/ui/modal'
 import Button              from '../components/ui/Button'
 import LpAddMenu           from '../components/clients/LpAddMenu'
 import AddClientDialog     from '../components/clients/AddClientDialog'
-import DeletedChatsModal   from '../components/workspace-chat/DeletedChatsModal'
 import Icon                from '../components/ui/Icon'
 import type { Client, LpRole } from '../types/database.types'
 import { ROLE_CONFIG, getAssignableRoles } from '../lib/role-config'
@@ -143,13 +142,6 @@ export default function Clients() {
   // unrelated detour through Invoices just to create a client record, real
   // friction with no equivalent in any competitor onboarding flow.
   const [emptyStateAddOpen, setEmptyStateAddOpen] = useState(false)
-
-  // Read-only browser over every conversation this org's staff has ever
-  // deleted (workspace_conversation_archives) -- the permanent backup
-  // delete_workspace_conversation() always writes before it deletes
-  // anything. Lives here rather than inside the chat panel itself so it
-  // doesn't have to thread through that component's already-large state.
-  const [deletedChatsOpen, setDeletedChatsOpen] = useState(false)
 
   // Invite modal
   const [showInvite,  setShowInvite]  = useState(false)
@@ -439,22 +431,21 @@ export default function Clients() {
           <p className="lp-page-sub">Your clients — billing and portal access, unified · Team members live in <a href="/team" style={{ color: 'var(--lp-accent)' }}>Team</a></p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* Deleted-conversation archive -- staff (owner/admin) only,
-              matching workspace_conversation_archives' own RLS policy. */}
-          {isAdmin && isFirmContext && (
+          {/* "Add client" lives in the header once clients exist (the empty
+              state has its own centered one); same AddClientDialog flow. */}
+          {isFirmContext && (
             <button
-              onClick={() => setDeletedChatsOpen(true)}
-              title="View conversations deleted from this workspace's chat"
+              onClick={() => setEmptyStateAddOpen(true)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: 'transparent', border: '0.5px solid var(--lp-border)',
-                color: 'var(--lp-text-muted)', borderRadius: 8,
-                padding: '7px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                background: 'var(--lp-accent)', border: 'none', color: '#fff',
+                borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.9' }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
             >
-              <Icon name="archive" size={13} /> Deleted chats
+              <span style={{ fontSize: 14 }}>+</span> Add client
             </button>
           )}
           {/* 🆕 P4 — LP Add menu (Add Client / Estimate / Import Data) */}
@@ -1143,12 +1134,6 @@ export default function Clients() {
           setEmptyStateAddOpen(false)
           load()
         }}
-      />
-
-      <DeletedChatsModal
-        open={deletedChatsOpen}
-        onClose={() => setDeletedChatsOpen(false)}
-        orgId={orgId}
       />
     </div>
   )

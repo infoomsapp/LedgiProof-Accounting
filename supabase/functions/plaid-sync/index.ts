@@ -106,6 +106,36 @@ function evaluateTransaction(tx: {
   return { score, semaphore, reason, requiresReview }
 }
 
+// Length-independent string compare, so checking the service key does not leak
+// how many leading characters matched.
+function constantTimeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder()
+  const x = enc.encode(a)
+  const y = enc.encode(b)
+  let diff = x.length ^ y.length
+  const n = Math.max(x.length, y.length)
+  for (let i = 0; i < n; i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0)
+  return diff === 0
+}
+
+// ── Hashing (mirrors create-transaction / src/lib/hash.ts) ────────────────────
+// transactions.raw_hash is NOT NULL and part of the unique key
+// (org_id, raw_hash), and nothing in the database fills it in. This function
+// used to insert bank rows without it, so every sync failed at the insert and
+// no bank transaction was ever saved. The recipe (and the key ORDER inside the
+// JSON, which changes the hash) is exactly create-transaction's buildRawHash.
+async function sha256Text(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input ?? ''))
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('')
+}
+
+function buildRawHash(p: {
+  orgId: string; amount: number; currency: string; reference: string | null
+  transactionDate: string; source: string
+}): Promise<string> {
+  return sha256Text(JSON.stringify(p))
+}
+
 Deno.serve(async (req) => {
   const cors = getCorsHeaders(req)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -124,9 +154,24 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    const { data: { user }, error: authErr } = await supabaseUser.auth.getUser()
-    if (authErr || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401, headers: cors })
+    // ── Internal call from plaid-webhook ─────────────────────────────────────
+    // When Plaid tells us new transactions are available there is no logged-in
+    // user, so plaid-webhook calls this function with the service-role key as
+    // the bearer token. That key is a secret only server code holds, so an
+    // exact match proves the call is ours. Everything below the auth block is
+    // unchanged; an internal call skips only the user lookup and the
+    // membership check (there is no user), and stamps each new transaction
+    // with the user who connected the bank instead of a caller.
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const isInternal = constantTimeEqual(authHeader, `Bearer ${serviceKey}`)
+
+    let callerId: string | null = null
+    if (!isInternal) {
+      const { data: { user }, error: authErr } = await supabaseUser.auth.getUser()
+      if (authErr || !user) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401, headers: cors })
+      }
+      callerId = user.id
     }
 
     const { org_id, connection_id, client_id: body_client_id } = await req.json() as {
@@ -138,16 +183,18 @@ Deno.serve(async (req) => {
     }
 
     // ── Verify caller belongs to this org (service-role client below has no RLS) ──
-    const { data: membership } = await supabaseUser
-      .from('organization_memberships')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('org_id', org_id)
-      .eq('is_active', true)
-      .single()
+    if (!isInternal) {
+      const { data: membership } = await supabaseUser
+        .from('organization_memberships')
+        .select('id')
+        .eq('user_id', callerId!)
+        .eq('org_id', org_id)
+        .eq('is_active', true)
+        .single()
 
-    if (!membership) {
-      return Response.json({ error: 'Not a member of this organization' }, { status: 403, headers: cors })
+      if (!membership) {
+        return Response.json({ error: 'Not a member of this organization' }, { status: 403, headers: cors })
+      }
     }
 
     // ── Verify body_client_id (if supplied) actually belongs to this org ──
@@ -274,7 +321,18 @@ Deno.serve(async (req) => {
         }
 
         if (added.length > 0) {
-          const txInserts = added.map((plaidTx: any) => {
+          // Chain continuity, same as create-transaction: the last audit hash
+          // this organization recorded.
+          const { data: lastAudit } = await supabaseAdmin
+            .from('audit_events')
+            .select('entry_hash')
+            .eq('org_id', org_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          const previousHash = lastAudit?.entry_hash ?? null
+
+          const txInserts = await Promise.all(added.map(async (plaidTx: any) => {
             const amount   = -plaidTx.amount
             const category = plaidTx.personal_finance_category?.primary ?? null
             const brain    = evaluateTransaction({ amount, name: plaidTx.name,
@@ -292,8 +350,16 @@ Deno.serve(async (req) => {
               acctTypeById.get(plaidTx.account_id) ?? conn.account_type
             )
 
+            const currency = plaidTx.iso_currency_code ?? 'USD'
+            const rawHash = await buildRawHash({
+              orgId: org_id, amount, currency,
+              reference: plaidTx.transaction_id, transactionDate: plaidTx.date, source: 'bank_api'
+            })
+
             return {
               org_id,
+              raw_hash:         rawHash,
+              previous_hash:    previousHash,
               // 🆕 Sprint 5: client scope.
               //   1st choice: explicit client_id from the request body
               //   2nd choice: client_id bound to the bank_connection (set at connect time)
@@ -301,7 +367,7 @@ Deno.serve(async (req) => {
               client_id:        body_client_id ?? conn.client_id ?? null,
               source:           'bank_api',
               amount,
-              currency:         plaidTx.iso_currency_code ?? 'USD',
+              currency,
               reference:        plaidTx.transaction_id,
               description:      plaidTx.name,
               transaction_date: plaidTx.date,
@@ -317,7 +383,7 @@ Deno.serve(async (req) => {
                 : null,
               version:          1,
               is_current:       true,
-              created_by:       user.id,
+              created_by:       callerId ?? conn.connected_by,
               metadata: {
                 plaid_transaction_id: plaidTx.transaction_id,
                 plaid_category:       category,
@@ -329,11 +395,17 @@ Deno.serve(async (req) => {
                 suggested_credit_account_id: creditAccountId
               }
             }
-          })
+          }))
 
+          // The unique key is (org_id, raw_hash) -- there is no unique index on
+          // (org_id, reference), so the old onConflict target made Postgres
+          // reject the whole statement (42P10). ignoreDuplicates makes a row
+          // Plaid re-sends a no-op instead of overwriting a review someone
+          // already did; .select() then returns only the rows that are NEW,
+          // which is exactly what the journal step below should post.
           const { data: inserted, error: txErr } = await supabaseAdmin
             .from('transactions')
-            .upsert(txInserts, { onConflict: 'org_id,reference' })
+            .upsert(txInserts, { onConflict: 'org_id,raw_hash', ignoreDuplicates: true })
             // 🐛 Fixed: previously omitted `amount` here, which broke the
             // auto-post-journal-entries step below (see file header).
             .select('id, amount, metadata, confidence_score, semaphore')

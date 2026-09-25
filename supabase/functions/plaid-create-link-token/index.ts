@@ -126,7 +126,10 @@ Deno.serve(async (req) => {
         user:        { client_user_id: user.id },
         products:    ['transactions'],
         country_codes: ['US'],
-        language:    'en'
+        language:    'en',
+        // Plaid calls this when new transactions are ready, so they appear
+        // without anyone pressing Sync (plaid-webhook verifies the signature).
+        webhook:     `${SUPABASE_URL}/functions/v1/plaid-webhook`
       })
     })
 

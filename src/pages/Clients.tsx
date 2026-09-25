@@ -16,7 +16,6 @@ import LpAddMenu           from '../components/clients/LpAddMenu'
 import Icon                from '../components/ui/Icon'
 import type { Client, LpRole } from '../types/database.types'
 import { ROLE_CONFIG, getAssignableRoles } from '../lib/role-config'
-import { formatDate } from '../lib/dates'
 
 // 🆕 A2: Client portal invitations (separate flow from team invitations)
 import {
@@ -48,8 +47,6 @@ interface Invitation {
   expires_at: string
   created_at: string
 }
-
-type Tab = 'clients' | 'client_invites'
 
 function RoleBadge({ role }: { role: LpRole }) {
   const c = ROLE_CONFIG[role]
@@ -124,10 +121,15 @@ export default function Clients() {
   // Empty = "Invite member" button is hidden.
   const assignableRoles = getAssignableRoles({ workspaceRole })
 
-  const [tab,         setTab]         = useState<Tab>('clients')
   const [listError,   setListError]   = useState<string | null>(null)
   const [members,     setMembers]     = useState<Member[]>([])
   const [clients,     setClients]     = useState<Client[]>([])
+  // Real gap fixed: the only place portal access ever showed up was the
+  // "Client portal invites" tab -- filtered to status='pending', so the
+  // moment a client actually accepted, they vanished from every screen on
+  // the web. The relationship (client_portal_users) was always fine; there
+  // was just nowhere to see it. Client ids with at least one active member.
+  const [portalActiveClientIds, setPortalActiveClientIds] = useState<Set<string>>(new Set())
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading,     setLoading]     = useState(true)
 
@@ -197,6 +199,20 @@ export default function Clients() {
     } catch (e) {
       console.warn('[Clients] Could not load client portal invitations:', e)
       setClientInvites([])
+    }
+
+    // Who currently has ACCEPTED portal access, independent of invitation
+    // status -- see the state comment above.
+    try {
+      const { data: cpUsers } = await db
+        .from('client_portal_users')
+        .select('client_id')
+        .eq('org_id', orgId)
+        .eq('is_active', true)
+      setPortalActiveClientIds(new Set((cpUsers ?? []).map(r => r.client_id as string)))
+    } catch (e) {
+      console.warn('[Clients] Could not load active portal clients:', e)
+      setPortalActiveClientIds(new Set())
     }
 
     setLoading(false)
@@ -402,7 +418,7 @@ export default function Clients() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 className="lp-page-title">Clients</h1>
-          <p className="lp-page-sub">Your billing clients and portal invitations · Team members live in <a href="/team" style={{ color: 'var(--lp-accent)' }}>Team</a></p>
+          <p className="lp-page-sub">Your clients — billing and portal access, unified · Team members live in <a href="/team" style={{ color: 'var(--lp-accent)' }}>Team</a></p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {/* 🆕 P4 — LP Add menu (Add Client / Estimate / Import Data) */}
@@ -468,24 +484,25 @@ export default function Clients() {
         )
       })()}
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '0.5px solid var(--lp-border)' }}>
-        {([
-          ['clients',        `Billing clients (${clients.length})`],
-          ['client_invites', `Client portal invites (${clientInvites.length})`]
-        ] as [Tab, string][]).map(([t, label]) => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: '8px 16px', background: 'none', border: 'none',
-            cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-            color: tab === t ? 'var(--lp-text)' : 'var(--lp-text-muted)',
-            fontWeight: tab === t ? 500 : 400,
-            borderBottom: `2px solid ${tab === t ? 'var(--lp-accent)' : 'transparent'}`,
-            marginBottom: -1, transition: 'all 0.12s'
-          }}>
-            {label}
+      {/* Unified client record (no more "billing clients" vs "portal
+          invites" as two separate places) -- every client is one row here,
+          with its portal status (none / pending / active) shown and acted
+          on inline. cpNotice still surfaces resend/revoke feedback, same as
+          it did inside the old tab. */}
+      {cpNotice && (
+        <div className={`lp-banner ${cpNotice.type}`}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 12.5, wordBreak: 'break-word' }}>{cpNotice.text}</span>
+          <button
+            onClick={() => setCpNotice(null)}
+            style={{ fontSize: 12, padding: '2px 8px', borderRadius: 6, cursor: 'pointer',
+              background: 'none', border: '0.5px solid var(--lp-border)',
+              color: 'var(--lp-text-muted)', fontFamily: 'inherit', marginLeft: 'auto', flexShrink: 0 }}
+          >
+            Dismiss
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       {listError && (
         <div className="lp-banner error"
@@ -506,12 +523,11 @@ export default function Clients() {
         <div style={{ fontSize: 13, color: 'var(--lp-text-muted)' }}>Loading…</div>
       ) : (
         <>
-          {/* ── Billing clients tab ──────────────────────────────────────── */}
-          {tab === 'clients' && (
+          {(
             clients.length === 0 ? (
               <div className="lp-card" style={{ textAlign: 'center', padding: '40px 24px' }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🧑‍💼</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>No billing clients yet</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>No clients yet</div>
                 <div style={{ fontSize: 13, color: 'var(--lp-text-muted)' }}>
                   Clients are created when you create an invoice. Go to Invoices → New invoice → New client.
                 </div>
@@ -530,7 +546,36 @@ export default function Clients() {
                     {clients.map(c => (
                       <tr key={c.id}>
                         <td style={{ fontSize: 13, color: 'var(--lp-text)', fontWeight: 500 }}>
-                          {c.display_name}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {c.display_name}
+                            {portalActiveClientIds.has(c.id) ? (
+                              <span
+                                title="This client has active portal access"
+                                style={{
+                                  fontSize: 9.5, fontWeight: 700, padding: '1px 6px',
+                                  borderRadius: 100, color: 'var(--sem-green)',
+                                  background: 'var(--sem-green-bg)',
+                                  border: '0.5px solid var(--sem-green)',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                Portal
+                              </span>
+                            ) : clientInvites.some(inv => inv.client_id === c.id && inv.status === 'pending') && (
+                              <span
+                                title="Portal invite sent, not yet accepted"
+                                style={{
+                                  fontSize: 9.5, fontWeight: 700, padding: '1px 6px',
+                                  borderRadius: 100, color: 'var(--sem-amber)',
+                                  background: 'var(--sem-amber-bg)',
+                                  border: '0.5px solid var(--sem-amber)',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                Pending
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td style={{ fontSize: 12.5, color: 'var(--lp-text-muted)' }}>
                           {c.company_name ?? '—'}
@@ -619,28 +664,69 @@ export default function Clients() {
                                 💬 Chat
                               </button>
 
-                              {/* Invite to portal — scoped to THIS client directly, see
-                                  openInviteFor's comment for why this replaced the old
-                                  generic top-level button + dropdown. */}
-                              <button
-                                onClick={() => openInviteFor(c)}
-                                title="Invite this client to their portal"
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                                  background:   'transparent',
-                                  border:       '0.5px solid var(--lp-border)',
-                                  color:        'var(--lp-accent)',
-                                  borderRadius: 6,
-                                  padding:      '3px 9px',
-                                  fontSize:     11,
-                                  cursor:       'pointer',
-                                  fontFamily:   'inherit'
-                                }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                              >
-                                <Icon name="send" size={11} /> Invite
-                              </button>
+                              {/* Portal status, unified into this same row instead of a
+                                  separate tab: active clients need no action here (the
+                                  "Portal" badge by their name already says so); a pending
+                                  invite gets Resend/Revoke right where it was created;
+                                  no invite yet still gets the original one-click Invite. */}
+                              {portalActiveClientIds.has(c.id) ? null : (() => {
+                                const pending = clientInvites.find(
+                                  inv => inv.client_id === c.id && inv.status === 'pending'
+                                )
+                                if (pending) {
+                                  return (
+                                    <>
+                                      <button
+                                        onClick={() => resendCpInvitation(pending)}
+                                        disabled={resendingId === pending.id}
+                                        title="Resend the pending portal invite"
+                                        style={{
+                                          background: 'var(--sem-blue-bg)', border: '0.5px solid rgba(59,130,246,0.25)',
+                                          color: 'var(--lp-accent)', borderRadius: 6, padding: '3px 9px',
+                                          fontSize: 11, cursor: resendingId === pending.id ? 'default' : 'pointer',
+                                          fontFamily: 'inherit', opacity: resendingId === pending.id ? 0.6 : 1
+                                        }}
+                                      >
+                                        {resendingId === pending.id ? 'Sending…' : 'Resend invite'}
+                                      </button>
+                                      <button
+                                        onClick={() => revokeCpInvitation(pending.id)}
+                                        title="Revoke the pending portal invite"
+                                        style={{
+                                          background: 'transparent', border: '0.5px solid var(--lp-border)',
+                                          color: 'var(--sem-red)', borderRadius: 6, padding: '3px 9px',
+                                          fontSize: 11, cursor: 'pointer', fontFamily: 'inherit'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--sem-red-bg)' }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                                      >
+                                        Revoke
+                                      </button>
+                                    </>
+                                  )
+                                }
+                                return (
+                                  <button
+                                    onClick={() => openInviteFor(c)}
+                                    title="Invite this client to their portal"
+                                    style={{
+                                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                                      background:   'transparent',
+                                      border:       '0.5px solid var(--lp-border)',
+                                      color:        'var(--lp-accent)',
+                                      borderRadius: 6,
+                                      padding:      '3px 9px',
+                                      fontSize:     11,
+                                      cursor:       'pointer',
+                                      fontFamily:   'inherit'
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                                  >
+                                    <Icon name="send" size={11} /> Invite
+                                  </button>
+                                )
+                              })()}
 
                               {/* 🆕 P4 Fase 2.A — Edit button → dedicated page */}
                               <button
@@ -698,113 +784,6 @@ export default function Clients() {
             )
           )}
 
-          {/* ── 🆕 A2: Client portal invites tab ──────────────────────────── */}
-          {tab === 'client_invites' && cpNotice && (
-            <div className={`lp-banner ${cpNotice.type}`}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 12.5, wordBreak: 'break-word' }}>{cpNotice.text}</span>
-              <button
-                onClick={() => setCpNotice(null)}
-                style={{ fontSize: 12, padding: '2px 8px', borderRadius: 6, cursor: 'pointer',
-                  background: 'none', border: '0.5px solid var(--lp-border)',
-                  color: 'var(--lp-text-muted)', fontFamily: 'inherit', marginLeft: 'auto', flexShrink: 0 }}
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
-          {tab === 'client_invites' && (
-            clientInvites.length === 0 ? (
-              <div className="lp-card" style={{ textAlign: 'center', padding: '40px 24px' }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>🔗</div>
-                <div style={{ fontSize: 13, color: 'var(--lp-text-muted)', marginBottom: 6 }}>
-                  No pending client portal invites
-                </div>
-                <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', opacity: 0.7 }}>
-                  Invite your clients to their portal to share documents and respond to queries.
-                </div>
-              </div>
-            ) : (
-              <div className="lp-table-wrap">
-                <table className="lp-table">
-                  <thead>
-                    <tr>
-                      {['Client', 'Email', 'Role', 'Status', 'Expires', ...(isAdmin ? ['Actions'] : [])].map(h => (
-                        <th key={h}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clientInvites.map(inv => {
-                      const cfg = CLIENT_PORTAL_ROLE_CONFIG[inv.role]
-                      return (
-                        <tr key={inv.id}>
-                          <td style={{ fontSize: 13, color: 'var(--lp-text)' }}>
-                            {inv.clients?.display_name
-                              ?? inv.clients?.company_name
-                              ?? '—'}
-                          </td>
-                          <td style={{ fontSize: 12.5, color: 'var(--lp-text-muted)' }}>{inv.email}</td>
-                          <td>
-                            <span style={{
-                              fontSize: 11, padding: '2px 8px', borderRadius: 100, fontWeight: 500,
-                              color: cfg.color, background: cfg.bg,
-                              border: `0.5px solid ${cfg.color}30`
-                            }}>
-                              {cfg.label}
-                            </span>
-                          </td>
-                          <td>
-                            <span style={{
-                              fontSize: 11, padding: '2px 8px', borderRadius: 100,
-                              color: 'var(--lp-accent)', background: 'var(--sem-blue-bg)',
-                              border: '0.5px solid rgba(59,130,246,0.25)'
-                            }}>
-                              {inv.status}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: 12, color: 'var(--lp-text-muted)' }}>
-                            {formatDate(inv.expires_at)}
-                          </td>
-                          {isAdmin && (
-                            <td>
-                              <div style={{ display: 'flex', gap: 6 }}>
-                                {inv.status === 'pending' && (
-                                  <button
-                                    onClick={() => resendCpInvitation(inv)}
-                                    disabled={resendingId === inv.id}
-                                    style={{
-                                      background: 'var(--sem-blue-bg)', border: '0.5px solid rgba(59,130,246,0.25)',
-                                      color: 'var(--lp-accent)', borderRadius: 6, padding: '3px 8px',
-                                      fontSize: 11, cursor: resendingId === inv.id ? 'default' : 'pointer',
-                                      fontFamily: 'inherit', opacity: resendingId === inv.id ? 0.6 : 1
-                                    }}
-                                  >
-                                    {resendingId === inv.id ? 'Sending…' : 'Resend'}
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => revokeCpInvitation(inv.id)}
-                                  style={{
-                                    background: 'var(--sem-red-bg)', border: '0.5px solid rgba(239,68,68,0.25)',
-                                    color: 'var(--sem-red)', borderRadius: 6, padding: '3px 8px',
-                                    fontSize: 11, cursor: 'pointer', fontFamily: 'inherit'
-                                  }}
-                                >
-                                  Revoke
-                                </button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )
-          )}
         </>
       )}
 
@@ -986,8 +965,7 @@ export default function Clients() {
                     No clients in your workspace yet
                   </div>
                   <div style={{ color: 'var(--lp-border-2)', fontSize: 11.5 }}>
-                    Create a client first from the <strong>Billing clients</strong> tab,
-                    then come back here to invite them to the portal.
+                    Add a client first, then come back here to invite them to the portal.
                   </div>
                 </div>
               ) : (

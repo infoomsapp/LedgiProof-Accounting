@@ -70,17 +70,15 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
   // The client is already in the DB; user can retry the template from CoA page.
   const [partialWarning, setPartialWarning] = useState<{ clientId: string; message: string } | null>(null)
 
-  // Matches QuickBooks Online Accountant's actual "Add Client" behavior --
-  // researched again per the user's own correction: QuickBooks doesn't ask
-  // "invite to portal, yes/no?" as a separate decision, it just sends the
-  // invite as part of adding the client whenever there's an email to send
-  // it to. The earlier checkbox (unchecked by default) was still a second
-  // decision standing between "add client" and "they're in" -- this removes
-  // it: an email means an invite goes out, full stop. A client the firm
-  // manages with no portal login just gets added with the email field left
-  // blank (there's nothing to invite without an address anyway). Portal
-  // ROLE stays a visible field (not hidden), since access LEVEL is a real
-  // choice QuickBooks itself also asks -- only the yes/no gate is gone.
+  // Unified client record (QuickBooks/Xero's own direction, researched
+  // again per the user's request to close this gap): email is now REQUIRED
+  // at creation, not optional -- there is no longer a "billing client" and
+  // a separate "portal client" concept, one record covers both, and every
+  // client inside the app is reachable by email. The exception is the
+  // public invoice link (/i/:token) -- a one-off recipient who never logs
+  // in and isn't a client record at all, so this requirement never touches
+  // that flow. With email always present, an invite always goes out --
+  // full stop, no yes/no left to ask.
   const inviteToPortal = email.trim().length > 0
   const [portalRole, setPortalRole] = useState<ClientPortalRole>('client_contact')
   const [inviteWarning, setInviteWarning] = useState<string | null>(null)
@@ -110,6 +108,14 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
   async function handleSubmit() {
     if (!displayName.trim()) {
       setError('Client name is required')
+      return
+    }
+    if (!email.trim()) {
+      setError('Client email is required — this is how they get portal access.')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Enter a valid email address.')
       return
     }
     if (!profile?.id) {
@@ -198,7 +204,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
           if (!emailResult.sent) {
             setInviteWarning(
               `Client created, but the portal invitation email couldn't be sent (${emailResult.error ?? 'unknown error'}). ` +
-              `You can resend it from the Client Invites tab.`
+              `You can resend it from this client's row on the Clients page.`
             )
             onCreated?.(c.id)
             setSaving(false)
@@ -207,7 +213,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
         } catch (inviteErr: any) {
           setInviteWarning(
             `Client created, but the portal invitation failed: ${toSafeMessage(inviteErr, 'unknown error')}. ` +
-            `You can send it from the Client Invites tab.`
+            `You can send it from this client's row on the Clients page.`
           )
           onCreated?.(c.id)
           setSaving(false)
@@ -247,7 +253,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
           <Button
             variant="primary"
             loading={saving}
-            disabled={saving || displayName.trim().length === 0}
+            disabled={saving || displayName.trim().length === 0 || email.trim().length === 0}
             onClick={handleSubmit}
           >
             {templateId && inviteToPortal ? 'Create client + apply template + invite'
@@ -285,17 +291,18 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
 
       {/* Email + phone row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="Email">
+        <Field label="Email" required>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="billing@acme.com"
             className="lp-input"
+            required
             style={{ width: '100%' }}
           />
           <div style={{ fontSize: 10.5, color: 'var(--lp-text-muted)', marginTop: 4 }}>
-            Sends a client portal login invite. Leave blank for bookkeeper-managed-only clients.
+            Sends a client portal login invite — every client in LedgiProof is reachable by email.
           </div>
         </Field>
         <Field label="Phone">

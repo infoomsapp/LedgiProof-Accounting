@@ -100,6 +100,17 @@ export default function EditClientPage() {
       setError('Client name is required')
       return
     }
+    // Unified client record: email is how every client in the app is
+    // reachable, so it can't be blanked out here either -- see
+    // AddClientDialog.tsx for the matching requirement at creation.
+    if (!email.trim()) {
+      setError('Client email is required — this is how they get portal access.')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Enter a valid email address.')
+      return
+    }
     setError(null)
     setSaving(true)
     try {
@@ -252,7 +263,7 @@ export default function EditClientPage() {
         </Field>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Email">
+          <Field label="Email" required>
             <input
               type="email"
               value={email}

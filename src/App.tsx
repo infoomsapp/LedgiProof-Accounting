@@ -22,74 +22,80 @@ import { useImpersonationStore } from './store/impersonation.store'
 import { useSessionRevocationGuard } from './hooks/useSessionRevocationGuard'
 import i18n from './i18n'
 
+// Eager on purpose: the app shells, route guards, and the landing / login /
+// MFA screens — the first paint for logged-out visitors and the sign-in flow.
+// Every other page is its own on-demand chunk via lazyPage() (see
+// lib/lazy-page.tsx), so first load no longer downloads the whole app.
 import AppShell from './components/layout/AppShell'
 import LandingPage from './pages/LandingPage'
-import Pricing from './pages/Pricing'
 import Login from './pages/Login'
-import SignUp from './pages/SignUp'
 import MfaVerify from './pages/MfaVerify'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword  from './pages/ResetPassword'
-import AcceptInvite from './pages/AcceptInvite'
-import AcceptClientPortalInvite from './pages/AcceptClientPortalInvite'
-import StaffActivatePage from './pages/StaffActivatePage'
-import ClientPortalActivatePage from './pages/ClientPortalActivatePage'
-import OnboardingWizard from './pages/OnboardingWizard'
-import Dashboard from './pages/Dashboard'
-import Transactions from './pages/Transactions'
-import Reconciliation from './pages/Reconciliation'
-import Invoices from './pages/Invoices'
-import Estimates from './pages/Estimates'
-import EstimateEdit from './pages/EstimateEdit'
-import EstimatePublic from './pages/EstimatePublic'
-import W9Public from './pages/W9Public'
-import InvoicePublic from './pages/InvoicePublic'
-import Clients from './pages/Clients'
-import Notes from './pages/Notes'
-import Vendors from './pages/Vendors'
-import Worksheet1099 from './pages/Worksheet1099'
-import EditClientPage from './pages/EditClientPage'
-import PymeClients from './pages/pyme/PymeClients'
-import Team from './pages/Team'
-import ImportData from './pages/ImportData'
-import ImportChartOfAccounts from './pages/import/ImportChartOfAccounts'
-import ImportCustomers from './pages/import/ImportCustomers'
-import ImportOpeningBalances from './pages/import/ImportOpeningBalances'
-import ImportBankTransactions from './pages/import/ImportBankTransactions'
-import BankImports from './pages/BankImports'
-import ChartOfAccounts from './pages/ChartOfAccounts'
-import Payroll from './pages/Payroll'
-import Time from './pages/Time'
-import Checklists from './pages/Checklists'
-import Reports from './pages/Reports'
-import FirmReportsSummary from './pages/FirmReportsSummary'
-import Settings from './pages/Settings'
-import BillingSuccess from './pages/BillingSuccess'
-import JournalEntries from './pages/JournalEntries'
-import PeriodControls from './pages/PeriodControls'
+import { lazyPage } from './lib/lazy-page'
+
+const Pricing                 = lazyPage(() => import('./pages/Pricing'))
+const SignUp                  = lazyPage(() => import('./pages/SignUp'))
+const ForgotPassword          = lazyPage(() => import('./pages/ForgotPassword'))
+const ResetPassword           = lazyPage(() => import('./pages/ResetPassword'))
+const AcceptInvite            = lazyPage(() => import('./pages/AcceptInvite'))
+const AcceptClientPortalInvite = lazyPage(() => import('./pages/AcceptClientPortalInvite'))
+const StaffActivatePage       = lazyPage(() => import('./pages/StaffActivatePage'))
+const ClientPortalActivatePage = lazyPage(() => import('./pages/ClientPortalActivatePage'))
+const OnboardingWizard        = lazyPage(() => import('./pages/OnboardingWizard'))
+const Dashboard               = lazyPage(() => import('./pages/Dashboard'))
+const Transactions            = lazyPage(() => import('./pages/Transactions'))
+const Reconciliation          = lazyPage(() => import('./pages/Reconciliation'))
+const Invoices                = lazyPage(() => import('./pages/Invoices'))
+const Estimates               = lazyPage(() => import('./pages/Estimates'))
+const EstimateEdit            = lazyPage(() => import('./pages/EstimateEdit'))
+const EstimatePublic          = lazyPage(() => import('./pages/EstimatePublic'))
+const W9Public                = lazyPage(() => import('./pages/W9Public'))
+const InvoicePublic           = lazyPage(() => import('./pages/InvoicePublic'))
+const Clients                 = lazyPage(() => import('./pages/Clients'))
+const Notes                   = lazyPage(() => import('./pages/Notes'))
+const Vendors                 = lazyPage(() => import('./pages/Vendors'))
+const Worksheet1099           = lazyPage(() => import('./pages/Worksheet1099'))
+const EditClientPage          = lazyPage(() => import('./pages/EditClientPage'))
+const PymeClients             = lazyPage(() => import('./pages/pyme/PymeClients'))
+const Team                    = lazyPage(() => import('./pages/Team'))
+const ImportData              = lazyPage(() => import('./pages/ImportData'))
+const ImportChartOfAccounts   = lazyPage(() => import('./pages/import/ImportChartOfAccounts'))
+const ImportCustomers         = lazyPage(() => import('./pages/import/ImportCustomers'))
+const ImportOpeningBalances   = lazyPage(() => import('./pages/import/ImportOpeningBalances'))
+const ImportBankTransactions  = lazyPage(() => import('./pages/import/ImportBankTransactions'))
+const BankImports             = lazyPage(() => import('./pages/BankImports'))
+const ChartOfAccounts         = lazyPage(() => import('./pages/ChartOfAccounts'))
+const Payroll                 = lazyPage(() => import('./pages/Payroll'))
+const Time                    = lazyPage(() => import('./pages/Time'))
+const Checklists              = lazyPage(() => import('./pages/Checklists'))
+const Reports                 = lazyPage(() => import('./pages/Reports'))
+const FirmReportsSummary      = lazyPage(() => import('./pages/FirmReportsSummary'))
+const Settings                = lazyPage(() => import('./pages/Settings'))
+const BillingSuccess          = lazyPage(() => import('./pages/BillingSuccess'))
+const JournalEntries          = lazyPage(() => import('./pages/JournalEntries'))
+const PeriodControls          = lazyPage(() => import('./pages/PeriodControls'))
 
 // Legal pages (public, standalone layout — reachable logged-in or out).
 // Canonical paths match the cross-links inside LegalPageLayout.
-import PrivacyPolicyPage    from './pages/legal/PrivacyPolicyPage'
-import TermsOfServicePage   from './pages/legal/TermsOfServicePage'
-import DPAPage              from './pages/legal/DPAPage'
-import CookiesPolicyPage    from './pages/legal/CookiesPolicyPage'
-import PlaidDisclosurePage  from './pages/legal/PlaidDisclosurePage'
+const PrivacyPolicyPage       = lazyPage(() => import('./pages/legal/PrivacyPolicyPage'))
+const TermsOfServicePage      = lazyPage(() => import('./pages/legal/TermsOfServicePage'))
+const DPAPage                 = lazyPage(() => import('./pages/legal/DPAPage'))
+const CookiesPolicyPage       = lazyPage(() => import('./pages/legal/CookiesPolicyPage'))
+const PlaidDisclosurePage     = lazyPage(() => import('./pages/legal/PlaidDisclosurePage'))
 
 // (Messages and ClientMessages replaced by GlobalChatBubble + MessagesRedirect)
 
 // 🆕 A3.2 (D2): Client portal shell + pages (were never connected to App.tsx)
 import ClientPortalShell    from './components/layout/ClientPortalShell'
 import PortalShell          from './components/layout/PortalShell'
-import PortalOverview       from './pages/portal/PortalOverview'
-import PortalDocuments      from './pages/portal/PortalDocuments'
-import PortalInvoices       from './pages/portal/PortalInvoices'
-import ClientDashboard       from './pages/client/ClientDashboard'
-import ClientConnectBank     from './pages/client/ClientConnectBank'
-import ClientTransactions    from './pages/client/ClientTransactions'
-import ClientInvoices        from './pages/client/ClientInvoices'
-import ClientAccountSettings from './pages/client/ClientAccountSettings'
-import SuperAdmin from './components/admin/SuperAdmin'
+const PortalOverview        = lazyPage(() => import('./pages/portal/PortalOverview'))
+const PortalDocuments       = lazyPage(() => import('./pages/portal/PortalDocuments'))
+const PortalInvoices        = lazyPage(() => import('./pages/portal/PortalInvoices'))
+const ClientDashboard       = lazyPage(() => import('./pages/client/ClientDashboard'))
+const ClientConnectBank     = lazyPage(() => import('./pages/client/ClientConnectBank'))
+const ClientTransactions    = lazyPage(() => import('./pages/client/ClientTransactions'))
+const ClientInvoices        = lazyPage(() => import('./pages/client/ClientInvoices'))
+const ClientAccountSettings = lazyPage(() => import('./pages/client/ClientAccountSettings'))
+const SuperAdmin            = lazyPage(() => import('./components/admin/SuperAdmin'))
 import SemaphoreSpinner from './components/ui/SemaphoreSpinner'
 import DropZone from './components/upload/DropZone'
 import ErrorBoundary from './components/error/ErrorBoundary'
@@ -99,8 +105,8 @@ import Unauthorized from './pages/Unauthorized'
 // 🆕 Client Switcher Sprint 2 — Foundation + Routing
 import FirmRouteRedirect       from './components/auth/FirmRouteRedirect'
 import ClientContextRoute      from './components/layout/ClientContextRoute'
-import ClientWorkspaceOverview from './pages/ClientWorkspaceOverview'
-import ClientDocuments from './pages/ClientDocuments'
+const ClientWorkspaceOverview = lazyPage(() => import('./pages/ClientWorkspaceOverview'))
+const ClientDocuments         = lazyPage(() => import('./pages/ClientDocuments'))
 
 // ── Spinner (branded — 4 semaphore colors) ────────────────────────────────
 // Thin wrapper kept for backward compatibility with existing call sites.
@@ -186,6 +192,22 @@ export default function App() {
       try { localStorage.setItem('lp-locale', profile.locale) } catch { /* best-effort mirror only */ }
     }
   }, [profile?.locale])
+
+  // 2a. Once signed in, warm the chunks of the pages people open most while
+  // the browser is idle — the first click on them then resolves instantly
+  // instead of waiting on a network round trip (see lib/lazy-page.tsx).
+  useEffect(() => {
+    if (!session?.user?.id) return
+    const warm = () => [Transactions, Invoices, Clients, Reports, Settings, Estimates]
+      .forEach(page => page.preload())
+    const ric = (window as any).requestIdleCallback as ((cb: () => void, o?: { timeout: number }) => number) | undefined
+    if (ric) {
+      const id = ric(warm, { timeout: 4000 })
+      return () => (window as any).cancelIdleCallback?.(id)
+    }
+    const t = setTimeout(warm, 2000)
+    return () => clearTimeout(t)
+  }, [session?.user?.id])
 
   // 2b. Load client-portal memberships in parallel — a person invited to a
   // firm's client portal has zero organization_memberships rows by design

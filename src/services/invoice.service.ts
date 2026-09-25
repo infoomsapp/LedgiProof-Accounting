@@ -4,6 +4,7 @@ import type {
   Client, Invoice, InvoiceItem, InvoicePayment, InvoiceStatus, Database
 } from '../types/database.types'
 import { dbError } from '../lib/errors'
+import { snapshotFxRate } from './exchange-rate.service'
 
 type ClientInsert = Database['public']['Tables']['clients']['Insert']
 
@@ -233,7 +234,6 @@ export async function createInvoice(input: {
   // `as any` cast removed once `supabase gen types typescript` includes fx_rate_at_creation.
   let fxRateAtCreation: number | null = null
   if (currency !== 'USD') {
-    const { snapshotFxRate } = await import('./exchange-rate.service')
     fxRateAtCreation = await snapshotFxRate(currency)
   }
 

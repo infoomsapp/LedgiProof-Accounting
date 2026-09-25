@@ -1,8 +1,9 @@
 /* PATH: src/styles/globals.css */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* (Tailwind was removed 2026-09-24: no postcss config ever existed, so the
+   @tailwind directives were never compiled and no Tailwind utility class is
+   used anywhere. Styling is the lp- and web- prefixed classes below plus
+   inline styles.) */
 
 /* ── 🆕 DESIGN SYSTEM TOKENS (CSS Sprint Mensaje 3 - Light Theme Default) ── */
 :root {
@@ -256,8 +257,8 @@ input, textarea, select, option, button, a, p, span, td, th, label, pre, code,
 ::-webkit-scrollbar-thumb        { background: var(--lp-border-2); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover  { background: var(--lp-text-muted); }
 
-.theme-dark ::webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
-.theme-dark ::webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+.theme-dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+.theme-dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
 
 /* ── Core Accounting Operational Semaphore Elements ──────────────────────── */
 .sem-dot             { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }

@@ -1,7 +1,7 @@
-// PATH: vite.config.ts
-// Web-only build configuration for LedgiProof.
-// Used by `npm run dev:web`, `npm run build:web`, `npm run preview:web`.
-// The Electron build still uses `electron.vite.config.ts` independently.
+// PATH: vite.config.mts
+// Web build configuration for LedgiProof (`npm run dev` / `build` / `preview`).
+// Renamed .ts -> .mts 2026-09-24 so Node loads it as a real ES module
+// (uses import.meta.dirname rather than the CommonJS-only import.meta.dirname).
 
 import { defineConfig } from 'vite'
 import react            from '@vitejs/plugin-react'
@@ -10,13 +10,13 @@ import { resolve }      from 'path'
 export default defineConfig({
   plugins: [react()],
 
-  root: resolve(__dirname, 'src'),
-  publicDir: resolve(__dirname, 'public'),
+  root: resolve(import.meta.dirname, 'src'),
+  publicDir: resolve(import.meta.dirname, 'public'),
 
   resolve: {
     alias: {
-      '@':        resolve(__dirname, 'src'),
-      '@assets':  resolve(__dirname, 'src/assets')
+      '@':        resolve(import.meta.dirname, 'src'),
+      '@assets':  resolve(import.meta.dirname, 'src/assets')
     }
   },
 
@@ -27,14 +27,14 @@ export default defineConfig({
   },
 
   build: {
-    outDir:      resolve(__dirname, 'dist-web'),
+    outDir:      resolve(import.meta.dirname, 'dist-web'),
     emptyOutDir: true,
     sourcemap:   false,
     target:      'es2020',
 
     // Actualizado a rolldownOptions para Vite 8
     rolldownOptions: {
-      input: resolve(__dirname, 'src/index.html'),
+      input: resolve(import.meta.dirname, 'src/index.html'),
       output: {
         // manualChunks transformado en función para compatibilidad con Rolldown
         manualChunks(id) {
@@ -61,7 +61,7 @@ export default defineConfig({
   },
 
   // env files live at project root, not inside src/
-  envDir: resolve(__dirname, '.'),
+  envDir: resolve(import.meta.dirname, '.'),
 
   // Environment variables accessible in browser code
   // Only VITE_* prefixed vars are exposed

@@ -13,7 +13,9 @@
 // Dependencies (require `npm install papaparse @types/papaparse xlsx`):
 
 import Papa from 'papaparse'
-import * as XLSX from 'xlsx'
+// xlsx (SheetJS) is ~400 kB minified and only needed when a user actually
+// uploads an Excel file — loaded on demand inside parseExcelFile() rather
+// than statically, so it stays out of the main app bundle.
 
 // ── Public types ────────────────────────────────────────────────────────────
 
@@ -138,6 +140,7 @@ function parseCsvFile(file: File): Promise<ParseResult> {
 }
 
 async function parseExcelFile(file: File): Promise<ParseResult> {
+  const XLSX = await import('xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array' })
 

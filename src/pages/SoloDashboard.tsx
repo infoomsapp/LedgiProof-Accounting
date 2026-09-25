@@ -29,7 +29,6 @@ import { useAuthStore }       from '../store/auth.store'
 import { useOrgStore }        from '../store/org.store'
 import { useSoloDashboard }   from '../hooks/useSoloDashboard'
 import { SCHEDULE_C_LINE_LABELS, type ScheduleCData } from '../services/solo-dashboard.service'
-import { generateScheduleCPdf, downloadScheduleCPdf } from '../services/schedule-c-pdf.service'
 import { useMileageSummary, useMileageEntries, useAddMileage } from '../hooks/useMileage'
 
 import QuarterlyTaxCard       from '../components/solo/QuarterlyTaxCard'
@@ -95,6 +94,10 @@ export default function SoloDashboard() {
   async function handleExportScheduleCPdf(sc: ScheduleCData) {
     setExportingPdf(true)
     try {
+      // pdf-lib (~400 kB) is only needed here, on click — loaded on demand
+      // so it stays out of the Dashboard chunk every solo user downloads.
+      const { generateScheduleCPdf, downloadScheduleCPdf } =
+        await import('../services/schedule-c-pdf.service')
       const bytes = await generateScheduleCPdf(sc, sd.year, activeOrg?.name ?? null)
       downloadScheduleCPdf(bytes, sd.year)
     } finally {

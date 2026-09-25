@@ -13,6 +13,7 @@ import { getClients, updateClient }      from '../services/invoice.service'
 import Modal               from '../components/ui/modal'
 import Button              from '../components/ui/Button'
 import LpAddMenu           from '../components/clients/LpAddMenu'
+import AddClientDialog     from '../components/clients/AddClientDialog'
 import Icon                from '../components/ui/Icon'
 import type { Client, LpRole } from '../types/database.types'
 import { ROLE_CONFIG, getAssignableRoles } from '../lib/role-config'
@@ -132,6 +133,15 @@ export default function Clients() {
   const [portalActiveClientIds, setPortalActiveClientIds] = useState<Set<string>>(new Set())
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [loading,     setLoading]     = useState(true)
+
+  // 🆕 Centered empty-state "Add Client" button — routes into the exact same
+  // AddClientDialog flow as the header's "LP add" menu (not a second, competing
+  // creation path). Competitor research (QuickBooks/Xero/FreshBooks) confirms
+  // the standard pattern is a direct, one-click "Add client" CTA on the empty
+  // state; the previous copy here ("create an invoice first") forced an
+  // unrelated detour through Invoices just to create a client record, real
+  // friction with no equivalent in any competitor onboarding flow.
+  const [emptyStateAddOpen, setEmptyStateAddOpen] = useState(false)
 
   // Invite modal
   const [showInvite,  setShowInvite]  = useState(false)
@@ -525,12 +535,33 @@ export default function Clients() {
         <>
           {(
             clients.length === 0 ? (
-              <div className="lp-card" style={{ textAlign: 'center', padding: '40px 24px' }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>🧑‍💼</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>No clients yet</div>
-                <div style={{ fontSize: 13, color: 'var(--lp-text-muted)' }}>
-                  Clients are created when you create an invoice. Go to Invoices → New invoice → New client.
+              <div className="lp-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 12, margin: '0 auto 14px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'var(--lp-surface-2)', color: 'var(--lp-accent)'
+                }}>
+                  <Icon name="users" size={22} />
                 </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>No clients yet</div>
+                <div style={{ fontSize: 13, color: 'var(--lp-text-muted)', marginBottom: 20, maxWidth: 360, marginLeft: 'auto', marginRight: 'auto' }}>
+                  Add your first client to start invoicing, tracking books, and inviting them to their own portal.
+                </div>
+                {isFirmContext && (
+                  <button
+                    onClick={() => setEmptyStateAddOpen(true)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      background: 'var(--lp-accent)', border: 'none', color: '#fff',
+                      borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'inherit'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.9' }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+                  >
+                    <span style={{ fontSize: 15 }}>+</span> Add Client
+                  </button>
+                )}
               </div>
             ) : (
               <div className="lp-table-wrap">
@@ -1073,6 +1104,20 @@ export default function Clients() {
           </div>
         )}
       </Modal>
+
+      {/* 🆕 Empty-state "Add Client" — same AddClientDialog component/flow as
+          the header's LpAddMenu, just a second mount point so the empty
+          state can open it directly without going through the "LP add ▼"
+          menu first. */}
+      <AddClientDialog
+        open={emptyStateAddOpen}
+        onClose={() => setEmptyStateAddOpen(false)}
+        orgId={orgId}
+        onCreated={() => {
+          setEmptyStateAddOpen(false)
+          load()
+        }}
+      />
     </div>
   )
 }

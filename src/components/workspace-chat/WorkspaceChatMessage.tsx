@@ -8,6 +8,7 @@
 // above the bubble, tag badge inside it, timestamp below).
 
 import { useState }                          from 'react'
+import AuditedStatusCheck                    from './AuditedStatusCheck'
 import { useNavigate }                       from 'react-router-dom'
 import type { WorkspaceMessage, ContextRef, MessageTag } from '../../services/workspace-chat.service'
 import { getDocumentSignedUrl }              from '../../services/upload.service'
@@ -175,8 +176,8 @@ export default function WorkspaceChatMessage({
       }}>
         {formatTime(message.created_at)}
         {message.sender_role === viewerRole && !message.is_deleted && (
-          <span style={{ marginLeft: 4 }} title={readReceiptTitle(message, viewerRole)}>
-            {readReceiptIcon(message, viewerRole)}
+          <span style={{ marginLeft: 4, display: 'inline-flex', verticalAlign: 'middle' }} title={readReceiptTitle(message, viewerRole)}>
+            <AuditedStatusCheck read={readByOther(message, viewerRole)} size={12} />
           </span>
         )}
       </div>
@@ -328,9 +329,8 @@ function formatTime(iso: string): string {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-function readReceiptIcon(msg: WorkspaceMessage, viewer: 'bookkeeper' | 'client'): string {
-  const other = viewer === 'bookkeeper' ? msg.read_by_client : msg.read_by_bookkeeper
-  return other ? '✓✓' : '✓'
+function readByOther(msg: WorkspaceMessage, viewer: 'bookkeeper' | 'client'): boolean {
+  return viewer === 'bookkeeper' ? msg.read_by_client : msg.read_by_bookkeeper
 }
 
 function readReceiptTitle(msg: WorkspaceMessage, viewer: 'bookkeeper' | 'client'): string {

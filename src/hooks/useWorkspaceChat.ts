@@ -144,15 +144,21 @@ export function useWorkspaceChat(
   // Supabase Realtime — triggers on any new workspace_message (RLS filters to org)
   useEffect(() => {
     if (!enabled || !orgId) return
+    const refreshActive = () => {
+      if (document.visibilityState !== 'hidden') {
+        refreshInboxRef.current()
+        const convId = activeConvIdRef.current
+        if (convId) loadMessagesRef.current(convId)
+      }
+    }
     const channel = supabase
       .channel(`workspace-chat-${orgId}-${instanceId.current}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workspace_messages' }, () => {
-        if (document.visibilityState !== 'hidden') {
-          refreshInboxRef.current()
-          const convId = activeConvIdRef.current
-          if (convId) loadMessagesRef.current(convId)
-        }
-      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workspace_messages' }, refreshActive)
+      // UPDATE catches the read-receipt flip specifically -- without this,
+      // the checkmark only ever updated on the sender's NEXT reload (a new
+      // message, reopening the thread), never live the moment the other
+      // side actually read it, which is the entire point of a live receipt.
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workspace_messages' }, refreshActive)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [orgId, enabled])

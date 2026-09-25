@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/auth.store'
 import { useScope } from '../hooks/useScope'
+import { useChecklistLive } from '../hooks/useChecklistLive'
 import { getClients } from '../services/invoice.service'
 import {
   listChecklistRuns, getChecklistRunItems, createChecklistRun, toggleChecklistItem,
@@ -94,14 +95,26 @@ function RunsView({
 
   useEffect(() => { load() }, [orgId, clientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function load() {
-    setLoading(true)
+  // `silent` is a refresh triggered by someone else's change (the phone, another
+  // tab): it must not flip the whole view to "Loading…", which would tear down an
+  // open form or a run being worked on.
+  async function load(silent = false) {
+    if (!silent) setLoading(true)
     try {
       setRuns(await listChecklistRuns(orgId, clientId ? { clientId } : {}))
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
+
+  // Changes made on the phone show up here on their own: the run list, and the
+  // tasks of whichever run is open.
+  useChecklistLive(orgId, () => {
+    void load(true)
+    if (expanded) {
+      getChecklistRunItems(expanded).then(setItems).catch(() => { /* keep what is shown */ })
+    }
+  })
 
   async function openRun(runId: string) {
     if (expanded === runId) { setExpanded(null); return }
@@ -288,14 +301,17 @@ function TemplatesView({
 
   useEffect(() => { load() }, [orgId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function load() {
-    setLoading(true)
+  async function load(silent = false) {
+    if (!silent) setLoading(true)
     try {
       setTemplates(await getRecurringChecklists(orgId))
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
+
+  // A template created, paused or deleted on the phone appears here on its own.
+  useChecklistLive(orgId, () => { void load(true) })
 
   async function handleGenerate() {
     setGenerating(true)

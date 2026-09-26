@@ -24,6 +24,7 @@ import InvoicePrint    from '../components/Invoices/InvoicePrint'
 import RecurringInvoicesTab from '../components/Invoices/RecurringInvoicesTab'
 import AddClientDialog from '../components/clients/AddClientDialog'
 import { getBranding, type Branding } from '../services/branding.service'
+import InvoiceTaxSnapshotCard from '../components/Invoices/InvoiceTaxSnapshotCard'
 import { lookupSalesTaxRate } from '../services/sales-tax.service'
 import { useOrgStore } from '../store/org.store'
 import { calcLineTotals, calcDocumentTotals } from '../lib/lineItems'
@@ -778,6 +779,11 @@ export default function Invoices() {
               </div>
             )}
           </div>
+
+          {/* How the sales tax was worked out when the invoice was issued (firm only) */}
+          {detail.status !== 'draft' && (
+            <InvoiceTaxSnapshotCard invoiceId={detail.id} currentTaxTotal={Number(detail.tax_total)} currency={detail.currency} />
+          )}
 
           {/* Line items */}
           {detail.items?.length > 0 && (

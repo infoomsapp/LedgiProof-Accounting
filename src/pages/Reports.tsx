@@ -11,6 +11,22 @@ import { toSafeMessage } from '../lib/errors'
 const fmt = (n: number) => formatCurrency(n)
 
 interface BSAccount { id: string; code: string; name: string; level: number; balance: number }
+
+interface CashFlowLine { code: string; name: string; bucket: string; amount: number }
+interface CashFlowData {
+  period: string
+  net_income: number
+  operating: number; investing: number; financing: number
+  net_change: number
+  cash_start: number; cash_end: number
+  actual_change: number; difference: number
+  // False means the account classification does not explain the money that
+  // actually moved. Surfaced, never hidden -- an unexplained statement is a
+  // question, not an answer.
+  reconciles: boolean
+  cash_accounts: { code: string; name: string }[]
+  lines: CashFlowLine[]
+}
 interface BSSection  { accounts: BSAccount[]; total: number }
 interface BalanceSheetData {
   as_of: string
@@ -147,7 +163,8 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
 
   const [year,    setYear]   = useState(now.getFullYear())
   const [month,   setMonth]  = useState(now.getMonth() + 1)
-  const [report,  setReport] = useState<'balance_sheet'|'pl'>('balance_sheet')
+  const [report,  setReport] = useState<'balance_sheet'|'pl'|'cash_flow'>('balance_sheet')
+  const [cfData,  setCfData] = useState<CashFlowData | null>(null)
   const [bsData,  setBsData] = useState<BalanceSheetData | null>(null)
   const [plData,  setPlData] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -162,6 +179,21 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
     })
     if (err) setError(toSafeMessage(err, 'Could not run the balance sheet'))
     else setBsData(data as unknown as BalanceSheetData)
+    setLoading(false); setHasRun(true)
+  }, [orgId, clientId, year, month])
+
+  const runCashFlow = useCallback(async () => {
+    setLoading(true); setError(null)
+    // `as any` on the rpc name, same as exchange-rate.service.ts does for
+    // get_fx_gains_losses: database.types.ts is generated and does not yet
+    // list this function. Regenerating it here would pull in every unrelated
+    // schema change since it was last built.
+    const { data, error: err } = await (db as any).rpc('get_cash_flow', {
+      p_org_id: orgId, p_year: year, p_month: month,
+      ...(clientId ? { p_client_id: clientId } : {})
+    })
+    if (err) setError(toSafeMessage(err, 'Could not run the cash flow statement'))
+    else setCfData(data as unknown as CashFlowData)
     setLoading(false); setHasRun(true)
   }, [orgId, clientId, year, month])
 
@@ -199,7 +231,9 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
   }, [orgId, clientId, year, month])
 
   function handleRun() {
-    report === 'balance_sheet' ? runBalanceSheet() : runPL()
+    if (report === 'balance_sheet') runBalanceSheet()
+    else if (report === 'cash_flow') runCashFlow()
+    else runPL()
   }
 
   const incomeRows   = plData?.filter(r => r.type === 'income')  ?? []
@@ -219,7 +253,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
         {hasRun && !loading && (
           <div style={{ display:'flex', gap:8 }}>
             <button
-              onClick={() => printToPDF(`${entityName} — ${report === 'balance_sheet' ? 'Balance Sheet' : 'P&L'} ${year}-${String(month).padStart(2,'0')}`)}
+              onClick={() => printToPDF(`${entityName} — ${report === 'balance_sheet' ? 'Balance Sheet' : report === 'cash_flow' ? 'Cash Flow' : 'P&L'} ${year}-${String(month).padStart(2,'0')}`)}
               className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
             >
               ⬇ PDF
@@ -263,7 +297,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
         <div>
           <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>Report</label>
           <div style={{ display:'flex' }}>
-            {[['balance_sheet','Balance Sheet'],['pl','P&L']] .map(([k,l]) => (
+            {[['balance_sheet','Balance Sheet'],['pl','P&L'],['cash_flow','Cash Flow']] .map(([k,l]) => (
               <button key={k} onClick={() => { setReport(k as any); setHasRun(false) }} style={{
                 padding:'8px 16px', cursor:'pointer', fontFamily:'inherit', fontSize:13,
                 fontWeight: report===k ? 500 : 400,
@@ -381,6 +415,88 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
           </div>
 
           <ReportFooter />
+        </div>
+      )}
+
+      {/* ── Cash Flow (indirect) ─────────────────────────────────────────── */}
+      {report === 'cash_flow' && cfData !== null && (
+        <div style={{ maxWidth:700 }}>
+          <ReportLetterhead
+            entityName={entityName}
+            reportTitle="Statement of Cash Flows"
+            period={`${MONTHS[month-1]} ${year}`}
+          />
+
+          {/* The reconciliation leads, because it is the one thing that says
+              whether the rest of this page can be trusted. */}
+          {!cfData.reconciles && (
+            <div style={{
+              background:'var(--sem-amber-bg)', border:'0.5px solid var(--sem-amber)',
+              borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:12.5
+            }}>
+              <strong>This statement does not reconcile.</strong> The movements below
+              explain {fmt(cfData.net_change)} but cash actually moved {fmt(cfData.actual_change)},
+              a difference of {fmt(cfData.difference)}. Usually one account is
+              classified wrongly — check which accounts are treated as cash below.
+            </div>
+          )}
+
+          <div style={{ display:'grid', gap:8, marginBottom:20 }}>
+            {[
+              { label:'Net income',                      value: cfData.net_income, strong:false },
+              { label:'Cash from operating activities',  value: cfData.operating,  strong:true  },
+              { label:'Cash from investing activities',  value: cfData.investing,  strong:true  },
+              { label:'Cash from financing activities',  value: cfData.financing,  strong:true  },
+            ].map(r => (
+              <div key={r.label} style={{
+                display:'flex', justifyContent:'space-between',
+                padding:'8px 12px', borderBottom:'0.5px solid var(--lp-border)',
+                fontWeight: r.strong ? 600 : 400, fontSize:13
+              }}>
+                <span>{r.label}</span><span>{fmt(r.value)}</span>
+              </div>
+            ))}
+            <div style={{
+              display:'flex', justifyContent:'space-between', padding:'10px 12px',
+              background:'var(--lp-surface-2)', borderRadius:8, fontWeight:700, fontSize:14
+            }}>
+              <span>Net change in cash</span><span>{fmt(cfData.net_change)}</span>
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', padding:'4px 12px', fontSize:12, color:'var(--lp-text-muted)' }}>
+              <span>Cash at start of period</span><span>{fmt(cfData.cash_start)}</span>
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', padding:'4px 12px', fontSize:12, color:'var(--lp-text-muted)' }}>
+              <span>Cash at end of period</span><span>{fmt(cfData.cash_end)}</span>
+            </div>
+          </div>
+
+          {cfData.lines.length > 0 && (
+            <>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.6, color:'var(--lp-text-muted)', marginBottom:8 }}>
+                WHAT MOVED
+              </div>
+              {cfData.lines.map(l => (
+                <div key={`${l.bucket}-${l.code}`} style={{
+                  display:'flex', justifyContent:'space-between',
+                  padding:'6px 12px', fontSize:12.5, borderBottom:'0.5px solid var(--lp-border)'
+                }}>
+                  <span>
+                    <span style={{ fontFamily:'monospace', fontSize:11, color:'var(--lp-text-stronger)', marginRight:10 }}>{l.code}</span>
+                    {l.name}
+                    <span style={{ marginLeft:8, fontSize:10.5, color:'var(--lp-text-muted)' }}>({l.bucket})</span>
+                  </span>
+                  <span>{fmt(l.amount)}</span>
+                </div>
+              ))}
+            </>
+          )}
+
+          <div style={{ marginTop:16, fontSize:11.5, color:'var(--lp-text-muted)' }}>
+            Cash accounts:{' '}
+            {cfData.cash_accounts.length === 0
+              ? 'none identified — no account is marked as cash, so this statement cannot reconcile'
+              : cfData.cash_accounts.map(a => `${a.code} ${a.name}`).join(', ')}
+          </div>
         </div>
       )}
 

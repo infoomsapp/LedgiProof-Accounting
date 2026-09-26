@@ -185,6 +185,9 @@ export async function lookupSalesTaxRate(
   const date    = opts?.date ?? new Date().toISOString().slice(0, 10)
   const cat     = opts?.category ?? 'general'
   const country = opts?.country ?? 'US'
+  // The reference table is keyed by the upper-case 2-letter code, but a client's
+  // state is free text ("mD" was on a real client and found no rate at all).
+  state = state.trim().toUpperCase()
 
   const { data, error } = await db
     .from('sales_tax_rates')

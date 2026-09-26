@@ -18,6 +18,7 @@ import {
 import { useRecurringInvoices } from '../../hooks/useRecurringInvoices'
 import type { Client } from '../../types/database.types'
 import { formatCurrency } from '../../lib/currency'
+import InvoiceReminderCard from './InvoiceReminderCard'
 
 /** Per-schedule template subtotal preview, computed in integer cents. */
 function previewCents(items: RecurringItemDraft[]): number {
@@ -152,6 +153,7 @@ export default function RecurringInvoicesTab({ orgId, userId, clients, clientId 
 
   return (
     <div style={{ flex: 1, overflow: 'auto' }}>
+      <InvoiceReminderCard orgId={orgId} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 10 }}>
         <div style={{ fontSize: 12.5, color: 'var(--lp-text-muted)' }}>
           {data.length} schedule{data.length !== 1 ? 's' : ''} · auto-generated daily

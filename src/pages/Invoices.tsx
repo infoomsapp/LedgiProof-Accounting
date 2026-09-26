@@ -25,7 +25,7 @@ import RecurringInvoicesTab from '../components/Invoices/RecurringInvoicesTab'
 import AddClientDialog from '../components/clients/AddClientDialog'
 import { getBranding, type Branding } from '../services/branding.service'
 import InvoiceTaxSnapshotCard from '../components/Invoices/InvoiceTaxSnapshotCard'
-import { lookupSalesTaxRate } from '../services/sales-tax.service'
+import { lookupSalesTaxRate, getSalesTaxSettings } from '../services/sales-tax.service'
 import { useOrgStore } from '../store/org.store'
 import { calcLineTotals, calcDocumentTotals } from '../lib/lineItems'
 import { formatCurrency } from '../lib/currency'
@@ -343,6 +343,10 @@ export default function Invoices() {
   async function autoFillSalesTax() {
     const client = clients.find(c => c.id === editClientId)
     if (!client)        { setTaxNote('Pick a client first.'); return }
+    if (client.tax_exempt) {
+      setTaxNote(`${client.display_name} is tax exempt${client.tax_exempt_reason ? ` (${client.tax_exempt_reason})` : ''} — no sales tax added.`)
+      return
+    }
     if (!client.state)  { setTaxNote('This client has no state on file — add an address to resolve sales tax.'); return }
     setTaxResolving(true); setTaxNote(null)
     try {
@@ -358,6 +362,23 @@ export default function Invoices() {
       setTaxNote(e?.message ?? 'Could not resolve sales tax')
     } finally { setTaxResolving(false) }
   }
+
+  // Same idea as QuickBooks' automated sales tax: when the firm has turned on
+  // "charge sales tax" (Settings), a NEW invoice fills each line's tax from the
+  // client's state as soon as the client is known, so nobody types a percentage.
+  // Exempt clients are skipped and told so; an existing draft is never touched.
+  useEffect(() => {
+    if (!showEditor || editorMode !== 'create' || !editClientId) return
+    const client = clients.find(c => c.id === editClientId)
+    if (!client) return
+    if (client.tax_exempt) { void autoFillSalesTax(); return }
+    let alive = true
+    getSalesTaxSettings(orgId)
+      .then(s => { if (alive && s?.collects_sales_tax) void autoFillSalesTax() })
+      .catch(() => { /* the manual button is still there */ })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showEditor, editorMode, editClientId])
 
   function addItem() {
     setEditItems(prev => [...prev, {

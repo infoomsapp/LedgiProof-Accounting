@@ -1425,6 +1425,8 @@ export type Database = {
           postal_code: string | null
           primary_user_id: string | null
           state: string | null
+          tax_exempt: boolean
+          tax_exempt_reason: string | null
           tax_id: string | null
           updated_at: string
         }
@@ -1448,6 +1450,8 @@ export type Database = {
           postal_code?: string | null
           primary_user_id?: string | null
           state?: string | null
+          tax_exempt?: boolean
+          tax_exempt_reason?: string | null
           tax_id?: string | null
           updated_at?: string
         }
@@ -1471,6 +1475,8 @@ export type Database = {
           postal_code?: string | null
           primary_user_id?: string | null
           state?: string | null
+          tax_exempt?: boolean
+          tax_exempt_reason?: string | null
           tax_id?: string | null
           updated_at?: string
         }

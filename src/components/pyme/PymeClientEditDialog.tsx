@@ -42,6 +42,8 @@ export default function PymeClientEditDialog({ open, client, onClose, onSaved }:
   const [country,      setCountry]      = useState('US')
   const [currency,     setCurrency]     = useState('USD')
   const [paymentTerms, setPaymentTerms] = useState(30)
+  const [taxExempt,    setTaxExempt]    = useState(false)
+  const [taxExemptWhy, setTaxExemptWhy] = useState('')
 
   const [saving,    setSaving]    = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -61,6 +63,8 @@ export default function PymeClientEditDialog({ open, client, onClose, onSaved }:
     setCountry     (client.country       ?? 'US')
     setCurrency    (client.default_currency ?? 'USD')
     setPaymentTerms(client.payment_terms ?? 30)
+    setTaxExempt   (client.tax_exempt ?? false)
+    setTaxExemptWhy(client.tax_exempt_reason ?? '')
     setSaveError(null)
   }, [open, client])
 
@@ -85,11 +89,14 @@ export default function PymeClientEditDialog({ open, client, onClose, onSaved }:
         tax_id:           taxId.trim()        || null,
         address_line1:    addressLine1.trim() || null,
         city:             city.trim()         || null,
-        state:            state.trim()        || null,
+        // Sales tax is looked up by the 2-letter code, so "mD" must be saved as "MD".
+        state:            normalizeState(state),
         postal_code:      postalCode.trim()   || null,
         country:          country.trim()      || 'US',
         default_currency: currency.trim()     || 'USD',
-        payment_terms:    Number.isFinite(paymentTerms) ? paymentTerms : 30
+        payment_terms:    Number.isFinite(paymentTerms) ? paymentTerms : 30,
+        tax_exempt:       taxExempt,
+        tax_exempt_reason: taxExempt ? (taxExemptWhy.trim() || null) : null
       }, client.org_id)
       onSaved?.(updated)
       onClose()
@@ -296,11 +303,44 @@ export default function PymeClientEditDialog({ open, client, onClose, onSaved }:
           />
         </Field>
       </div>
+
+      <SectionTitle>Sales tax</SectionTitle>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={taxExempt}
+          onChange={e => setTaxExempt(e.target.checked)}
+          disabled={saving}
+        />
+        This client is exempt from sales tax
+      </label>
+      {taxExempt && (
+        <Field label="Reason or certificate (optional)">
+          <input
+            type="text"
+            value={taxExemptWhy}
+            onChange={e => setTaxExemptWhy(e.target.value)}
+            className="lp-input"
+            style={{ width: '100%' }}
+            disabled={saving}
+            maxLength={200}
+            placeholder="e.g. Nonprofit, resale certificate #1234"
+          />
+        </Field>
+      )}
     </Modal>
   )
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers
+
+/** "mD" / " md " -> "MD"; anything longer (a full state name) is kept as typed. */
+function normalizeState(raw: string): string | null {
+  const t = raw.trim()
+  if (!t) return null
+  return t.length === 2 ? t.toUpperCase() : t
+}
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (

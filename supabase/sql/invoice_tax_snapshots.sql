@@ -157,3 +157,15 @@ begin
 end $$;
 create trigger trg_capture_invoice_tax_snapshot after insert or update on public.invoices
   for each row when (new.status <> 'draft') execute function public.trg_capture_invoice_tax_snapshot();
+
+-- ── 2026-09-26: tax-exempt clients (migration `clients_tax_exempt_and_snapshot_rule`) ──
+-- QuickBooks/Xero pattern: a customer can be marked exempt (with a reason). The
+-- apps skip auto-tax for them, and the snapshot flags an issued invoice that
+-- charged tax to an exempt client as requires_review:
+--   alter table public.clients
+--     add column if not exists tax_exempt boolean not null default false,
+--     add column if not exists tax_exempt_reason text;
+-- and inside capture_invoice_tax_snapshot, after computing v_taxed:
+--   select coalesce(tax_exempt,false) into v_exempt from public.clients where id = inv.client_id;
+--   ... elsif v_exempt then v_status := 'requires_review';
+--       v_reason := 'The client is marked tax-exempt, but sales tax was charged';

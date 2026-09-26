@@ -14,6 +14,7 @@ import Modal               from '../components/ui/modal'
 import Button              from '../components/ui/Button'
 import LpAddMenu           from '../components/clients/LpAddMenu'
 import AddClientDialog     from '../components/clients/AddClientDialog'
+import PymeClientEditDialog from '../components/pyme/PymeClientEditDialog'
 import Icon                from '../components/ui/Icon'
 import type { Client, LpRole } from '../types/database.types'
 import { ROLE_CONFIG, getAssignableRoles } from '../lib/role-config'
@@ -142,6 +143,7 @@ export default function Clients() {
   // unrelated detour through Invoices just to create a client record, real
   // friction with no equivalent in any competitor onboarding flow.
   const [emptyStateAddOpen, setEmptyStateAddOpen] = useState(false)
+  const [editingClient, setEditingClient] = useState<Client | null>(null)
 
   // Invite modal
   const [showInvite,  setShowInvite]  = useState(false)
@@ -692,6 +694,23 @@ export default function Clients() {
                                  '→ Open'}
                               </button>
 
+                              <button
+                                onClick={() => setEditingClient(c)}
+                                title="Edit contact, address and sales-tax status"
+                                style={{
+                                  background:   'transparent',
+                                  border:       '0.5px solid var(--lp-border)',
+                                  color:        'var(--lp-accent)',
+                                  borderRadius: 6,
+                                  padding:      '3px 9px',
+                                  fontSize:     11,
+                                  cursor:       'pointer',
+                                  fontFamily:   'inherit'
+                                }}
+                              >
+                                Edit
+                              </button>
+
                               {/* Chat button: opens the floating chat bubble focused on this client */}
                               <button
                                 onClick={() => openChat(c.id)}
@@ -1126,6 +1145,13 @@ export default function Clients() {
           the header's LpAddMenu, just a second mount point so the empty
           state can open it directly without going through the "LP add ▼"
           menu first. */}
+      <PymeClientEditDialog
+        open={editingClient !== null}
+        client={editingClient}
+        onClose={() => setEditingClient(null)}
+        onSaved={() => { setEditingClient(null); load() }}
+      />
+
       <AddClientDialog
         open={emptyStateAddOpen}
         onClose={() => setEmptyStateAddOpen(false)}

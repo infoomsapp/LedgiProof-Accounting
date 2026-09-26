@@ -7,6 +7,7 @@ import { db }           from '../../lib/supabase'
 import Button           from '../ui/Button'
 import { useUserRole, USER_KIND_LABELS } from '../../hooks/useUserRole'
 import { toSafeMessage } from '../../lib/errors'
+import SalesTaxSettingsCard from './SalesTaxSettingsCard'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'MXN', 'ARS', 'COP']
 const MONTHS = ['January','February','March','April','May','June',
@@ -155,6 +156,10 @@ export default function WorkspaceTab({ onMessage }: Props) {
           </Button>
         )}
       </div>
+
+      {activeOrg?.id && (
+        <SalesTaxSettingsCard orgId={activeOrg.id} canEdit={role.canEditWorkspace} {...(onMessage ? { onMessage } : {})} />
+      )}
 
       <div className="lp-card" style={{ marginTop: 16, borderColor: 'rgba(239,68,68,0.2)' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444', marginBottom: 12 }}>

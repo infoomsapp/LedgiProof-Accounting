@@ -104,6 +104,12 @@ export default function Clients() {
   const role           = useUserRole()
   const workspaceRole  = (membership?.role ?? null) as LpRole | null
   const isAdmin        = role.canEditWorkspace
+  // Client rows and the portal-invite panel follow the clients table's own
+  // rule (owner/admin/accountant), not the workspace-admin rule: anyone who
+  // may create a client must be able to open, edit and invite it, or the
+  // unified "create + invite" save half-works for them and the retry hits the
+  // same wall. Team/member actions below stay on isAdmin.
+  const canManageClients = role.canManageClients
 
   // Real bug found 2026-09-24: this page has no route-level guard against a
   // personal/solo org (Decision 2 keeps /clients reachable without a client
@@ -587,7 +593,7 @@ export default function Clients() {
                 <table className="lp-table">
                   <thead>
                     <tr>
-                      {['Name', 'Company', 'Email', 'Currency', 'Terms', 'Status', ...(isAdmin ? ['Actions'] : [])].map(h => (
+                      {['Name', 'Company', 'Email', 'Currency', 'Terms', 'Status', ...(canManageClients ? ['Actions'] : [])].map(h => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
@@ -651,7 +657,7 @@ export default function Clients() {
                             {c.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        {isAdmin && (
+                        {canManageClients && (
                           <td>
                             <div style={{ display: 'inline-flex', gap: 6 }}>
                               {/* 🆕 Client Switcher Sprint 2 — Primary action:

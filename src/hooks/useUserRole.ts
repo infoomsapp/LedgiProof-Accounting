@@ -49,6 +49,8 @@ export interface UserRoleInfo {
   isWorkspaceOwner:    boolean
   isWorkspaceAdmin:    boolean
   canEditWorkspace:    boolean   // owner OR admin OR super_admin
+  /** owner OR admin OR accountant OR super_admin — mirrors clients_insert/clients_update and the portal-invite policy. */
+  canManageClients:    boolean
   canEditTaxInfo:      boolean   // owner OR super_admin
   canViewUsersTab:     boolean   // super_admin OR bookkeeper/accountant owner
   canManageTiers:      boolean   // super_admin only
@@ -186,6 +188,18 @@ export function useUserRole(): UserRoleInfo {
 
     // ── Base capabilities ──────────────────────────────────────────────
     const canEditWorkspace = isSuperAdmin || isWorkspaceOwner || isWorkspaceAdmin
+
+    // Client management, mirroring the database instead of borrowing
+    // canEditWorkspace. clients_insert and clients_update both allow
+    // owner/admin/accountant, and the Clients page's "Add client" button is
+    // gated only on firm context -- so an accountant seat (the role that
+    // exists to manage client books) could create a client and then not be
+    // able to open, edit or invite it, because every row action and the
+    // portal-invite panel sat behind canEditWorkspace. Kept as its own flag:
+    // canEditWorkspace gates genuinely admin-only surfaces (team, billing,
+    // workspace settings) and must stay owner/admin.
+    const canManageClients = isSuperAdmin || isWorkspaceOwner || isWorkspaceAdmin
+                           || workspaceRole === 'accountant'
     const canEditTaxInfo   = isSuperAdmin || isWorkspaceOwner
     const canViewUsersTab  = isSuperAdmin
                            || kind === 'bookkeeper_owner'
@@ -249,6 +263,7 @@ export function useUserRole(): UserRoleInfo {
       isWorkspaceOwner,
       isWorkspaceAdmin,
       canEditWorkspace,
+      canManageClients,
       canEditTaxInfo,
       canViewUsersTab,
       canManageTiers,

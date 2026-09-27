@@ -296,8 +296,27 @@ async function applyRule(rule: RuleDefinition, input: RuleInput): Promise<Evalua
     }
 
     case 'budget_variance': {
-      // Phase 2: requires budget table. For now, no-op.
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: 0, fired: false, reason: null }
+      // Both copies of the Brain call the SAME database function rather than
+      // each implementing "over budget" for itself: two definitions of that
+      // would eventually disagree, and a rule that fires in the browser but
+      // not on the server is worse than one that never fires at all.
+      const variancePct = cfgNumber(cfg, 'variance_pct', 10)
+      const { data, error } = await (db as any).rpc('check_budget_variance', {
+        p_org_id:       input.orgId,
+        p_client_id:    input.clientId ?? null,
+        p_amount:       input.amount,
+        p_variance_pct: variancePct
+      })
+      if (error) {
+        return errorRule(rule, `Query error: ${toSafeMessage(error, 'database error')}`)
+      }
+      const fired = Boolean(data?.fired)
+      return {
+        id: rule.rule_id, name: rule.name, severity: rule.severity,
+        score: fired ? 0.6 : 0,
+        fired,
+        reason: fired ? (data?.reason as string) : null
+      }
     }
 
     default:

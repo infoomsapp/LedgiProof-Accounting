@@ -153,8 +153,21 @@ async function applyRule(db: any, rule: any, input: {
       const fired = !input.metadata?.['document_url']
       return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.7 : 0, fired, reason: fired ? 'No supporting document attached to this transaction' : null }
     }
-    case 'budget_variance':
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: 0, fired: false, reason: null }
+    case 'budget_variance': {
+      // Same database function the browser Brain calls, so "over budget"
+      // cannot mean two different things depending on where a transaction was
+      // entered from.
+      const variancePct = cfgNumber(cfg, 'variance_pct', 10)
+      const { data, error } = await db.rpc('check_budget_variance', {
+        p_org_id:       input.orgId,
+        p_client_id:    input.clientId ?? null,
+        p_amount:       input.amount,
+        p_variance_pct: variancePct,
+      })
+      if (error) return errorRule(rule, `Query error: ${error.message}`)
+      const fired = Boolean(data?.fired)
+      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.6 : 0, fired, reason: fired ? data.reason : null }
+    }
     default:
       return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: 0, fired: false, reason: null }
   }

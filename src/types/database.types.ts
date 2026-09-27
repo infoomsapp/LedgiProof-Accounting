@@ -1,3 +1,14 @@
+// PATH: src/types/database.types.ts
+//
+// GENERATED from the live Supabase schema, up to the "Convenience aliases"
+// marker below. Everything from that marker to the end of the file is
+// hand-written and is imported all over the app (Client, Account, LpRole,
+// LP_TIER_CONFIG, INVOICE_STATUS_CONFIG, ...). Regenerating means replacing
+// the block ABOVE the marker and keeping the block below it -- a plain
+// overwrite of this file deletes those aliases and breaks the build.
+//
+// Last regenerated 2026-09-27.
+
 export type Json =
   | string
   | number
@@ -317,6 +328,7 @@ export type Database = {
       }
       accounts: {
         Row: {
+          cash_flow_category: string | null
           client_id: string | null
           code: string
           created_at: string
@@ -336,6 +348,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cash_flow_category?: string | null
           client_id?: string | null
           code: string
           created_at?: string
@@ -355,6 +368,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cash_flow_category?: string | null
           client_id?: string | null
           code?: string
           created_at?: string
@@ -880,6 +894,70 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      budgets: {
+        Row: {
+          account_id: string | null
+          amount: number
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          org_id: string
+          period_month: number
+          period_year: number
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          org_id: string
+          period_month: number
+          period_year: number
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          org_id?: string
+          period_month?: number
+          period_year?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budgets_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cgc_validations: {
         Row: {
@@ -2564,6 +2642,51 @@ export type Database = {
           },
         ]
       }
+      invoice_email_log: {
+        Row: {
+          day_offset: number
+          id: string
+          invoice_id: string
+          kind: string
+          org_id: string
+          sent_at: string
+          sent_to: string | null
+        }
+        Insert: {
+          day_offset?: number
+          id?: string
+          invoice_id: string
+          kind: string
+          org_id: string
+          sent_at?: string
+          sent_to?: string | null
+        }
+        Update: {
+          day_offset?: number
+          id?: string
+          invoice_id?: string
+          kind?: string
+          org_id?: string
+          sent_at?: string
+          sent_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_email_log_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_email_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           created_at: string
@@ -2703,6 +2826,128 @@ export type Database = {
             columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_reminder_settings: {
+        Row: {
+          days_before: number
+          enabled: boolean
+          on_due: boolean
+          org_id: string
+          overdue_days: number[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          days_before?: number
+          enabled?: boolean
+          on_due?: boolean
+          org_id: string
+          overdue_days?: number[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          days_before?: number
+          enabled?: boolean
+          on_due?: boolean
+          org_id?: string
+          overdue_days?: number[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_reminder_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_tax_snapshots: {
+        Row: {
+          as_of_date: string
+          captured_at: string
+          charged: Json
+          currency: string | null
+          destination_country: string | null
+          destination_postal: string | null
+          destination_state: string | null
+          invoice_id: string
+          lines: Json
+          org_id: string
+          reason: string | null
+          reference_effective_from: string | null
+          reference_jurisdiction: string | null
+          reference_rate: number | null
+          reference_rate_id: string | null
+          reference_source: string | null
+          reference_source_url: string | null
+          status: string
+          tax_total: number
+          taxable_total: number
+        }
+        Insert: {
+          as_of_date: string
+          captured_at?: string
+          charged?: Json
+          currency?: string | null
+          destination_country?: string | null
+          destination_postal?: string | null
+          destination_state?: string | null
+          invoice_id: string
+          lines?: Json
+          org_id: string
+          reason?: string | null
+          reference_effective_from?: string | null
+          reference_jurisdiction?: string | null
+          reference_rate?: number | null
+          reference_rate_id?: string | null
+          reference_source?: string | null
+          reference_source_url?: string | null
+          status: string
+          tax_total?: number
+          taxable_total?: number
+        }
+        Update: {
+          as_of_date?: string
+          captured_at?: string
+          charged?: Json
+          currency?: string | null
+          destination_country?: string | null
+          destination_postal?: string | null
+          destination_state?: string | null
+          invoice_id?: string
+          lines?: Json
+          org_id?: string
+          reason?: string | null
+          reference_effective_from?: string | null
+          reference_jurisdiction?: string | null
+          reference_rate?: number | null
+          reference_rate_id?: string | null
+          reference_source?: string | null
+          reference_source_url?: string | null
+          status?: string
+          tax_total?: number
+          taxable_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_tax_snapshots_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: true
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_tax_snapshots_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -6339,6 +6584,38 @@ export type Database = {
           },
         ]
       }
+      workspace_conversation_sides: {
+        Row: {
+          cleared_at: string
+          cleared_before: string
+          cleared_by: string | null
+          conversation_id: string
+          side: string
+        }
+        Insert: {
+          cleared_at?: string
+          cleared_before: string
+          cleared_by?: string | null
+          conversation_id: string
+          side: string
+        }
+        Update: {
+          cleared_at?: string
+          cleared_before?: string
+          cleared_by?: string | null
+          conversation_id?: string
+          side?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_conversation_sides_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_conversations: {
         Row: {
           archived_at: string | null
@@ -6632,6 +6909,35 @@ export type Database = {
           },
         ]
       }
+      workspace_message_hides: {
+        Row: {
+          hidden_at: string
+          hidden_by: string | null
+          message_id: string
+          side: string
+        }
+        Insert: {
+          hidden_at?: string
+          hidden_by?: string | null
+          message_id: string
+          side: string
+        }
+        Update: {
+          hidden_at?: string
+          hidden_by?: string | null
+          message_id?: string
+          side?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_message_hides_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_messages: {
         Row: {
           ai_generated: boolean
@@ -6654,6 +6960,7 @@ export type Database = {
           message_tag: string
           org_id: string
           previous_hash: string | null
+          purged_at: string | null
           raw_hash: string | null
           read_at: string | null
           read_by_bookkeeper: boolean
@@ -6683,6 +6990,7 @@ export type Database = {
           message_tag?: string
           org_id: string
           previous_hash?: string | null
+          purged_at?: string | null
           raw_hash?: string | null
           read_at?: string | null
           read_by_bookkeeper?: boolean
@@ -6712,6 +7020,7 @@ export type Database = {
           message_tag?: string
           org_id?: string
           previous_hash?: string | null
+          purged_at?: string | null
           raw_hash?: string | null
           read_at?: string | null
           read_by_bookkeeper?: boolean
@@ -6879,6 +7188,98 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_team_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          org_id: string
+          sender_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          org_id: string
+          sender_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          org_id?: string
+          sender_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_team_messages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_team_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_team_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_team_reads: {
+        Row: {
+          last_read_at: string
+          org_id: string
+          user_id: string
+        }
+        Insert: {
+          last_read_at?: string
+          org_id: string
+          user_id: string
+        }
+        Update: {
+          last_read_at?: string
+          org_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_team_reads_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_team_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_team_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_user_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -7314,6 +7715,19 @@ export type Database = {
         Args: { p_reason?: string; p_request_id: string }
         Returns: Json
       }
+      capture_invoice_tax_snapshot: {
+        Args: { p_invoice_id: string }
+        Returns: undefined
+      }
+      check_budget_variance: {
+        Args: {
+          p_amount?: number
+          p_client_id?: string
+          p_org_id: string
+          p_variance_pct?: number
+        }
+        Returns: Json
+      }
       check_feature_access: {
         Args: { p_feature_key: string; p_user_id: string }
         Returns: Json
@@ -7463,28 +7877,12 @@ export type Database = {
       current_user_id: { Args: never; Returns: string }
       decrypt_tin: { Args: { p_enc: string }; Returns: string }
       delete_estimate_item: { Args: { p_item_id: string }; Returns: undefined }
+      delete_team_message: { Args: { p_message_id: string }; Returns: Json }
       delete_workspace_conversation: {
         Args: { p_conversation_id: string }
         Returns: Json
       }
       delete_workspace_message: {
-        Args: { p_message_id: string }
-        Returns: Json
-      }
-      // Team channel (one per firm) -- added by hand, not by codegen.
-      get_team_channel: {
-        Args: { p_before?: string; p_limit?: number; p_org_id: string }
-        Returns: Json
-      }
-      send_team_message: {
-        Args: { p_body: string; p_org_id: string }
-        Returns: Json
-      }
-      mark_team_channel_read: {
-        Args: { p_org_id: string }
-        Returns: Json
-      }
-      delete_team_message: {
         Args: { p_message_id: string }
         Returns: Json
       }
@@ -7590,6 +7988,24 @@ export type Database = {
         Returns: Json
       }
       get_bookkeeper_dashboard: { Args: { p_org_id: string }; Returns: Json }
+      get_budget_vs_actual: {
+        Args: {
+          p_client_id?: string
+          p_month: number
+          p_org_id: string
+          p_year: number
+        }
+        Returns: Json
+      }
+      get_cash_flow: {
+        Args: {
+          p_client_id?: string
+          p_month: number
+          p_org_id: string
+          p_year: number
+        }
+        Returns: Json
+      }
       get_client_portal_invitation_preview: {
         Args: { p_token: string }
         Returns: Json
@@ -7789,6 +8205,10 @@ export type Database = {
           setaside_rate: number
           total_set_aside: number
         }[]
+      }
+      get_team_channel: {
+        Args: { p_before?: string; p_limit?: number; p_org_id: string }
+        Returns: Json
       }
       get_transaction_messages: {
         Args: { p_before?: string; p_conversation_id: string; p_limit?: number }
@@ -8010,6 +8430,7 @@ export type Database = {
         Args: { p_models: string[]; p_org_id: string }
         Returns: undefined
       }
+      mark_team_channel_read: { Args: { p_org_id: string }; Returns: Json }
       mark_transaction_messages_read: {
         Args: { p_conversation_id: string }
         Returns: Json
@@ -8265,9 +8686,7 @@ export type Database = {
         }
         Returns: Json
       }
-      repair_orphan_user:
-        | { Args: never; Returns: Json }
-        | { Args: { p_target_user_id?: string }; Returns: Json }
+      repair_orphan_user: { Args: { p_target_user_id?: string }; Returns: Json }
       resolve_client_for_transaction: {
         Args: { p_tx_id: string }
         Returns: string
@@ -8329,6 +8748,10 @@ export type Database = {
         }
         Returns: string
       }
+      send_team_message: {
+        Args: { p_body: string; p_org_id: string }
+        Returns: Json
+      }
       send_transaction_message: {
         Args: {
           p_body?: string
@@ -8357,6 +8780,16 @@ export type Database = {
         Args: { p_enabled: boolean; p_org_id: string }
         Returns: Json
       }
+      set_budget_lines: {
+        Args: {
+          p_client_id?: string
+          p_lines: Json
+          p_month: number
+          p_org_id: string
+          p_year: number
+        }
+        Returns: Json
+      }
       set_client_workflow_state: {
         Args: {
           p_client_id: string
@@ -8365,6 +8798,30 @@ export type Database = {
           p_state: string
         }
         Returns: Json
+      }
+      set_invoice_reminder_settings: {
+        Args: {
+          p_days_before: number
+          p_enabled: boolean
+          p_on_due: boolean
+          p_org_id: string
+          p_overdue_days: number[]
+        }
+        Returns: {
+          days_before: number
+          enabled: boolean
+          on_due: boolean
+          org_id: string
+          overdue_days: number[]
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invoice_reminder_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_locale: { Args: { p_locale: string }; Returns: undefined }
       set_workspace_kind: {
@@ -8395,6 +8852,7 @@ export type Database = {
         Args: { p_client_id: string }
         Returns: undefined
       }
+      team_channel_access: { Args: { p_org_id: string }; Returns: boolean }
       tx_payment_reportability: {
         Args: { pm: Database["public"]["Enums"]["payment_method_type"] }
         Returns: string
@@ -8438,6 +8896,40 @@ export type Database = {
           p_state_code?: string
         }
         Returns: Json
+      }
+      valid_overdue_days: { Args: { p: number[] }; Returns: boolean }
+      verify_scheduler_secret: { Args: { p: string }; Returns: boolean }
+      workspace_hidden_for_side: {
+        Args: {
+          p_conv: string
+          p_created: string
+          p_msg: string
+          p_side: string
+        }
+        Returns: boolean
+      }
+      workspace_is_record: {
+        Args: {
+          p_ctx: Json
+          p_document: string
+          p_event: string
+          p_flagged: boolean
+          p_sender: Database["public"]["Enums"]["message_sender_role"]
+          p_tag: string
+        }
+        Returns: boolean
+      }
+      workspace_my_side: {
+        Args: { p_conversation_id: string }
+        Returns: string
+      }
+      workspace_purge_ordinary: {
+        Args: { p_conversation_id: string }
+        Returns: number
+      }
+      workspace_team_unread: {
+        Args: { p_org_id: string; p_user: string }
+        Returns: number
       }
     }
     Enums: {

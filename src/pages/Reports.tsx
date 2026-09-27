@@ -215,11 +215,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
 
   const runCashFlow = useCallback(async () => {
     setLoading(true); setError(null)
-    // `as any` on the rpc name, same as exchange-rate.service.ts does for
-    // get_fx_gains_losses: database.types.ts is generated and does not yet
-    // list this function. Regenerating it here would pull in every unrelated
-    // schema change since it was last built.
-    const { data, error: err } = await (db as any).rpc('get_cash_flow', {
+    const { data, error: err } = await db.rpc('get_cash_flow', {
       p_org_id: orgId, p_year: year, p_month: month,
       ...(clientId ? { p_client_id: clientId } : {})
     })

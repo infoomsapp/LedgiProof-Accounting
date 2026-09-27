@@ -15,11 +15,8 @@
 //     rows exist and its input carries no account.
 //   · account_id set    → a per-account budget, reported line by line.
 //
-// `as any` on the rpc/from names: database.types.ts is generated and predates
-// this table, exactly as Reports.tsx already does for get_cash_flow.
-// Regenerating it here would pull in every unrelated schema change since.
-
 import { db } from '../lib/supabase'
+import type { Json } from '../types/database.types'
 import { toSafeMessage } from '../lib/errors'
 
 export interface BudgetRow {
@@ -93,7 +90,7 @@ export async function getBudgetableAccounts(
 
 /** Every budget line already saved for one period, in this exact scope. */
 export async function getBudgets({ orgId, clientId, year, month }: Scope): Promise<BudgetRow[]> {
-  let q = (db as any).from('budgets')
+  let q = db.from('budgets')
     .select('id, account_id, amount, note')
     .eq('org_id', orgId)
     .eq('period_year', year)
@@ -115,24 +112,27 @@ export async function getBudgets({ orgId, clientId, year, month }: Scope): Promi
 export async function saveBudgetLines(
   { orgId, clientId, year, month }: Scope, lines: BudgetLineInput[]
 ): Promise<{ saved: number; cleared: number }> {
-  const { data, error } = await (db as any).rpc('set_budget_lines', {
+  const { data, error } = await db.rpc('set_budget_lines', {
     p_org_id: orgId, p_year: year, p_month: month,
-    p_lines: lines,
+    // jsonb parameter: the generated type is Json, and an interface with named
+    // fields is not assignable to it without going through unknown.
+    p_lines: lines as unknown as Json,
     ...(clientId ? { p_client_id: clientId } : {})
   })
   if (error) throw new Error(toSafeMessage(error, 'Could not save the budget'))
-  return { saved: Number(data?.saved ?? 0), cleared: Number(data?.cleared ?? 0) }
+  const res = data as unknown as { saved?: number; cleared?: number }
+  return { saved: Number(res?.saved ?? 0), cleared: Number(res?.cleared ?? 0) }
 }
 
 export async function getBudgetVsActual(
   { orgId, clientId, year, month }: Scope
 ): Promise<BudgetVsActualData> {
-  const { data, error } = await (db as any).rpc('get_budget_vs_actual', {
+  const { data, error } = await db.rpc('get_budget_vs_actual', {
     p_org_id: orgId, p_year: year, p_month: month,
     ...(clientId ? { p_client_id: clientId } : {})
   })
   if (error) throw new Error(toSafeMessage(error, 'Could not run the budget report'))
-  return data as BudgetVsActualData
+  return data as unknown as BudgetVsActualData
 }
 
 /**

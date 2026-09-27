@@ -301,21 +301,26 @@ async function applyRule(rule: RuleDefinition, input: RuleInput): Promise<Evalua
       // would eventually disagree, and a rule that fires in the browser but
       // not on the server is worse than one that never fires at all.
       const variancePct = cfgNumber(cfg, 'variance_pct', 10)
-      const { data, error } = await (db as any).rpc('check_budget_variance', {
+      const { data, error } = await db.rpc('check_budget_variance', {
         p_org_id:       input.orgId,
-        p_client_id:    input.clientId ?? null,
         p_amount:       input.amount,
-        p_variance_pct: variancePct
+        p_variance_pct: variancePct,
+        // Omitted, not null: no client means the org's own books, and the
+        // function defaults the parameter to NULL for exactly that case.
+        ...(input.clientId ? { p_client_id: input.clientId } : {})
       })
       if (error) {
         return errorRule(rule, `Query error: ${toSafeMessage(error, 'database error')}`)
       }
-      const fired = Boolean(data?.fired)
+      // The function returns jsonb, which is typed as Json — this is the
+      // shape check_budget_variance documents and returns.
+      const verdict = data as unknown as { fired?: boolean; reason?: string | null }
+      const fired = Boolean(verdict?.fired)
       return {
         id: rule.rule_id, name: rule.name, severity: rule.severity,
         score: fired ? 0.6 : 0,
         fired,
-        reason: fired ? (data?.reason as string) : null
+        reason: fired ? (verdict?.reason ?? null) : null
       }
     }
 

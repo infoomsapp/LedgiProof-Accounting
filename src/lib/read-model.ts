@@ -61,7 +61,7 @@ export function markReadModelDirty(
   // Cast to `any` until `supabase gen types typescript` is re-run after applying
   // the migration — at that point, remove this cast and use db.from('read_model_dirty').
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(db as any).from('read_model_dirty')
+  ;db.from('read_model_dirty')
     .upsert(rows, { onConflict: 'org_id,model' })
     .then(({ error }: { error: { message: string } | null }) => {
       if (error) {

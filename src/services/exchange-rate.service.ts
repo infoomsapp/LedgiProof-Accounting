@@ -37,7 +37,7 @@ export interface FxGainLossRow {
 
 export async function getAllExchangeRates(): Promise<ExchangeRateRow[]> {
   // `as any` until supabase gen types runs and exchange_rates appears in Database
-  const { data, error } = await (db as any).from('exchange_rates').select('*').order('currency')
+  const { data, error } = await db.from('exchange_rates').select('*').order('currency')
   if (error) throw dbError(error, 'Failed to load exchange rates')
   return (data ?? []) as ExchangeRateRow[]
 }
@@ -53,7 +53,7 @@ export async function getRatesMap(): Promise<ExchangeRates> {
 
 export async function getExchangeRate(currency: string): Promise<number | null> {
   if (currency === 'USD') return 1.0
-  const { data } = await (db as any).rpc('get_exchange_rate', { p_currency: currency })
+  const { data } = await db.rpc('get_exchange_rate', { p_currency: currency })
   return (data as number | null) ?? null
 }
 
@@ -68,7 +68,7 @@ export async function snapshotFxRate(currency: string): Promise<number | null> {
 // ── Realized FX gains/losses for an org ───────────────────────────────────────
 
 export async function getFxGainsLosses(orgId: string): Promise<FxGainLossRow[]> {
-  const { data, error } = await (db as any).rpc('get_fx_gains_losses', { p_org_id: orgId })
+  const { data, error } = await db.rpc('get_fx_gains_losses', { p_org_id: orgId })
   if (error) throw dbError(error, 'Failed to load FX gains and losses')
   return (data ?? []) as FxGainLossRow[]
 }

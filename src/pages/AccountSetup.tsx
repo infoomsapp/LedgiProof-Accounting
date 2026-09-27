@@ -23,6 +23,7 @@ import { db } from '../lib/supabase'
 import { toSafeMessage } from '../lib/errors'
 import { recordSignupConsents } from '../services/consent.service'
 import LogoBrand from '../components/ui/LogoBrand'
+import SemaphoreMark from '../components/ui/SemaphoreMark'
 import { IconUser, IconBriefcase, IconCalculator, IconTile } from '../components/ui/AccountTypeIcons'
 import type { AppLocale } from '../i18n'
 
@@ -40,10 +41,6 @@ const TYPE_STYLE: Record<SetupType, { key: string; color: string; Icon: () => JS
   bookkeeper:    { key: 'whoBookkeeper', color: 'var(--lp-violet)', Icon: IconBriefcase },
   accountant:    { key: 'whoAccountant', color: 'var(--sem-green)', Icon: IconCalculator },
 }
-
-// The four semaphore states every transaction lands in -- the product's
-// signature, echoed as the mark on this first screen.
-const SEMAPHORE = ['var(--sem-blue)', 'var(--sem-green)', 'var(--sem-amber)', 'var(--sem-red)']
 
 export default function AccountSetup() {
   const { t } = useTranslation()
@@ -130,11 +127,7 @@ export default function AccountSetup() {
           }}
         >
           <div>
-            <div aria-hidden style={{ display: 'flex', gap: 5, marginBottom: 12 }}>
-              {SEMAPHORE.map(c => (
-                <span key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c }} />
-              ))}
-            </div>
+            <div style={{ marginBottom: 12 }}><SemaphoreMark /></div>
             <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--lp-text)' }}>
               {t('setup.title')}
             </div>

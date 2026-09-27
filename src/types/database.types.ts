@@ -8132,6 +8132,7 @@ export type Database = {
           total_miles: number
         }[]
       }
+      get_org_access: { Args: { p_org_id: string }; Returns: Json }
       get_org_activity_feed: {
         Args: { p_limit?: number; p_org_id: string }
         Returns: Json

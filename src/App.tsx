@@ -20,6 +20,7 @@ import { useOrgStore } from './store/org.store'
 import { useClientPortalStore } from './store/client-portal.store'
 import { useImpersonationStore } from './store/impersonation.store'
 import { useSessionRevocationGuard } from './hooks/useSessionRevocationGuard'
+import { useOrgAccess } from './hooks/useOrgAccess'
 import i18n from './i18n'
 
 // Eager on purpose: the app shells, route guards, and the landing / login /
@@ -42,6 +43,7 @@ const StaffActivatePage       = lazyPage(() => import('./pages/StaffActivatePage
 const ClientPortalActivatePage = lazyPage(() => import('./pages/ClientPortalActivatePage'))
 const OnboardingWizard        = lazyPage(() => import('./pages/OnboardingWizard'))
 const AccountSetup            = lazyPage(() => import('./pages/AccountSetup'))
+const ChoosePlan              = lazyPage(() => import('./pages/ChoosePlan'))
 const Dashboard               = lazyPage(() => import('./pages/Dashboard'))
 const Transactions            = lazyPage(() => import('./pages/Transactions'))
 const Reconciliation          = lazyPage(() => import('./pages/Reconciliation'))
@@ -166,7 +168,7 @@ function legalRoutes() {
 
 export default function App() {
   const { initialize, session, profile, loading: authLoading, mfaPending } = useAuthStore()
-  const { loadOrgs, loading: orgLoading, orgs, error: orgError } = useOrgStore()
+  const { loadOrgs, loading: orgLoading, orgs, error: orgError, activeOrg } = useOrgStore()
   const { syncActorFromAuth, exitAdminView, isImpersonating } = useImpersonationStore()
   const { loadMemberships, loading: portalLoading, memberships: portalMemberships } = useClientPortalStore()
 
@@ -175,6 +177,10 @@ export default function App() {
   // component is the shared ancestor of both. No-ops internally while
   // there's no session yet.
   useSessionRevocationGuard()
+
+  // Trial running / paid / needs a plan -- see the paywall gate below.
+  const { access: orgAccess, refresh: recheckOrgAccess } =
+    useOrgAccess(session && !mfaPending ? activeOrg?.id : null)
 
   // 1. Init auth
   useEffect(() => { initialize() }, [initialize])
@@ -291,6 +297,26 @@ export default function App() {
     !isImpersonating()
   ) {
     return <AccountSetup />
+  }
+
+  // ── Paywall ────────────────────────────────────────────────────────────
+  // No free plans: once the trial ends without a paid plan, the workspace
+  // shows ChoosePlan instead of the app (nothing is deleted). Super admins
+  // and "view as" sessions are never blocked.
+  if (
+    activeOrg &&
+    orgAccess?.state === 'expired' &&
+    profile?.system_role !== 'super_admin' &&
+    !isImpersonating()
+  ) {
+    return (
+      <ChoosePlan
+        access={orgAccess}
+        orgId={activeOrg.id}
+        isFirm={!!activeOrg.is_firm}
+        onRecheck={() => { void recheckOrgAccess() }}
+      />
+    )
   }
 
   // ── Onboarding ─────────────────────────────────────────────────────────

@@ -233,7 +233,7 @@ export default function OnboardingWizard() {
                 fontSize: 12, color: '#93c5fd', fontWeight: 500,
                 marginBottom: 22
               }}>
-                🎁 14-day Pro trial · No credit card required
+                🎁 15-day free trial · No credit card required
               </div>
             )}
 
@@ -246,7 +246,7 @@ export default function OnboardingWizard() {
                 fontSize: 12, color: 'var(--lp-text-muted)', fontWeight: 500,
                 marginBottom: 22
               }}>
-                ⭐ Starter plan · Free forever
+                ⭐ Starter · 30-day free trial
               </div>
             )}
 

@@ -162,7 +162,7 @@ export default function LandingPage() {
 
         <div className="web-hero-trust">
           <span>✓ No credit card required</span>
-          <span>✓ Free Starter plan</span>
+          <span>✓ 30-day free trial</span>
           <span>✓ Cancel anytime</span>
         </div>
 
@@ -258,7 +258,7 @@ export default function LandingPage() {
       <section className="web-section web-section-cta-wrap">
         <div className="web-cta-banner">
           <h2 className="web-cta-title">Ready to make bookkeeping less painful?</h2>
-          <p className="web-cta-sub">Pick a plan that fits your workflow. Free to start.</p>
+          <p className="web-cta-sub">Pick a plan that fits your workflow. Every plan starts with a free trial.</p>
           <button className="web-btn web-btn-lg web-cta-btn" onClick={() => navigate('/pricing')}>
             See pricing →
           </button>

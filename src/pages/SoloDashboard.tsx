@@ -26,6 +26,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation }     from 'react-i18next'
 import GettingStartedCard     from '../components/dashboard/GettingStartedCard'
+import TrialBannerInline      from '../components/dashboard/v2/bookkeeper/TrialBannerInline'
 import { useAuthStore }       from '../store/auth.store'
 import { useOrgStore }        from '../store/org.store'
 import { useSoloDashboard }   from '../hooks/useSoloDashboard'
@@ -156,6 +157,7 @@ export default function SoloDashboard() {
   return (
     <div style={{ padding: '28px 32px', flex: 1, overflowY: 'auto' }}>
 
+      <TrialBannerInline />
       <GettingStartedCard kind="self" />
 
       {/* ── Header ────────────────────────────────────────────────────── */}

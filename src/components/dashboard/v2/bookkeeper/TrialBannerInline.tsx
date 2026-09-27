@@ -1,5 +1,6 @@
 // PATH: src/components/dashboard/TrialBannerInline.tsx
-// Sticky banner for bookkeepers in Pro trial.
+// Trial banner for every workspace type (there is no free plan: every plan
+// starts with a trial, then one must be chosen -- see ChoosePlan).
 // Auto-hides if not in trial. Shows urgent (orange) when ≤3 days left.
 // Reuses the same logic as TrialBanner but styled for inline (top of dashboard).
 
@@ -60,7 +61,7 @@ export default function TrialBannerInline() {
       </div>
 
       <button
-        onClick={() => navigate('/settings/billing')}
+        onClick={() => navigate('/settings?tab=billing')}
         style={{
           padding: '5px 14px',
           borderRadius: 6,

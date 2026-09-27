@@ -39,7 +39,7 @@ const SE_PLANS: Plan[] = [
       'Basic monthly reports',
       'Optional bank sync — $1.50/mo per Plaid connection'
     ],
-    cta: 'Start free'
+    cta: 'Start 30-day free trial'
   },
   {
     id: 'entrepreneur',
@@ -254,6 +254,10 @@ export default function Pricing() {
           <FAQ
             q="Do firms really get a free 15-day trial?"
             a="Yes. Sign up as a bookkeeper or accountant and you get full access for 15 days. No credit card required upfront."
+          />
+          <FAQ
+            q="What happens when my trial ends?"
+            a="Every plan starts with a free trial — 30 days on Starter, 15 days on the others. When it ends, you choose a plan to keep working. Nothing is deleted while you decide."
           />
           <FAQ
             q="How does PYME client access work?"

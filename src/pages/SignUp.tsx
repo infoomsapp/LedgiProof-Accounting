@@ -208,7 +208,7 @@ export default function SignUp({
               Create your account
             </div>
             <div style={{ fontSize: 12, color: 'var(--lp-text-muted)', marginTop: 4 }}>
-              Free to start. No credit card required.
+              Every plan starts with a free trial. No credit card required.
             </div>
           </div>
 

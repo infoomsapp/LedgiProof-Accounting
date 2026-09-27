@@ -8201,6 +8201,10 @@ export type Database = {
       }
       get_pyme_dashboard: { Args: { p_client_id: string }; Returns: Json }
       get_recent_admin_events: { Args: { p_limit?: number }; Returns: Json }
+      get_review_queue: {
+        Args: { p_client_id?: string; p_limit?: number; p_org_id: string }
+        Returns: Json
+      }
       get_schedule_c_data: {
         Args: { p_org_id: string; p_year?: number }
         Returns: Json
@@ -8638,6 +8642,10 @@ export type Database = {
         Returns: Json
       }
       pct_used: { Args: { p_limit: number; p_used: number }; Returns: number }
+      post_reviewed_transactions: {
+        Args: { p_items: Json; p_org_id: string }
+        Returns: Json
+      }
       preview_clients_import: {
         Args: { p_org_id: string; p_rows: Json }
         Returns: Json
@@ -8804,6 +8812,16 @@ export type Database = {
           p_year: number
         }
         Returns: Json
+      }
+      set_categorization_rule: {
+        Args: {
+          p_account_id: string
+          p_client_id: string
+          p_is_rule?: boolean
+          p_merchant_key: string
+          p_org_id: string
+        }
+        Returns: undefined
       }
       set_client_workflow_state: {
         Args: {

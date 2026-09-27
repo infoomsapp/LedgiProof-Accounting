@@ -51,7 +51,7 @@ export default function GettingStartedCard({ kind }: { kind: Kind }) {
           hasRows(db.from('transactions').select('id', head).eq('org_id', orgId).not('approved_at', 'is', null)),
         ]).then(([bank, invoice, categorized]): Step[] => [
           { key: 'bank',       to: '/import/bank-transactions', done: bank },
-          { key: 'categorize', to: '/transactions',             done: categorized },
+          { key: 'categorize', to: '/review',                   done: categorized },
           { key: 'invoice',    to: '/invoices',                 done: invoice },
           { key: 'branding',   to: '/settings?tab=branding',    done: hasLogo },
         ])

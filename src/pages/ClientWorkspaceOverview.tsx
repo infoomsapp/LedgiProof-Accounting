@@ -32,6 +32,7 @@ interface NavCard {
 }
 
 const BASE_NAV_CARDS: NavCard[] = [
+  { to: 'review',         icon: 'inbox',          titleKey: 'clientWorkspace.cardReview',          hintKey: 'clientWorkspace.cardReviewHint' },
   { to: 'transactions',   icon: 'transactions',   titleKey: 'clientWorkspace.cardTransactions',    hintKey: 'clientWorkspace.cardTransactionsHint' },
   { to: 'invoices',       icon: 'invoices',       titleKey: 'clientWorkspace.cardInvoices',        hintKey: 'clientWorkspace.cardInvoicesHint' },
   { to: 'documents',      icon: 'folder',         titleKey: 'clientWorkspace.cardDocuments',       hintKey: 'clientWorkspace.cardDocumentsHint' },

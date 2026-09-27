@@ -46,6 +46,7 @@ const AccountSetup            = lazyPage(() => import('./pages/AccountSetup'))
 const ChoosePlan              = lazyPage(() => import('./pages/ChoosePlan'))
 const Dashboard               = lazyPage(() => import('./pages/Dashboard'))
 const Transactions            = lazyPage(() => import('./pages/Transactions'))
+const ReviewInbox             = lazyPage(() => import('./pages/ReviewInbox'))
 const Reconciliation          = lazyPage(() => import('./pages/Reconciliation'))
 const Invoices                = lazyPage(() => import('./pages/Invoices'))
 const Estimates               = lazyPage(() => import('./pages/Estimates'))
@@ -416,6 +417,11 @@ export default function App() {
               <ErrorBoundary section="transactions"><Transactions /></ErrorBoundary>
             </FirmRouteRedirect>
           } />
+          <Route path="review"        element={
+            <FirmRouteRedirect>
+              <ErrorBoundary section="review inbox"><ReviewInbox /></ErrorBoundary>
+            </FirmRouteRedirect>
+          } />
           <Route path="reconciliation" element={
             <FirmRouteRedirect>
               <ErrorBoundary section="reconciliation"><Reconciliation /></ErrorBoundary>
@@ -635,6 +641,9 @@ export default function App() {
             } />
             <Route path="transactions"  element={
               <ErrorBoundary section="client transactions"><Transactions /></ErrorBoundary>
+            } />
+            <Route path="review"        element={
+              <ErrorBoundary section="client review inbox"><ReviewInbox /></ErrorBoundary>
             } />
             <Route path="reconciliation" element={
               <ErrorBoundary section="client reconciliation"><Reconciliation /></ErrorBoundary>

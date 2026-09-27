@@ -7,6 +7,9 @@ import { printToPDF, downloadCSV, buildCSV } from '../services/export.service'
 import { formatCurrency } from '../lib/currency'
 import { formatDate }     from '../lib/dates'
 import { toSafeMessage } from '../lib/errors'
+import { useAuthStore } from '../store/auth.store'
+import BudgetEditor from '../components/reports/BudgetEditor'
+import { getBudgetVsActual, type BudgetVsActualData } from '../services/budget.service'
 
 const fmt = (n: number) => formatCurrency(n)
 
@@ -37,6 +40,27 @@ interface BalanceSheetData {
 
 const MONTHS = ['January','February','March','April','May','June',
   'July','August','September','October','November','December']
+
+type ReportKey = 'balance_sheet' | 'pl' | 'cash_flow' | 'budget'
+
+const REPORT_TABS: [ReportKey, string][] = [
+  ['balance_sheet', 'Balance Sheet'],
+  ['pl',            'P&L'],
+  ['cash_flow',     'Cash Flow'],
+  ['budget',        'Budget vs Actual'],
+]
+
+const REPORT_TITLES: Record<ReportKey, string> = {
+  balance_sheet: 'Balance Sheet',
+  pl:            'P&L',
+  cash_flow:     'Cash Flow',
+  budget:        'Budget vs Actual',
+}
+
+// Who may write a budget, mirroring budgets_write (owner/admin/accountant) so
+// the editor is only offered where saving will actually succeed. A client
+// portal user has no org membership by design and so never sees it.
+const BUDGET_EDIT_ROLES = new Set(['owner', 'admin', 'accountant'])
 
 // Real letterhead — the entity's own name, not just a generic report
 // title, is the single biggest thing a financial statement needs to look
@@ -154,6 +178,11 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
   const orgId  = orgIdOverride ?? scope.orgId
   const clientId = clientIdOverride ?? scope.clientId
   const { activeOrg } = useOrgStore()
+  const { membership } = useAuthStore()
+  // Mirrors budgets_write. Hiding the editor from someone who cannot save is
+  // the point: RLS would reject the write, and a rejected save after filling
+  // in thirty accounts is the worst possible way to learn that.
+  const canEditBudget = !!membership?.role && BUDGET_EDIT_ROLES.has(membership.role)
   // Letterhead identity: the specific client when scoped to one (a firm's
   // report is for THAT client, not the firm itself), otherwise the org's
   // own name (solo/pyme, or a firm's own org-level view).
@@ -163,8 +192,10 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
 
   const [year,    setYear]   = useState(now.getFullYear())
   const [month,   setMonth]  = useState(now.getMonth() + 1)
-  const [report,  setReport] = useState<'balance_sheet'|'pl'|'cash_flow'>('balance_sheet')
+  const [report,  setReport] = useState<ReportKey>('balance_sheet')
   const [cfData,  setCfData] = useState<CashFlowData | null>(null)
+  const [bvaData, setBvaData] = useState<BudgetVsActualData | null>(null)
+  const [showBudgetEditor, setShowBudgetEditor] = useState(false)
   const [bsData,  setBsData] = useState<BalanceSheetData | null>(null)
   const [plData,  setPlData] = useState<any[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -194,6 +225,16 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
     })
     if (err) setError(toSafeMessage(err, 'Could not run the cash flow statement'))
     else setCfData(data as unknown as CashFlowData)
+    setLoading(false); setHasRun(true)
+  }, [orgId, clientId, year, month])
+
+  const runBudget = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      setBvaData(await getBudgetVsActual({ orgId, clientId, year, month }))
+    } catch (e) {
+      setError(toSafeMessage(e, 'Could not run the budget report'))
+    }
     setLoading(false); setHasRun(true)
   }, [orgId, clientId, year, month])
 
@@ -233,6 +274,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
   function handleRun() {
     if (report === 'balance_sheet') runBalanceSheet()
     else if (report === 'cash_flow') runCashFlow()
+    else if (report === 'budget') runBudget()
     else runPL()
   }
 
@@ -253,7 +295,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
         {hasRun && !loading && (
           <div style={{ display:'flex', gap:8 }}>
             <button
-              onClick={() => printToPDF(`${entityName} — ${report === 'balance_sheet' ? 'Balance Sheet' : report === 'cash_flow' ? 'Cash Flow' : 'P&L'} ${year}-${String(month).padStart(2,'0')}`)}
+              onClick={() => printToPDF(`${entityName} — ${REPORT_TITLES[report]} ${year}-${String(month).padStart(2,'0')}`)}
               className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
             >
               ⬇ PDF
@@ -264,6 +306,25 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                   const rows = plData.map(r => [r.code, r.name, r.type,
                     r.type === 'income' ? r.credit - r.debit : r.debit - r.credit])
                   downloadCSV(buildCSV(['Code','Account','Type','Amount'], rows), `pl-${year}-${month}.csv`)
+                }}
+                className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
+              >
+                ⬇ CSV
+              </button>
+            )}
+            {report === 'budget' && bvaData && (
+              <button
+                onClick={() => {
+                  const rows: (string | number)[][] = bvaData.lines.map(l => [
+                    l.code, l.name, l.budget, l.actual, l.remaining,
+                    l.over_pct === null ? '' : `${l.over_pct}%`
+                  ])
+                  if (bvaData.period_budget > 0) {
+                    rows.unshift(['', 'Monthly spending ceiling', bvaData.period_budget,
+                      bvaData.total_actual, bvaData.period_budget - bvaData.total_actual, ''])
+                  }
+                  downloadCSV(buildCSV(['Code','Account','Budget','Actual','Remaining','Over'], rows),
+                    `budget-vs-actual-${year}-${month}.csv`)
                 }}
                 className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
               >
@@ -297,15 +358,19 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
         <div>
           <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>Report</label>
           <div style={{ display:'flex' }}>
-            {[['balance_sheet','Balance Sheet'],['pl','P&L'],['cash_flow','Cash Flow']] .map(([k,l]) => (
-              <button key={k} onClick={() => { setReport(k as any); setHasRun(false) }} style={{
+            {/* Rounding is keyed on position, not on a report's name: with a
+                fourth report the old name-based rule gave every button after
+                the first a right-rounded edge. */}
+            {REPORT_TABS.map(([k,l], i) => (
+              <button key={k} onClick={() => { setReport(k); setHasRun(false); setShowBudgetEditor(false) }} style={{
                 padding:'8px 16px', cursor:'pointer', fontFamily:'inherit', fontSize:13,
                 fontWeight: report===k ? 500 : 400,
                 background: report===k ? 'var(--lp-accent)' : 'rgba(255,255,255,0.04)',
                 color:      report===k ? '#fff'    : 'var(--lp-text-muted)',
                 border:'0.5px solid var(--lp-border)', transition:'all 0.12s',
-                borderRadius: k==='balance_sheet' ? '7px 0 0 7px' : '0 7px 7px 0',
-                borderLeft:   k==='pl' ? 'none' : undefined
+                borderRadius: i === 0 ? '7px 0 0 7px'
+                            : i === REPORT_TABS.length - 1 ? '0 7px 7px 0' : 0,
+                borderLeft:   i === 0 ? undefined : 'none'
               }}>{l}</button>
             ))}
           </div>
@@ -322,7 +387,9 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
 
         <div>
           <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>
-            {report === 'balance_sheet' ? 'As of month' : 'Through month'}
+            {report === 'balance_sheet' ? 'As of month'
+              : report === 'budget' || report === 'cash_flow' ? 'Month'
+              : 'Through month'}
           </label>
           <select className="lp-input" style={{ width:130 }} value={month}
             onChange={e => setMonth(Number(e.target.value))}>
@@ -334,12 +401,158 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
           style={{ padding:'9px 24px' }}>
           {loading ? 'Generating…' : 'Run report'}
         </button>
+
+        {report === 'budget' && canEditBudget && (
+          <button onClick={() => setShowBudgetEditor(v => !v)} className="lp-btn lp-btn-ghost"
+            style={{ padding:'9px 18px' }}>
+            {showBudgetEditor ? 'Hide budget editor' : 'Set budget'}
+          </button>
+        )}
       </div>
 
       {error && (
         <div style={{ padding:'10px 14px', borderRadius:8, marginBottom:16, fontSize:13,
           background:'var(--sem-red-bg)', border:'0.5px solid var(--sem-red-border)', color:'var(--sem-red)' }}>
           ⚠ {error}
+        </div>
+      )}
+
+      {report === 'budget' && showBudgetEditor && canEditBudget && (
+        <BudgetEditor
+          orgId={orgId} clientId={clientId} year={year} month={month}
+          onSaved={() => { if (hasRun) runBudget() }}
+          onClose={() => setShowBudgetEditor(false)}
+        />
+      )}
+
+      {/* -- BUDGET VS ACTUAL ------------------------------------------------ */}
+      {report === 'budget' && bvaData !== null && (
+        <div style={{ maxWidth:700 }}>
+          <ReportLetterhead
+            entityName={entityName}
+            reportTitle="Budget vs Actual"
+            period={`${MONTHS[month-1]} ${year}`}
+          />
+
+          {bvaData.period_budget === 0 && bvaData.lines.every(l => !l.has_budget) ? (
+            <div className="lp-card" style={{ textAlign:'center', padding:'32px 24px' }}>
+              <div style={{ fontSize:14, fontWeight:600, color:'var(--lp-text)', marginBottom:6 }}>
+                No budget set for {MONTHS[month-1]} {year}
+              </div>
+              <div style={{ fontSize:13, color:'var(--lp-text-muted)' }}>
+                {canEditBudget
+                  ? 'Use "Set budget" above. The monthly ceiling is also what lets the assistant warn you before an expense puts the month over budget.'
+                  : 'Ask the workspace owner or accountant to set one.'}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* The monthly ceiling leads: it is the one figure the assistant
+                  checks a new expense against, and it is reported apart from
+                  the per-account lines so the two are never added together. */}
+              {bvaData.period_budget > 0 && (() => {
+                const left = bvaData.period_budget - bvaData.total_actual
+                const over = left < 0
+                return (
+                  <div style={{
+                    background: over ? 'var(--sem-red-bg)' : 'var(--sem-green-bg)',
+                    border: `0.5px solid ${over ? 'var(--sem-red-border)' : 'var(--sem-green-border)'}`,
+                    borderRadius:10, padding:'14px 18px', marginBottom:18
+                  }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+                      <span style={{ fontSize:13, fontWeight:700,
+                        color: over ? 'var(--sem-red)' : 'var(--sem-green)' }}>
+                        {over ? 'Over the monthly ceiling' : 'Within the monthly ceiling'}
+                      </span>
+                      <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800,
+                        color: over ? 'var(--sem-red)' : 'var(--sem-green)' }}>
+                        {fmt(Math.abs(left))} {over ? 'over' : 'left'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--lp-text-muted)', marginTop:6 }}>
+                      Spent {fmt(bvaData.total_actual)} of {fmt(bvaData.period_budget)} budgeted for the month.
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <div style={{ border:'0.5px solid var(--lp-border)', borderRadius:10, overflow:'hidden' }}>
+                <div style={{
+                  display:'grid', gridTemplateColumns:'1fr 100px 100px 110px',
+                  padding:'9px 14px', background:'var(--lp-surface-2)',
+                  fontSize:11, fontWeight:700, letterSpacing:0.5,
+                  color:'var(--lp-text-muted)', textTransform:'uppercase'
+                }}>
+                  <span>Account</span>
+                  <span style={{ textAlign:'right' }}>Budget</span>
+                  <span style={{ textAlign:'right' }}>Actual</span>
+                  <span style={{ textAlign:'right' }}>Remaining</span>
+                </div>
+
+                {bvaData.lines.map(l => {
+                  // A line with no budget that nonetheless spent money is a real
+                  // answer, not a blank: it is unbudgeted spending.
+                  const over = l.has_budget && l.remaining < 0
+                  return (
+                    <div key={l.code} style={{
+                      display:'grid', gridTemplateColumns:'1fr 100px 100px 110px',
+                      padding:'7px 14px', fontSize:12.5,
+                      borderTop:'0.5px solid var(--lp-border)', alignItems:'baseline'
+                    }}>
+                      <span style={{ color:'var(--lp-text-muted)' }}>
+                        <span style={{ fontFamily:'monospace', fontSize:11, color:'var(--lp-text-stronger)', marginRight:10 }}>
+                          {l.code}
+                        </span>
+                        {l.name}
+                        {!l.has_budget && (
+                          <span style={{ marginLeft:8, fontSize:10.5, color:'var(--lp-text-muted)' }}>
+                            (not budgeted)
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ textAlign:'right', fontFamily:'monospace' }}>
+                        {l.has_budget ? fmt(l.budget) : '--'}
+                      </span>
+                      <span style={{ textAlign:'right', fontFamily:'monospace' }}>{fmt(l.actual)}</span>
+                      <span style={{ textAlign:'right', fontFamily:'monospace',
+                        color: !l.has_budget ? 'var(--lp-text-muted)'
+                             : over ? 'var(--sem-red)' : 'var(--sem-green)' }}>
+                        {l.has_budget
+                          ? `${fmt(Math.abs(l.remaining))}${over ? ' over' : ''}`
+                          : '--'}
+                        {l.has_budget && l.over_pct !== null && (
+                          <span style={{ display:'block', fontSize:10.5, color:'var(--lp-text-muted)' }}>
+                            {l.over_pct > 0 ? `+${l.over_pct}%` : `${l.over_pct}%`}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
+
+                <div style={{
+                  display:'grid', gridTemplateColumns:'1fr 100px 100px 110px',
+                  padding:'10px 14px', borderTop:'0.5px solid var(--lp-border)',
+                  background:'var(--lp-surface-2)', fontSize:13, fontWeight:700
+                }}>
+                  <span>Totals</span>
+                  <span style={{ textAlign:'right', fontFamily:'monospace' }}>{fmt(bvaData.total_budget)}</span>
+                  <span style={{ textAlign:'right', fontFamily:'monospace' }}>{fmt(bvaData.total_actual)}</span>
+                  <span style={{ textAlign:'right', fontFamily:'monospace' }}>
+                    {fmt(bvaData.total_budget - bvaData.total_actual)}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ marginTop:14, fontSize:11.5, color:'var(--lp-text-muted)' }}>
+                Actual figures come from the same journal entries as the P&amp;L, on
+                the same convention. Accounts with no budget are listed when they
+                spent something, so unbudgeted spending is visible rather than missing.
+              </div>
+
+              <ReportFooter />
+            </>
+          )}
         </div>
       )}
 

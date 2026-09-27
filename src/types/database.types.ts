@@ -1885,8 +1885,14 @@ export type Database = {
           final_hash: string | null
           height: number | null
           id: string
+          match_status: string | null
           mime_type: string
+          ocr_amount: number | null
           ocr_completed_at: string | null
+          ocr_confidence: number | null
+          ocr_currency: string | null
+          ocr_date: string | null
+          ocr_merchant: string | null
           ocr_text: string | null
           org_id: string
           previous_hash: string | null
@@ -1909,8 +1915,14 @@ export type Database = {
           final_hash?: string | null
           height?: number | null
           id?: string
+          match_status?: string | null
           mime_type: string
+          ocr_amount?: number | null
           ocr_completed_at?: string | null
+          ocr_confidence?: number | null
+          ocr_currency?: string | null
+          ocr_date?: string | null
+          ocr_merchant?: string | null
           ocr_text?: string | null
           org_id: string
           previous_hash?: string | null
@@ -1933,8 +1945,14 @@ export type Database = {
           final_hash?: string | null
           height?: number | null
           id?: string
+          match_status?: string | null
           mime_type?: string
+          ocr_amount?: number | null
           ocr_completed_at?: string | null
+          ocr_confidence?: number | null
+          ocr_currency?: string | null
+          ocr_date?: string | null
+          ocr_merchant?: string | null
           ocr_text?: string | null
           org_id?: string
           previous_hash?: string | null
@@ -8394,6 +8412,10 @@ export type Database = {
       is_client_user: { Args: never; Returns: boolean }
       is_org_member: { Args: { p_org_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      link_receipt: {
+        Args: { p_document_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
       list_estimates: {
         Args: {
           p_client_id?: string
@@ -8460,6 +8482,17 @@ export type Database = {
       }
       mark_workspace_messages_read: {
         Args: { p_conversation_id: string }
+        Returns: Json
+      }
+      match_receipt: {
+        Args: {
+          p_amount: number
+          p_confidence?: number
+          p_currency?: string
+          p_date: string
+          p_document_id: string
+          p_merchant: string
+        }
         Returns: Json
       }
       next_estimate_number: { Args: { p_org_id: string }; Returns: string }

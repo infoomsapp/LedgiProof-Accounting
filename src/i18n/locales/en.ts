@@ -751,6 +751,7 @@ export default {
     ruleSaved:      'Rule saved — it will be suggested first from now on',
     needsLook:      'Take a look before confirming',
     showingFirst:   'Showing the {{shown}} most recent of {{total}}',
+    hasReceipt:     'Receipt attached',
     sources: {
       rule:     'Rule',
       learned:  'Learned',
@@ -759,5 +760,14 @@ export default {
       income:   'Income',
       ai:       'AI',
     },
+  },
+  receiptMatch: {
+    matched:     'Matched to your bank transaction',
+    suggested:   'Which bank transaction is this receipt for?',
+    thisOne:     'This one',
+    linked:      'Linked',
+    unmatched:   "No bank transaction matches yet — it will link by itself when the statement arrives.",
+    noAmount:    "We couldn't read a total, so this receipt wasn't matched.",
+    linkFailed:  "Couldn't link the receipt",
   },
 } as const

@@ -1,11 +1,29 @@
 // PATH: src/services/ocr.service.ts
-// Client-side caller for the ocr-receipt edge function.
+// Client-side caller for the ocr-receipt edge function, plus link_receipt()
+// for confirming which bank transaction a scanned receipt belongs to.
 
-import { supabase } from '../lib/supabase'
+import { supabase, db } from '../lib/supabase'
 import { dbError } from '../lib/errors'
+
+export interface ReceiptMatchTx {
+  id:               string
+  description:      string | null
+  amount:           number
+  transaction_date: string
+  score?:           number
+}
+
+/** What match_receipt() decided right after OCR. */
+export type ReceiptMatch =
+  | { status: 'matched';   transaction: ReceiptMatchTx }
+  | { status: 'suggested'; candidates:  ReceiptMatchTx[] }
+  | { status: 'unmatched' }
+  | { status: 'no_amount' }
 
 export interface OcrResult {
   document_id:    string
+  /** null when matching failed server-side; the OCR fields are still valid. */
+  match:          ReceiptMatch | null
   merchant_name:  string | null
   total_amount:   number | null
   tax_amount:     number | null
@@ -35,6 +53,15 @@ export async function extractReceiptOcr(
   if (res.data?.error) throw new Error(res.data.error)
 
   return res.data as OcrResult
+}
+
+/** The user picked the bank transaction a suggested receipt belongs to. */
+export async function linkReceipt(documentId: string, transactionId: string): Promise<void> {
+  const { error } = await db.rpc('link_receipt', {
+    p_document_id:    documentId,
+    p_transaction_id: transactionId
+  })
+  if (error) throw dbError(error, "Couldn't link the receipt")
 }
 
 export function confidenceLabel(confidence: number): string {

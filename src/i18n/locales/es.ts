@@ -747,6 +747,7 @@ export default {
     ruleSaved:      'Regla guardada — desde ahora se sugerirá primero',
     needsLook:      'Revísala antes de confirmar',
     showingFirst:   'Mostrando las {{shown}} más recientes de {{total}}',
+    hasReceipt:     'Recibo adjunto',
     sources: {
       rule:     'Regla',
       learned:  'Aprendido',
@@ -755,5 +756,14 @@ export default {
       income:   'Ingreso',
       ai:       'IA',
     },
+  },
+  receiptMatch: {
+    matched:     'Emparejado con tu movimiento del banco',
+    suggested:   '¿A qué movimiento del banco corresponde este recibo?',
+    thisOne:     'Es este',
+    linked:      'Vinculado',
+    unmatched:   'Aún no hay un movimiento que coincida — se emparejará solo cuando llegue el estado de cuenta.',
+    noAmount:    'No pudimos leer el total, así que este recibo no se emparejó.',
+    linkFailed:  'No se pudo vincular el recibo',
   },
 } as const

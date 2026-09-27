@@ -288,6 +288,9 @@ export default function ReviewInbox() {
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 2 }}>
                       {it.transaction_date}
+                      {it.has_receipt && (
+                        <span title={t('review.hasReceipt')} aria-label={t('review.hasReceipt')} style={{ marginLeft: 8 }}>📎</span>
+                      )}
                       {(it.semaphore === 'red' || it.semaphore === 'amber') && (
                         <span style={{ color: SEM_COLOR[it.semaphore], marginLeft: 8 }}>
                           {it.status_reason ?? t('review.needsLook')}

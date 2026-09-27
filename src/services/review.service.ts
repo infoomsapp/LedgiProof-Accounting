@@ -32,6 +32,7 @@ export interface ReviewItem {
   suggestion_confidence:  number | null
   suggested_account_code: string | null
   suggested_account_name: string | null
+  has_receipt:            boolean
 }
 
 export interface ReviewQueue {

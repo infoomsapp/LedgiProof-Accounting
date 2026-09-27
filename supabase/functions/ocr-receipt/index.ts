@@ -5,13 +5,17 @@
 // from uploaded images (JPEG/PNG/WebP) and PDFs.
 //
 // Flow:
-//   1. Verify JWT + org membership
-//   2. Look up document → get storage_path + mime_type
-//   3. Download file from Storage using service role
-//   4. Base64-encode and send to Claude Vision
-//   5. Parse structured JSON response
-//   6. Write OCR results to documents + transaction_documents tables
-//   7. Return extracted data to caller
+//   1. Verify JWT
+//   2. Parse body
+//   3. Look up document, verify the caller can act for its org/client (staff
+//      or the client's own portal user -- can_act_for_client)
+//   4. Download file from Storage using service role
+//   5. Base64-encode and send to Claude Vision
+//   6. Parse structured JSON response
+//   7. Write OCR results to documents + transaction_documents tables
+//   8. match_receipt(): link the receipt to its bank transaction (or return
+//      the likely candidates / leave it waiting for the statement import)
+//   9. Return extracted data + match to caller
 //
 // Deploy: supabase functions deploy ocr-receipt
 
@@ -199,20 +203,10 @@ Deno.serve(async (req) => {
       return j({ error: 'document_id and org_id are required' }, 400)
     }
 
-    // 3. Verify org membership
-    const { data: mem } = await supabaseUser
-      .from('organization_memberships')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .eq('org_id', org_id)
-      .eq('is_active', true)
-      .maybeSingle()
-    if (!mem) return j({ error: 'Not a member of this organization' }, 403)
-
-    // 4. Fetch document metadata
+    // 3. Fetch document metadata, then authorize against its org/client
     const { data: doc, error: docErr } = await supabaseAdmin
       .from('documents')
-      .select('id, storage_path, storage_bucket, mime_type, size_bytes, org_id')
+      .select('id, storage_path, storage_bucket, mime_type, size_bytes, org_id, client_id')
       .eq('id', document_id)
       .eq('org_id', org_id)
       .maybeSingle()
@@ -220,6 +214,13 @@ Deno.serve(async (req) => {
     if (docErr || !doc) {
       return j({ error: 'Document not found or access denied' }, 404)
     }
+
+    // Staff of the org, or the portal user of the document's client.
+    const { data: canAct } = await supabaseUser.rpc('can_act_for_client', {
+      p_org_id:    org_id,
+      p_client_id: doc.client_id ?? null
+    })
+    if (canAct !== true) return j({ error: 'Document not found or access denied' }, 404)
 
     const mime = (doc.mime_type ?? 'image/jpeg') as string
     if (!isImageMime(mime) && !isPdfMime(mime)) {
@@ -292,8 +293,25 @@ Deno.serve(async (req) => {
         .in('id', ids)
     }
 
+    // Find the bank transaction this receipt paid for. Runs as the caller so
+    // match_receipt's own authorization applies. A failure here never loses
+    // the OCR result -- the receipt simply stays unlinked.
+    const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(extracted.date ?? '') ? extracted.date : null
+    const amount  = typeof extracted.total_amount === 'number' && Number.isFinite(extracted.total_amount)
+      ? extracted.total_amount : null
+    const { data: match, error: matchErr } = await supabaseUser.rpc('match_receipt', {
+      p_document_id: document_id,
+      p_merchant:    extracted.merchant_name ?? null,
+      p_amount:      amount,
+      p_date:        isoDate,
+      p_currency:    (extracted.currency || 'USD').slice(0, 3).toUpperCase(),
+      p_confidence:  Math.max(0, Math.min(100, Math.round(extracted.confidence ?? 0)))
+    })
+    if (matchErr) console.error('[ocr-receipt] match_receipt', matchErr)
+
     return j({
       document_id,
+      match:           matchErr ? null : match,
       merchant_name:   extracted.merchant_name,
       total_amount:    extracted.total_amount,
       tax_amount:      extracted.tax_amount,

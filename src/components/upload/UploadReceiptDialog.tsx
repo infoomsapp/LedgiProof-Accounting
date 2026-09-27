@@ -3,7 +3,8 @@
 // Reusable modal to upload one or more receipts.
 // After each successful upload (kind='receipt'|'invoice'), automatically
 // triggers OCR extraction via the ocr-receipt edge function and shows
-// extracted merchant, amount, date, and confidence to the user.
+// extracted merchant, amount, date, and confidence to the user -- plus which
+// bank transaction the receipt was matched to (or "is it one of these?").
 //
 // Used by:
 //   - SoloDashboard       → self-employed user upload (no client_id)
@@ -16,6 +17,7 @@
 //   - Otherwise just registers the receipt with document_kind='receipt'.
 
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation }      from 'react-i18next'
 import { db }                  from '../../lib/supabase'
 import Modal                   from '../ui/modal'
 import Button                  from '../ui/Button'
@@ -26,12 +28,15 @@ import { useFileUpload }       from '../../hooks/useFileUpload'
 import { setDropTarget }       from './DropZone'
 import {
   extractReceiptOcr,
+  linkReceipt,
   confidenceLabel,
   confidenceColor,
   type OcrResult,
-  type OcrStatus
+  type OcrStatus,
+  type ReceiptMatch
 } from '../../services/ocr.service'
 import { toSafeMessage } from '../../lib/errors'
+import { formatCurrency } from '../../lib/currency'
 
 interface Props {
   open:           boolean
@@ -265,7 +270,12 @@ export default function UploadReceiptDialog({
 
         {/* OCR results — one card per successfully uploaded file */}
         {ocrResults.map(({ documentId, ocr }) => (
-          <OcrResultCard key={documentId} ocr={ocr} />
+          <div key={documentId} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <OcrResultCard ocr={ocr} />
+            {ocr?.status === 'done' && ocr.result?.match && (
+              <ReceiptMatchCard documentId={documentId} match={ocr.result.match} />
+            )}
+          </div>
         ))}
 
         {/* Fulfilling indicator */}
@@ -432,6 +442,74 @@ function OcrResultCard({ ocr }: { ocr: OcrState | undefined }) {
       </div>
     </div>
   )
+}
+
+// ── Bank match ────────────────────────────────────────────────────────────────
+
+function ReceiptMatchCard({ documentId, match }: { documentId: string; match: ReceiptMatch }) {
+  const { t } = useTranslation()
+  const [linkedId, setLinkedId] = useState<string | null>(null)
+  const [linking,  setLinking]  = useState<string | null>(null)
+  const [error,    setError]    = useState<string | null>(null)
+
+  const box = (color: string, children: React.ReactNode) => (
+    <div style={{
+      padding: '10px 12px', borderRadius: 8, fontSize: 12.5,
+      background: `color-mix(in srgb, ${color} 7%, transparent)`,
+      border: `0.5px solid color-mix(in srgb, ${color} 30%, transparent)`,
+      color: 'var(--lp-text)'
+    }}>{children}</div>
+  )
+  const txLine = (tx: { description: string | null; amount: number; transaction_date: string }) =>
+    `${tx.description ?? '—'} · ${formatCurrency(Number(tx.amount))} · ${tx.transaction_date}`
+
+  if (match.status === 'matched') {
+    return box('var(--sem-blue)', <>
+      <strong style={{ fontWeight: 600, color: 'var(--sem-blue)' }}>✓ {t('receiptMatch.matched')}</strong>
+      <div style={{ color: 'var(--lp-text-muted)', marginTop: 3 }}>{txLine(match.transaction)}</div>
+    </>)
+  }
+  if (match.status === 'unmatched') return box('var(--lp-text-muted)', t('receiptMatch.unmatched'))
+  if (match.status === 'no_amount') return box('var(--sem-amber)', t('receiptMatch.noAmount'))
+
+  async function pick(transactionId: string) {
+    setLinking(transactionId)
+    setError(null)
+    try {
+      await linkReceipt(documentId, transactionId)
+      setLinkedId(transactionId)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('receiptMatch.linkFailed'))
+    } finally {
+      setLinking(null)
+    }
+  }
+
+  return box('var(--sem-amber)', <>
+    <div style={{ fontWeight: 600, marginBottom: 8 }}>{t('receiptMatch.suggested')}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {match.candidates.map(c => (
+        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {txLine(c)}
+          </span>
+          {linkedId === c.id ? (
+            <span style={{ color: 'var(--sem-blue)', fontWeight: 600 }}>✓ {t('receiptMatch.linked')}</span>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!!linking || !!linkedId}
+              onClick={() => { void pick(c.id) }}
+            >
+              {linking === c.id ? '…' : t('receiptMatch.thisOne')}
+            </Button>
+          )}
+        </div>
+      ))}
+    </div>
+    {error && <div style={{ color: 'var(--sem-red)', marginTop: 6 }}>{error}</div>}
+  </>)
 }
 
 function Field({

@@ -11,7 +11,7 @@ import { db } from '../lib/supabase'
 import type { Json } from '../types/database.types'
 import { dbError } from '../lib/errors'
 
-export type OnboardingSurface = 'accountant_dashboard' | 'bookkeeper_dashboard'
+export type OnboardingSurface = 'accountant_dashboard' | 'bookkeeper_dashboard' | 'getting_started'
 
 export function hasSeenOnboardingHints(
   hintsSeen: Json | null | undefined,

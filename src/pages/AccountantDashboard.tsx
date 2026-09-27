@@ -50,6 +50,7 @@ import {
 import { useFirmInsights }     from '../hooks/useFirmInsights'
 import { useOrgCurrency }      from '../hooks/useOrgCurrency'
 import { useOnboardingHints }  from '../hooks/useOnboardingHints'
+import GettingStartedCard      from '../components/dashboard/GettingStartedCard'
 
 export default function AccountantDashboard() {
   const navigate = useNavigate()
@@ -115,6 +116,8 @@ export default function AccountantDashboard() {
 
       mainSlot={
         <>
+          <GettingStartedCard kind="firm" />
+
           {/* ── Row 1: Financial Health ───────────────────────────────── */}
           <div style={{ marginBottom: 14, ...staggerStyle(0) }}>
             <FirmHealthKpis

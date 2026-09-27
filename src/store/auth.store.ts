@@ -55,6 +55,8 @@ interface AuthState {
   disableMfa: (factorId: string, totpCode: string) => Promise<void>
   getMfaFactors: () => Promise<MfaFactor[]>
   setMembership: (m: OrganizationMembership | null) => void
+  /** Re-reads the signed-in user's profile (e.g. after AccountSetup). */
+  refreshProfile: () => Promise<void>
   clearError: () => void
 }
 
@@ -318,8 +320,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signUp: async (email, password, displayName, options = {}) => {
     set({ loading: true, error: null })
 
-    const accountType = options.accountType ?? 'self_employed'
-    const plan        = options.plan        ?? planForAccountType(accountType)
+    // A regular signup no longer picks an account type here: AccountSetup
+    // asks it once, right after signup (and after a Google sign-in, which
+    // carries no metadata at all). Invites still pass one, and skip setup --
+    // whoever invited them already decided where they belong.
+    const accountType = options.accountType
+    const isInvite    = !!(options.inviteToken || options.clientInviteToken)
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -327,10 +333,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       options: {
         data: {
           name:         displayName,
-          account_type: accountType,
-          // Stashed in raw_user_meta_data for the trigger handle_new_user
-          // to read and persist on the profile + subscription
-          intended_plan: plan,
+          ...(accountType ? { account_type: accountType } : {}),
+          // Read by complete_account_setup() -- e.g. /signup?plan=entrepreneur
+          // from the Pricing page starts that trial instead of Starter's.
+          ...(options.plan ? { intended_plan: options.plan } : {}),
+          ...(isInvite ? { skip_setup: true } : {}),
           // Tells handle_new_user() to skip its org/subscription bootstrap
           // for this signup — a client accepting a firm's portal invite gets
           // their access entirely through client_portal_users (set up by
@@ -365,13 +372,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     if (data.session && data.user) {
-      // Email auto-confirmed — finish setup immediately
-      try {
-        await ensureSubscription(data.user.id, accountType, plan)
-        await ensureProfileAccountType(data.user.id, accountType)
-      } catch (err) {
-        // Soft-fail: trigger may have already created defaults; log only
-        console.warn('[signUp] post-create setup warning:', err)
+      // Email auto-confirmed — finish invite setup immediately (a regular
+      // signup finishes in AccountSetup instead).
+      if (accountType) {
+        try {
+          await ensureSubscription(data.user.id, accountType, options.plan ?? planForAccountType(accountType))
+          await ensureProfileAccountType(data.user.id, accountType)
+        } catch (err) {
+          // Soft-fail: trigger may have already created defaults; log only
+          console.warn('[signUp] post-create setup warning:', err)
+        }
       }
 
       const profile = await fetchProfile(data.user.id)
@@ -412,6 +422,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setMembership: (m) => set({ membership: m }),
 
+  refreshProfile: async () => {
+    const userId = get().user?.id
+    if (!userId) return
+    const profile = await fetchProfile(userId)
+    if (profile) set({ profile })
+  },
+
   clearError: () => set({ error: null })
 }))
 
@@ -439,6 +456,29 @@ async function handleSession(
   // session refreshes by omitting the key so Zustand's shallow merge leaves
   // the existing value alone.
   const isSameUser = get().user?.id === session.user.id
+
+  // 🔒 MFA gate for EVERY session, not just a fresh password sign-in. This
+  // used to live only in signIn(), and this function then unconditionally
+  // set mfaPending:false -- so reloading the page (INITIAL_SESSION), a Google
+  // OAuth return, or the SIGNED_IN event racing signIn() all skipped the TOTP
+  // step. A user with a verified factor whose session is still aal1 stays on
+  // MfaVerify; nothing is fetched for them until verifyMfa() upgrades it to
+  // aal2 (the database rejects aal1 requests for them anyway).
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+    const { data: factors } = await supabase.auth.mfa.listFactors()
+    const verifiedFactor = factors?.totp?.find(f => f.status === 'verified')
+    set({
+      session,
+      user: session.user,
+      profile: null,
+      membership: null,
+      loading: false,
+      mfaPending: true,
+      mfaFactorId: verifiedFactor?.id ?? null
+    })
+    return
+  }
 
   const profile = await fetchProfile(session.user.id)
 

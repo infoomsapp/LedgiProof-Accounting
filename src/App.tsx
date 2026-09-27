@@ -41,6 +41,7 @@ const AcceptClientPortalInvite = lazyPage(() => import('./pages/AcceptClientPort
 const StaffActivatePage       = lazyPage(() => import('./pages/StaffActivatePage'))
 const ClientPortalActivatePage = lazyPage(() => import('./pages/ClientPortalActivatePage'))
 const OnboardingWizard        = lazyPage(() => import('./pages/OnboardingWizard'))
+const AccountSetup            = lazyPage(() => import('./pages/AccountSetup'))
 const Dashboard               = lazyPage(() => import('./pages/Dashboard'))
 const Transactions            = lazyPage(() => import('./pages/Transactions'))
 const Reconciliation          = lazyPage(() => import('./pages/Reconciliation'))
@@ -178,10 +179,13 @@ export default function App() {
   // 1. Init auth
   useEffect(() => { initialize() }, [initialize])
 
-  // 2. Load orgs when authenticated
+  // 2. Load orgs when authenticated -- and only once any pending MFA step is
+  // done: the database answers an aal1 session of an MFA user with nothing,
+  // and since the user id doesn't change on verification, an early load would
+  // never be retried.
   useEffect(() => {
-    if (session?.user?.id) loadOrgs(session.user.id)
-  }, [session?.user?.id, loadOrgs])
+    if (session?.user?.id && !mfaPending) loadOrgs(session.user.id)
+  }, [session?.user?.id, mfaPending, loadOrgs])
 
   // 2b. Sync in-app language with the profile's saved preference — covers a
   // new device/session where the localStorage mirror (src/i18n/index.ts)
@@ -215,8 +219,8 @@ export default function App() {
   // them apart from someone with no access at all vs. someone who belongs
   // in the portal router instead of OnboardingWizard.
   useEffect(() => {
-    if (session?.user?.id) loadMemberships(session.user.id)
-  }, [session?.user?.id, loadMemberships])
+    if (session?.user?.id && !mfaPending) loadMemberships(session.user.id)
+  }, [session?.user?.id, mfaPending, loadMemberships])
 
   // 3. Sync impersonation actor + clean if not super_admin
   useEffect(() => {
@@ -272,6 +276,21 @@ export default function App() {
         </div>
       </div>
     )
+  }
+
+  // ── First-run setup ────────────────────────────────────────────────────
+  // One screen right after an email or Google signup: who the books are for,
+  // the business name and industry. Invitees (staff and client portal) are
+  // marked done at signup and never see it; neither do super admins or
+  // anyone who existed before it did (backfilled).
+  if (
+    profile &&
+    !profile.setup_completed_at &&
+    portalMemberships.length === 0 &&
+    profile.system_role !== 'super_admin' &&
+    !isImpersonating()
+  ) {
+    return <AccountSetup />
   }
 
   // ── Onboarding ─────────────────────────────────────────────────────────

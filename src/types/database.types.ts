@@ -3702,6 +3702,7 @@ export type Database = {
           ein: string | null
           fiscal_year_start: number
           id: string
+          industry: string | null
           invoice_footer: string | null
           invoice_terms: string | null
           is_accountant_firm: boolean
@@ -3728,6 +3729,7 @@ export type Database = {
           ein?: string | null
           fiscal_year_start?: number
           id?: string
+          industry?: string | null
           invoice_footer?: string | null
           invoice_terms?: string | null
           is_accountant_firm?: boolean
@@ -3754,6 +3756,7 @@ export type Database = {
           ein?: string | null
           fiscal_year_start?: number
           id?: string
+          industry?: string | null
           invoice_footer?: string | null
           invoice_terms?: string | null
           is_accountant_firm?: boolean
@@ -3915,6 +3918,7 @@ export type Database = {
           lp_user_code: string | null
           onboarding_hints_seen: Json
           phone: string | null
+          setup_completed_at: string | null
           system_role: Database["public"]["Enums"]["system_role"]
           tier: Database["public"]["Enums"]["lp_user_tier"]
           tier_assigned_at: string | null
@@ -3935,6 +3939,7 @@ export type Database = {
           lp_user_code?: string | null
           onboarding_hints_seen?: Json
           phone?: string | null
+          setup_completed_at?: string | null
           system_role?: Database["public"]["Enums"]["system_role"]
           tier?: Database["public"]["Enums"]["lp_user_tier"]
           tier_assigned_at?: string | null
@@ -3955,6 +3960,7 @@ export type Database = {
           lp_user_code?: string | null
           onboarding_hints_seen?: Json
           phone?: string | null
+          setup_completed_at?: string | null
           system_role?: Database["public"]["Enums"]["system_role"]
           tier?: Database["public"]["Enums"]["lp_user_tier"]
           tier_assigned_at?: string | null
@@ -7750,6 +7756,14 @@ export type Database = {
       }
       close_reconciliation_session: {
         Args: { p_session_id: string; p_user_id: string }
+        Returns: Json
+      }
+      complete_account_setup: {
+        Args: {
+          p_account_type: string
+          p_business_name: string
+          p_industry?: string
+        }
         Returns: Json
       }
       complete_workspace_note: { Args: { p_note_id: string }; Returns: Json }

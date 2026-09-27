@@ -1,19 +1,21 @@
 // PATH: src/pages/SignUp.tsx
-// Refactored signup with:
-//   1. URL params support: /signup?plan=entrepreneur&type=self_employed
-//      → skips choice screen, pre-fills accountType + plan
-//   2. Choice screen first if no params (entered /signup directly)
-//   3. Sends accountType + plan to auth.store.signUp()
-//   4. Trial 14d for bookkeepers happens automatically in store
-//   5. **NEW**: PrivacyConsentCheckbox required before submit
-//   6. **NEW**: Records consent to DB after successful signup
+// One screen, three fields (name, email, password) or Google -- nothing to
+// decide before you're in. "Who do you keep the books for?", the business
+// name and the industry are asked once, right after, by AccountSetup.
+//   · /signup?plan=entrepreneur&type=self_employed (Pricing page) still
+//     works: both travel as signup metadata and pre-fill AccountSetup.
+//   · Invites (staff or client portal) keep their fixed account type and
+//     skip AccountSetup entirely.
+//   · Terms/Privacy are accepted by creating the account (the line under the
+//     button); consent is recorded in AccountSetup, or here for invitees.
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { useAuthStore } from '../store/auth.store'
 import LogoBrand from '../components/ui/LogoBrand'
 import BackToSiteLink from '../components/ui/BackToSiteLink'
 import GoogleSignInButton, { AuthDivider } from '../components/ui/GoogleSignInButton'
-import PrivacyConsentCheckbox from '../components/consent/PrivacyConsentCheckbox'
+import TermsNotice from '../components/consent/TermsNotice'
+import { IconUser, IconBriefcase, IconCalculator } from '../components/ui/AccountTypeIcons'
 import { recordSignupConsents } from '../services/consent.service'
 import type { AccountType, SubscriptionPlan } from '../types/database.types'
 
@@ -69,41 +71,36 @@ export default function SignUp({
     typeFromUrl   ? typeFromUrl   :
     null
 
-  const [accountType, setAccountType] = useState<AccountType | null>(initialType)
-  const [plan,        setPlan]        = useState<SubscriptionPlan | null>(planFromUrl)
+  const accountType: AccountType | null = initialType
+  const plan: SubscriptionPlan | null = planFromUrl
 
   const [displayName, setDisplayName] = useState('')
   const [email,       setEmail]       = useState('')
   const [password,    setPassword]    = useState('')
-  const [confirm,     setConfirm]     = useState('')
   const [showPw,      setShowPw]      = useState(false)
-  const [consent,     setConsent]     = useState(false)   // NEW
   const [done,        setDone]        = useState(false)
   const [redirectTo,  setRedirectTo]  = useState<string | null>(null)
 
   const strength = getStrength(password)
-  const pwMatch  = password === confirm
   const canSubmit =
     displayName.trim().length >= 2 &&
     email.includes('@') &&
     password.length >= 8 &&
-    pwMatch &&
-    consent &&        // ← required now
     !loading
 
   // ── Handle submit ──────────────────────────────────────────────────────────
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     clearError()
-    if (!canSubmit || !accountType) return
+    if (!canSubmit) return
 
     const result = await signUp(
       email.trim().toLowerCase(),
       password,
       displayName.trim(),
       {
-        accountType,
-        plan: plan ?? defaultPlanFor(accountType),
+        ...(accountType ? { accountType } : {}),
+        ...(plan ? { plan } : {}),
         ...(inviteToken ? { inviteToken } : {}),
         ...(clientInviteToken ? { clientInviteToken } : {})
       }
@@ -139,13 +136,14 @@ export default function SignUp({
     }
   }
 
-  // After signup with auto-confirm (no email verify), record consents
+  // Invitees never see AccountSetup (where everyone else's consent is
+  // recorded), so record theirs here once the auto-confirmed session exists.
   useEffect(() => {
-    if (user?.id && consent) {
-      // Fire-and-forget: don't block UX if it fails (RPC may not exist pre-v18)
+    if (user?.id && isInvite) {
+      // Fire-and-forget: don't block UX if it fails
       recordSignupConsents(user.id).catch(() => {/* silent */})
     }
-  }, [user?.id, consent])
+  }, [user?.id, isInvite])
 
   useEffect(() => {
     if (redirectTo && !loading) {
@@ -155,18 +153,6 @@ export default function SignUp({
   }, [redirectTo, loading])
 
   if (done) return <ConfirmationSentScreen email={email} onBack={onGoToLogin} />
-
-  if (!accountType) {
-    return (
-      <ChooseAccountTypeScreen
-        onChoose={(type) => {
-          setAccountType(type)
-          setPlan(defaultPlanFor(type))
-        }}
-        onGoToLogin={onGoToLogin}
-      />
-    )
-  }
 
   return (
     <div style={{
@@ -201,23 +187,13 @@ export default function SignUp({
               color: '#93c5fd',
               lineHeight: 1.5 }}>
               <div style={{ fontWeight: 600, color: 'var(--lp-text)' }}>
-                {isInvite ? 'You were invited to join' : TYPE_LABEL[accountType]}
+                {isInvite ? 'You were invited to join'
+                  : accountType ? TYPE_LABEL[accountType] : 'Your plan'}
               </div>
               {plan && !isInvite && (
                 <div>Starting plan: <strong>{PLAN_LABEL[plan]}</strong></div>
               )}
             </div>
-            {!isInvite && (
-              <button
-                onClick={() => { setAccountType(null); setPlan(null) }}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--lp-text-muted)', fontSize: 11, padding: 4
-                }}
-              >
-                Change
-              </button>
-            )}
           </div>
         )}
 
@@ -232,9 +208,18 @@ export default function SignUp({
               Create your account
             </div>
             <div style={{ fontSize: 12, color: 'var(--lp-text-muted)', marginTop: 4 }}>
-              A unique LP User ID will be generated automatically.
+              Free to start. No credit card required.
             </div>
           </div>
+
+          {/* Invites are tied to the invited email address, so they sign up
+              with a password; everyone else can use Google in one click. */}
+          {!isInvite && (
+            <>
+              <GoogleSignInButton label="Sign up with Google" />
+              <AuthDivider />
+            </>
+          )}
 
           <form onSubmit={handleSubmit}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -318,35 +303,6 @@ export default function SignUp({
                 )}
               </FormField>
 
-              <FormField label="Confirm password">
-                <input
-                  type={showPw ? 'text' : 'password'}
-                  className="lp-input"
-                  placeholder="Repeat your password"
-                  value={confirm}
-                  onChange={e => setConfirm(e.target.value)}
-                  required
-                  style={{
-                    borderColor: confirm.length > 0
-                      // CSS-TODO: rgba(34,197,94,0.5) / rgba(239,68,68,0.5) — semi-transparent semantic borders, no var() for this alpha yet
-                      ? pwMatch ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)'
-                      : undefined
-                  }}
-                />
-                {confirm.length > 0 && !pwMatch && (
-                  <div style={{ fontSize: 11.5, color: 'var(--sem-red)', marginTop: 4 }}>
-                    Passwords don't match
-                  </div>
-                )}
-              </FormField>
-
-              {/* ── Privacy + Terms consent ─────────────────────────────── */}
-              <PrivacyConsentCheckbox
-                checked={consent}
-                onChange={setConsent}
-                disabled={loading}
-              />
-
               <button
                 type="submit"
                 className="lp-btn lp-btn-primary"
@@ -360,14 +316,7 @@ export default function SignUp({
                 ) : 'Create account'}
               </button>
 
-              {!consent && (
-                <div style={{
-                  fontSize: 11, color: 'var(--lp-text-muted)',
-                  textAlign: 'center', marginTop: -4
-                }}>
-                  Please accept the Terms and Privacy Policy to continue
-                </div>
-              )}
+              <TermsNotice action="creating an account" />
 
             </div>
           </form>
@@ -398,12 +347,6 @@ export default function SignUp({
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function defaultPlanFor(t: AccountType): SubscriptionPlan {
-  if (t === 'accountant') return 'accountant'
-  if (t === 'bookkeeper') return 'bookkeeper'
-  return 'starter'
-}
-
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -431,47 +374,6 @@ function Spinner() {
 // ── Hand-drawn icons — replace the old emoji set (👤💼🧮✉️👁), same
 // monoline style as the landing page's icons.
 
-function ChoiceIcon({ color, children }: { color: string; children: React.ReactNode }) {
-  return (
-    <div style={{
-      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: `${color}18`, color
-    }}>
-      {children}
-    </div>
-  )
-}
-
-function IconUser() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M5 20c0-3.6 3.1-6.5 7-6.5s7 2.9 7 6.5" />
-    </svg>
-  )
-}
-
-function IconBriefcase() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="8" width="18" height="12" rx="2" />
-      <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M3 13h18" />
-    </svg>
-  )
-}
-
-function IconCalculator() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="5" y="3" width="14" height="18" rx="2" />
-      <path d="M8 7h8" />
-      <path d="M8 12h0M12 12h0M16 12h0M8 16h0M12 16h0M16 16h0" strokeWidth="2.4" />
-    </svg>
-  )
-}
-
 function IconMail({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -497,146 +399,6 @@ function IconEyeOff() {
       <path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a15.6 15.6 0 0 1-3.3 4.2M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 4.4-1" />
       <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
     </svg>
-  )
-}
-
-// ── Sub-screen: Choose account type ──────────────────────────────────────────
-
-function ChooseAccountTypeScreen({
-  onChoose, onGoToLogin
-}: {
-  onChoose: (t: AccountType) => void
-  onGoToLogin: () => void
-}) {
-  return (
-    <div style={{
-      height: '100vh', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', background: 'var(--lp-bg)',
-      padding: '20px 16px', overflow: 'auto'
-    }}>
-
-      <BackToSiteLink />
-
-      <div style={{ width: 460, margin: 'auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <LogoBrand variant="full" />
-        </div>
-
-        <div style={{
-          background: 'var(--lp-surface)',
-          border: '0.5px solid var(--lp-border)',
-          borderRadius: 14,
-          padding: '28px 26px'
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: 22 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--lp-text)', marginBottom: 6 }}>
-              How will you use LedgiProof?
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--lp-text-muted)' }}>
-              We'll set up your account based on this choice
-            </div>
-          </div>
-
-          <GoogleSignInButton label="Sign up with Google" />
-          <AuthDivider />
-
-          <button
-            onClick={() => onChoose('self_employed')}
-            style={{
-              width: '100%', textAlign: 'left',
-              padding: '16px 18px', borderRadius: 11,
-              // CSS-TODO: rgba(59,130,246,0.06) — blue card bg idle, no var() yet
-              background: 'rgba(59,130,246,0.06)',
-              // CSS-TODO: rgba(59,130,246,0.25) — blue card border, no var() yet
-              border: '0.5px solid rgba(59,130,246,0.25)',
-              color: 'var(--lp-text)', cursor: 'pointer',
-              fontFamily: 'inherit', marginBottom: 12,
-              display: 'flex', alignItems: 'center', gap: 14,
-              transition: 'all 0.15s'
-            }}
-            // CSS-TODO: rgba(59,130,246,0.12) — hover blue bg, no var() yet
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.12)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(59,130,246,0.06)'}
-          >
-            <ChoiceIcon color="var(--lp-accent)"><IconUser /></ChoiceIcon>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>
-                I'm self-employed
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--lp-text-muted)' }}>
-                Freelancer, 1099 contractor, solopreneur · Starts with free Starter plan
-              </div>
-            </div>
-            <span style={{ fontSize: 14, color: 'var(--lp-accent)' }}>→</span>
-          </button>
-
-          <button
-            onClick={() => onChoose('bookkeeper')}
-            style={{
-              width: '100%', textAlign: 'left',
-              padding: '16px 18px', borderRadius: 11,
-              background: 'var(--lp-violet-bg)',
-              border: '0.5px solid var(--lp-violet-border)',
-              color: 'var(--lp-text)', cursor: 'pointer',
-              fontFamily: 'inherit', marginBottom: 12,
-              display: 'flex', alignItems: 'center', gap: 14,
-              transition: 'all 0.15s'
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--lp-violet-bg-hover)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'var(--lp-violet-bg)'}
-          >
-            <ChoiceIcon color="var(--lp-violet)"><IconBriefcase /></ChoiceIcon>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>
-                I'm a bookkeeper
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--lp-text-muted)' }}>
-                Manage clients' day-to-day books · Free 14-day Pro trial
-              </div>
-            </div>
-            <span style={{ fontSize: 14, color: 'var(--lp-violet)' }}>→</span>
-          </button>
-
-          <button
-            onClick={() => onChoose('accountant')}
-            style={{
-              width: '100%', textAlign: 'left',
-              padding: '16px 18px', borderRadius: 11,
-              background: 'var(--sem-green-bg)',
-              border: '0.5px solid var(--sem-green)',
-              color: 'var(--lp-text)', cursor: 'pointer',
-              fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', gap: 14,
-              transition: 'all 0.15s'
-            }}
-          >
-            <ChoiceIcon color="var(--sem-green)"><IconCalculator /></ChoiceIcon>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>
-                I'm an accountant / CPA firm
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--lp-text-muted)' }}>
-                Post journal entries, close periods, delegate to staff accountants · Free 14-day Pro trial
-              </div>
-            </div>
-            <span style={{ fontSize: 14, color: 'var(--sem-green)' }}>→</span>
-          </button>
-        </div>
-
-        <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--lp-text-muted)', marginTop: 18 }}>
-          Already have an account?{' '}
-          <button
-            onClick={onGoToLogin}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--lp-accent)', fontSize: 13, fontWeight: 500, padding: 0
-            }}
-          >
-            Sign in
-          </button>
-        </p>
-      </div>
-    </div>
   )
 }
 

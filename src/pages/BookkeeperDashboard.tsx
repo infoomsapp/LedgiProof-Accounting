@@ -49,6 +49,7 @@ import {
 import { useFirmInsights }     from '../hooks/useFirmInsights'
 import { useOrgCurrency }      from '../hooks/useOrgCurrency'
 import { useOnboardingHints }  from '../hooks/useOnboardingHints'
+import GettingStartedCard      from '../components/dashboard/GettingStartedCard'
 
 export default function BookkeeperDashboard() {
   const navigate = useNavigate()
@@ -90,6 +91,8 @@ export default function BookkeeperDashboard() {
       headerSlot={
         <>
           <TrialBannerInline />
+
+          <GettingStartedCard kind="firm" />
 
           {onboarding.shouldShow && canCertify && orgId && (
             <OnboardingHint

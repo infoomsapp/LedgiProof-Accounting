@@ -133,23 +133,22 @@ export async function createRecurringInvoice(
 
 export async function replaceRecurringItems(
   recurringId: string,
-  orgId:       string,
+  _orgId:      string,
   items:       RecurringItemDraft[]
 ): Promise<void> {
-  await db.from('recurring_invoice_items').delete().eq('recurring_id', recurringId)
-  if (items.length === 0) return
-  const rows = items.map((it, i) => ({
-    recurring_id: recurringId,
-    org_id:       orgId,
-    sort_order:   i,
-    item_type:    it.item_type,
-    description:  it.description,
-    quantity:     it.quantity,
-    unit_price:   it.unit_price,
-    discount_pct: it.discount_pct,
-    tax_rate:     it.tax_rate
-  }))
-  const { error } = await db.from('recurring_invoice_items').insert(rows)
+  // Atomic on the server (see save_invoice_items): the client-side delete had
+  // no grant and silently duplicated the lines.
+  const { error } = await db.rpc('save_recurring_invoice_items', {
+    p_recurring_id: recurringId,
+    p_items: items.map(it => ({
+      item_type:    it.item_type,
+      description:  it.description,
+      quantity:     it.quantity,
+      unit_price:   it.unit_price,
+      discount_pct: it.discount_pct,
+      tax_rate:     it.tax_rate
+    }))
+  })
   if (error) throw dbError(error, 'Failed to save the recurring invoice items')
 }
 

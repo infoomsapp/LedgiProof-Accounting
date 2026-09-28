@@ -150,7 +150,9 @@ export default function Invoices() {
   const [editTitle,    setEditTitle]    = useState('')
   const [editNotes,    setEditNotes]    = useState('')
   const [editItems,    setEditItems]    = useState<DraftItem[]>([])
-  const [saving,       setSaving]       = useState(false)
+  const [saving,       setSaving]       = useState<false | 'draft' | 'send'>(false)
+  const [saveError,    setSaveError]    = useState<string | null>(null)
+  const [sendNotice,   setSendNotice]   = useState<string | null>(null)
   const [taxNote,      setTaxNote]      = useState<string | null>(null)
   const [taxResolving, setTaxResolving] = useState(false)
   // Time entries pulled in via "Add unbilled time" -- marked billed once
@@ -282,6 +284,7 @@ export default function Invoices() {
                     quantity:1, unit_price:0, discount_pct:0, tax_rate:0 }])
     setTaxNote(null)
     setPulledTimeIds([])
+    setSaveError(null)
     setShowEditor(true)
   }
 
@@ -311,6 +314,7 @@ export default function Invoices() {
     )
     setTaxNote(null)
     setPulledTimeIds([])
+    setSaveError(null)
     setShowEditor(true)
   }
 
@@ -398,70 +402,101 @@ export default function Invoices() {
   }
 
   // ── Save invoice ──────────────────────────────────────────────────────────
-  async function handleSave() {
+  // "Save draft" keeps it a draft. "Save & send" does it all in one step, the
+  // QuickBooks/Xero way: saves, issues it (status sent + public link -- which
+  // is also what posts it to the ledger as accounts receivable), and emails
+  // the pay link to the client. No email on file, or the email fails: the
+  // invoice is still issued and the link is copied to share by hand.
+  async function handleSave(send = false) {
     if (!editClientId || !editDueDate) return
-    setSaving(true)
+    setSaving(send ? 'send' : 'draft')
+    setSaveError(null)
     // Real bug found and fixed: the client's own default_currency (set in
     // AddClientDialog) was collected and stored, but never actually read
     // here -- every invoice silently defaulted to USD regardless of what
     // currency the client was configured for.
-    const clientCurrency = clients.find(c => c.id === editClientId)?.default_currency
+    const client         = clients.find(c => c.id === editClientId)
+    const clientCurrency = client?.default_currency
+    let invoiceId: string | null = editingId
 
-    // Editing an existing draft: update the header, then rewrite the lines.
-    // upsertItems deletes and reinserts, so it is the same call either way.
-    if (editorMode === 'edit' && editingId) {
-      await updateInvoice(editingId, {
-        client_id: editClientId,
-        due_date:  editDueDate,
-        title:     editTitle || null,
-        notes:     editNotes || null,
-        ...(clientCurrency ? { currency: clientCurrency } : {})
-      })
-      await upsertItems(editingId, orgId, editItems.filter(i => i.description))
-      if (pulledTimeIds.length > 0) {
-        await markEntriesBilled(pulledTimeIds, editingId)
+    try {
+      if (editorMode === 'edit' && editingId) {
+        await updateInvoice(editingId, {
+          client_id: editClientId,
+          due_date:  editDueDate,
+          title:     editTitle || null,
+          notes:     editNotes || null,
+          ...(clientCurrency ? { currency: clientCurrency } : {})
+        })
+        await upsertItems(editingId, orgId, editItems.filter(i => i.description))
+      } else {
+        const inv = await createInvoice({
+          orgId, userId,
+          clientId:  editClientId,
+          dueDate:   editDueDate,
+          ...(editTitle ? { title: editTitle } : {}),
+          ...(editNotes ? { notes: editNotes } : {}),
+          ...(clientCurrency ? { currency: clientCurrency } : {})
+        })
+        invoiceId = inv.id
+        if (editItems.some(i => i.description)) {
+          await upsertItems(inv.id, orgId, editItems.filter(i => i.description))
+        }
+      }
+      if (pulledTimeIds.length > 0 && invoiceId) {
+        await markEntriesBilled(pulledTimeIds, invoiceId)
         setPulledTimeIds([])
       }
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : 'Could not save the invoice')
       setSaving(false)
-      setShowEditor(false)
-      await load()
-      await loadDetail(editingId)
       return
     }
 
-    const inv = await createInvoice({
-      orgId, userId,
-      clientId:  editClientId,
-      dueDate:   editDueDate,
-      ...(editTitle ? { title: editTitle } : {}),
-      ...(editNotes ? { notes: editNotes } : {}),
-      ...(clientCurrency ? { currency: clientCurrency } : {})
-    })
-    if (editItems.some(i => i.description)) {
-      await upsertItems(inv.id, orgId, editItems.filter(i => i.description))
+    if (send && invoiceId) {
+      try {
+        const { url } = await markInvoiceSent(invoiceId)
+        if (client?.email) {
+          try {
+            await sendInvoiceEmail(invoiceId)
+            setSendNotice(`Invoice sent to ${client.email}.`)
+          } catch {
+            try { await navigator.clipboard.writeText(url) } catch { /* clipboard optional */ }
+            setSendNotice("Invoice issued, but the email didn't go out. The pay link is copied — share it with your client.")
+          }
+        } else {
+          try { await navigator.clipboard.writeText(url) } catch { /* clipboard optional */ }
+          setSendNotice('Invoice issued. This client has no email on file, so the pay link was copied — share it with them.')
+        }
+      } catch (e: unknown) {
+        setSendNotice(`Saved as a draft, but it couldn't be issued: ${e instanceof Error ? e.message : 'unknown error'}`)
+      }
     }
-    if (pulledTimeIds.length > 0) {
-      await markEntriesBilled(pulledTimeIds, inv.id)
-      setPulledTimeIds([])
-    }
+
     setSaving(false)
     setShowEditor(false)
     await load()
-    await loadDetail(inv.id)
+    if (invoiceId) await loadDetail(invoiceId)
   }
 
   // ── Record payment ────────────────────────────────────────────────────────
   async function handlePayment() {
     if (!selected || !payAmount) return
     setPayingSaving(true)
-    await recordPayment({
-      invoiceId:   selected,
-      orgId, userId,
-      amount:      parseFloat(payAmount),
-      paymentDate: payDate,
-      ...(payMethod ? { method: payMethod } : {}),
-      ...(payRef ? { reference: payRef } : {})
-    })
+    try {
+      await recordPayment({
+        invoiceId:   selected,
+        orgId, userId,
+        amount:      parseFloat(payAmount),
+        paymentDate: payDate,
+        ...(payMethod ? { method: payMethod } : {}),
+        ...(payRef ? { reference: payRef } : {})
+      })
+    } catch (e: unknown) {
+      alert(`Could not record the payment: ${e instanceof Error ? e.message : 'unknown error'}`)
+      setPayingSaving(false)
+      return
+    }
     setPayingSaving(false)
     setShowPayment(false)
     setPayAmount(''); setPayRef('')
@@ -526,6 +561,18 @@ export default function Invoices() {
 
         {/* Invoices tab: filter + table (hidden, not unmounted, on recurring) */}
         <div style={{ display: tab === 'invoices' ? 'contents' : 'none' }}>
+
+        {sendNotice && (
+          <div role="status" style={{
+            marginBottom: 14, padding: '10px 12px', borderRadius: 8, fontSize: 12.5,
+            background: 'var(--sem-blue-bg)', border: '0.5px solid var(--sem-blue-border)', color: 'var(--lp-text)',
+            display: 'flex', alignItems: 'center', gap: 10
+          }}>
+            <span style={{ flex: 1 }}>{sendNotice}</span>
+            <button type="button" className="lp-btn lp-btn-ghost" style={{ fontSize: 12, padding: '3px 8px' }}
+              onClick={() => setSendNotice(null)}>✕</button>
+          </div>
+        )}
 
         {/* Status filter */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -902,17 +949,31 @@ export default function Invoices() {
           <>
             <Button variant="ghost" onClick={() => setShowEditor(false)}>Cancel</Button>
             <Button
-              variant="primary"
-              loading={saving}
-              disabled={!editClientId || !editDueDate}
-              onClick={handleSave}
+              variant="ghost"
+              loading={saving === 'draft'}
+              disabled={!editClientId || !editDueDate || !!saving}
+              onClick={() => { void handleSave(false) }}
             >
-              {editorMode === 'edit' ? 'Save changes' : 'Create invoice'}
+              {editorMode === 'edit' ? 'Save draft' : 'Save as draft'}
+            </Button>
+            <Button
+              variant="primary"
+              loading={saving === 'send'}
+              disabled={!editClientId || !editDueDate || !!saving || !editItems.some(i => i.description)}
+              onClick={() => { void handleSave(true) }}
+            >
+              Save &amp; send
             </Button>
           </>
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {saveError && (
+            <div role="alert" style={{
+              padding: '10px 12px', borderRadius: 8, fontSize: 12.5,
+              background: 'var(--sem-red-bg)', border: '0.5px solid var(--sem-red)', color: 'var(--sem-red)'
+            }}>{saveError}</div>
+          )}
           {/* Client selector */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'end' }}>
             <div>

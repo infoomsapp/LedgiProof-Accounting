@@ -15,7 +15,23 @@
 import { db } from '../lib/supabase'
 import { dbError } from '../lib/errors'
 
-export type SuggestionSource = 'rule' | 'learned' | 'vendor' | 'merchant' | 'income' | 'ai'
+export type SuggestionSource = 'rule' | 'learned' | 'vendor' | 'merchant' | 'income' | 'ai' | 'invoice' | 'deposit'
+
+/** A deposit whose amount is exactly an open invoice's balance. */
+export interface InvoiceMatch {
+  invoice_id:     string
+  invoice_number: string
+  client_name:    string | null
+  balance_due:    number
+}
+
+/** A deposit that brings in a payment already recorded on an invoice. */
+export interface DepositMatch {
+  payment_id:     string
+  invoice_number: string
+  payment_date:   string
+  method:         string | null
+}
 
 export interface ReviewItem {
   id:                     string
@@ -33,6 +49,8 @@ export interface ReviewItem {
   suggested_account_code: string | null
   suggested_account_name: string | null
   has_receipt:            boolean
+  invoice_match:          InvoiceMatch | null
+  deposit_match:          DepositMatch | null
 }
 
 export interface ReviewQueue {
@@ -82,7 +100,15 @@ export async function suggestWithAi(
 
 export async function postReviewed(
   orgId: string,
-  items: { transaction_id: string; account_id: string; source?: string | null }[]
+  items: {
+    transaction_id: string
+    account_id:     string
+    source?:        string | null
+    /** The deposit pays this invoice (records the payment). */
+    invoice_id?:    string
+    /** The deposit brings in this recorded payment. */
+    payment_id?:    string
+  }[]
 ): Promise<PostResult> {
   const { data, error } = await db.rpc('post_reviewed_transactions', {
     p_org_id: orgId,

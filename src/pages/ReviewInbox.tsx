@@ -34,7 +34,26 @@ const SEM_COLOR: Record<ReviewItem['semaphore'], string> = {
   red:   'var(--sem-red)',
 }
 
-interface Choice { accountId: string; source: SuggestionSource | null; confidence: number | null }
+interface Choice {
+  accountId:  string
+  source:     SuggestionSource | null
+  confidence: number | null
+  /** Set when the choice is "this deposit pays invoice X" / "brings in payment Y". */
+  invoiceId?: string
+  paymentId?: string
+}
+
+// The suggestion the server made for a row, as a Choice.
+function suggestedChoice(it: ReviewItem): Choice | null {
+  if (!it.suggested_account_id) return null
+  return {
+    accountId:  it.suggested_account_id,
+    source:     it.suggestion_source,
+    confidence: it.suggestion_confidence,
+    ...(it.invoice_match ? { invoiceId: it.invoice_match.invoice_id } : {}),
+    ...(it.deposit_match ? { paymentId: it.deposit_match.payment_id } : {}),
+  }
+}
 
 export default function ReviewInbox() {
   const { t }    = useTranslation()
@@ -78,13 +97,8 @@ export default function ReviewInbox() {
       setAccounts(accts)
       const initial: Record<string, Choice> = {}
       for (const it of queue.items) {
-        if (it.suggested_account_id) {
-          initial[it.id] = {
-            accountId:  it.suggested_account_id,
-            source:     it.suggestion_source,
-            confidence: it.suggestion_confidence
-          }
-        }
+        const c = suggestedChoice(it)
+        if (c) initial[it.id] = c
       }
       setChoices(initial)
 
@@ -119,7 +133,13 @@ export default function ReviewInbox() {
     const payload = ids
       .map(id => ({ id, choice: choices[id] }))
       .filter(x => x.choice?.accountId)
-      .map(x => ({ transaction_id: x.id, account_id: x.choice!.accountId, source: x.choice!.source }))
+      .map(x => ({
+        transaction_id: x.id,
+        account_id:     x.choice!.accountId,
+        source:         x.choice!.source,
+        ...(x.choice!.invoiceId ? { invoice_id: x.choice!.invoiceId } : {}),
+        ...(x.choice!.paymentId ? { payment_id: x.choice!.paymentId } : {}),
+      }))
     if (payload.length === 0) return
 
     setBusy(prev => new Set([...prev, ...payload.map(p => p.transaction_id)]))
@@ -316,14 +336,29 @@ export default function ReviewInbox() {
                   <select
                     className="lp-input"
                     aria-label={t('review.choose')}
-                    value={choice?.accountId ?? ''}
+                    value={choice?.invoiceId || choice?.paymentId ? 'match' : (choice?.accountId ?? '')}
                     disabled={isBusy}
                     onChange={e => {
-                      const accountId = e.target.value
-                      setChoices(prev => ({ ...prev, [it.id]: { accountId, source: null, confidence: null } }))
+                      const value = e.target.value
+                      const next  = value === 'match'
+                        ? suggestedChoice(it)
+                        : { accountId: value, source: null, confidence: null }
+                      if (next) setChoices(prev => ({ ...prev, [it.id]: next }))
                     }}
                   >
                     <option value="" disabled>{t('review.choose')}</option>
+                    {(it.invoice_match || it.deposit_match) && (
+                      <optgroup label={t('review.matches')}>
+                        <option value="match">
+                          {it.invoice_match
+                            ? t('review.matchInvoice', {
+                                number: it.invoice_match.invoice_number,
+                                client: it.invoice_match.client_name ? ` · ${it.invoice_match.client_name}` : ''
+                              })
+                            : t('review.matchDeposit', { number: it.deposit_match!.invoice_number })}
+                        </option>
+                      </optgroup>
+                    )}
                     {groups.map(([label, list]) => list.length > 0 && (
                       <optgroup key={label} label={label}>
                         {list.map(a => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}

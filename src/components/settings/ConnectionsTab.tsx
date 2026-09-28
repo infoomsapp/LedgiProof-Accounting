@@ -1,6 +1,7 @@
 // PATH: src/components/settings/ConnectionsTab.tsx
 //
-// External-app connections. Today: ControlMiles (generate a token that a
+// External-app connections: online payments (the workspace's own Stripe
+// account -- OnlinePaymentsCard) and ControlMiles (generate a token that a
 // connected ControlMiles account presents when pushing closed trips into
 // supabase/functions/mileage-webhook — see src/services/mileage-connections.service.ts).
 // Mirrors ApiAccessTab's generate/revoke pattern exactly.
@@ -12,6 +13,7 @@ import {
   type MileageConnection
 } from '../../services/mileage-connections.service'
 import Icon from '../ui/Icon'
+import OnlinePaymentsCard from './OnlinePaymentsCard'
 
 interface Props {
   onMessage: (m: { type: 'ok' | 'err'; text: string }) => void
@@ -80,9 +82,11 @@ export default function ConnectionsTab({ onMessage }: Props) {
           <Icon name="connection" size={17} /> Connections
         </div>
         <div className="lp-page-sub">
-          Link a ControlMiles account so its trips import automatically as mileage entries here.
+          Take invoice payments online, and link a ControlMiles account so its trips import automatically as mileage entries here.
         </div>
       </div>
+
+      <OnlinePaymentsCard />
 
       <div className="lp-card" style={{
         marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px'

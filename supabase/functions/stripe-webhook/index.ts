@@ -5,16 +5,27 @@
 //
 // Events handled:
 //   checkout.session.completed    → record invoice payment OR create subscription
+//                                   (invoice payments come from the business's
+//                                   connected account -- event.account -- and
+//                                   must match the account on file for that
+//                                   workspace; a replayed event is a no-op)
+//   account.updated               → connected account can / can't take charges
+//   account.application.deauthorized → the business disconnected LedgiProof
 //   customer.subscription.updated → update status / renewal period on plan changes
 //   customer.subscription.deleted → mark subscription as canceled
 //   invoice.payment_failed        → mark subscription as past_due
 //
 // Required Supabase secrets:
 //   STRIPE_SECRET_KEY
-//   STRIPE_WEBHOOK_SECRET   (from Stripe Dashboard → Webhooks → signing secret)
+//   STRIPE_WEBHOOK_SECRET          (Webhooks → the "Your account" endpoint's signing secret)
+//   STRIPE_CONNECT_WEBHOOK_SECRET  (Webhooks → the "Connected accounts" endpoint's signing secret)
 //
-// Register endpoint in Stripe Dashboard:
+// Register BOTH endpoints in Stripe Dashboard, same URL:
 //   https://<project>.supabase.co/functions/v1/stripe-webhook
+//   · Your account:        checkout.session.completed, customer.subscription.updated,
+//                          customer.subscription.deleted, invoice.payment_failed
+//   · Connected accounts:  checkout.session.completed, account.updated,
+//                          account.application.deauthorized
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe           from 'npm:stripe@17'
@@ -22,16 +33,27 @@ import { safeMessage }  from '../_shared/errors.ts'
 
 const STRIPE_SECRET  = Deno.env.get('STRIPE_SECRET_KEY')          ?? ''
 const WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET')      ?? ''
+const CONNECT_SECRET = Deno.env.get('STRIPE_CONNECT_WEBHOOK_SECRET') ?? ''
 const SUPABASE_URL   = Deno.env.get('SUPABASE_URL')              ?? ''
 const SVC_KEY        = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
+// Null until STRIPE_SECRET_KEY is set: the Stripe SDK throws at construction
+// without a key, which would crash the function on boot for every request.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const stripe = new Stripe(STRIPE_SECRET, { apiVersion: '2025-06-30' as any })
+const stripeClient = STRIPE_SECRET ? new Stripe(STRIPE_SECRET, { apiVersion: '2025-06-30' as any }) : null
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
+
+  if (!stripeClient) {
+    return new Response(JSON.stringify({ error: 'Stripe is not configured' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+  const stripe = stripeClient
 
   // ── Signature verification ──────────────────────────────────────────────────
   const sig  = req.headers.get('stripe-signature') ?? ''
@@ -39,7 +61,13 @@ Deno.serve(async (req) => {
 
   let event: Stripe.Event
   try {
-    event = await stripe.webhooks.constructEventAsync(body, sig, WEBHOOK_SECRET)
+    // The platform endpoint and the Connect endpoint sign with different secrets.
+    try {
+      event = await stripe.webhooks.constructEventAsync(body, sig, WEBHOOK_SECRET)
+    } catch (first) {
+      if (!CONNECT_SECRET) throw first
+      event = await stripe.webhooks.constructEventAsync(body, sig, CONNECT_SECRET)
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[stripe-webhook] signature verification failed:', msg)
@@ -51,10 +79,29 @@ Deno.serve(async (req) => {
 
   const db = createClient(SUPABASE_URL, SVC_KEY)
 
+  // LedgiProof's own billing (plans) only ever comes from the platform
+  // account. An event from a connected business account never touches it --
+  // otherwise a business could "subscribe" itself for free.
+  const PLATFORM_ONLY = new Set([
+    'customer.subscription.updated', 'customer.subscription.deleted', 'invoice.payment_failed',
+  ])
+  if (event.account && PLATFORM_ONLY.has(event.type)) {
+    console.log(`[stripe-webhook] ignoring ${event.type} from connected account ${event.account}`)
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   try {
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, db)
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, db, event.account ?? null)
+        break
+      case 'account.updated':
+        await handleAccountUpdated(event.data.object as Stripe.Account, db)
+        break
+      case 'account.application.deauthorized':
+        if (event.account) await handleAccountDeauthorized(event.account, db)
         break
       case 'customer.subscription.updated':
         await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, db)
@@ -87,11 +134,37 @@ Deno.serve(async (req) => {
 async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   db: ReturnType<typeof createClient>,
+  connectedAccount: string | null,
 ) {
   const meta = session.metadata ?? {}
 
   // ── Invoice payment ─────────────────────────────────────────────────────────
   if (meta['type'] === 'invoice') {
+    if (session.payment_status !== 'paid') {
+      console.log(`[stripe-webhook] invoice session ${session.id} not paid yet (${session.payment_status})`)
+      return
+    }
+    // Only the business's own connected account can pay its invoices: the
+    // metadata alone is not trusted (any Stripe account could send it).
+    const { data: payAcct } = await db
+      .from('org_payment_accounts')
+      .select('stripe_account_id')
+      .eq('org_id', meta['org_id'] ?? '')
+      .maybeSingle()
+    if (!connectedAccount || !payAcct || payAcct.stripe_account_id !== connectedAccount) {
+      throw new Error(`invoice payment from account ${connectedAccount} does not match org ${meta['org_id']}`)
+    }
+    // ...and only for an invoice of that same workspace.
+    const { data: target } = await db
+      .from('invoices')
+      .select('id')
+      .eq('id', meta['invoice_id'] ?? '')
+      .eq('org_id', meta['org_id'] ?? '')
+      .maybeSingle()
+    if (!target) {
+      throw new Error(`invoice ${meta['invoice_id']} is not an invoice of org ${meta['org_id']}`)
+    }
+
     const invoiceId  = meta['invoice_id']
     const orgId      = meta['org_id']
     const recordedBy = meta['created_by']
@@ -121,7 +194,14 @@ async function handleCheckoutCompleted(
         recorded_by:  recordedBy,
       })
 
-    if (insertErr) throw new Error(`insert invoice_payment: ${safeMessage(insertErr, 'database error')}`)
+    if (insertErr) {
+      // Stripe delivers an event more than once: this payment is already in.
+      if ((insertErr as { code?: string }).code === '23505') {
+        console.log(`[stripe-webhook] invoice ${invoiceId} payment ${paymentRef} already recorded`)
+        return
+      }
+      throw new Error(`insert invoice_payment: ${safeMessage(insertErr, 'database error')}`)
+    }
 
     // Recompute totals — sets status to 'paid' when balance_due reaches 0
     const { error: rpcErr } = await db.rpc('compute_invoice_totals', { p_invoice_id: invoiceId })
@@ -133,6 +213,10 @@ async function handleCheckoutCompleted(
 
   // ── Subscription creation ────────────────────────────────────────────────────
   if (meta['type'] === 'subscription') {
+    if (connectedAccount) {
+      console.warn(`[stripe-webhook] subscription checkout from connected account ${connectedAccount} ignored`)
+      return
+    }
     const plan   = meta['plan']    ?? 'starter'
     const orgId  = meta['org_id']
     const userId = meta['user_id']
@@ -153,7 +237,7 @@ async function handleCheckoutCompleted(
     let periodEnd: string | null     = null
 
     if (stripeSubscriptionId) {
-      const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId)
+      const sub = await stripeClient!.subscriptions.retrieve(stripeSubscriptionId)
       stripePriceId = sub.items.data[0]?.price?.id ?? null
       periodStart   = new Date(sub.current_period_start * 1000).toISOString()
       periodEnd     = new Date(sub.current_period_end   * 1000).toISOString()
@@ -249,4 +333,33 @@ async function handleInvoicePaymentFailed(
 
   if (error) throw new Error(`mark past_due (${subId}): ${safeMessage(error, 'database update failed')}`)
   console.log(`[stripe-webhook] subscription ${subId} → past_due (payment failed)`)
+}
+
+// ── account.updated (Connect) ──────────────────────────────────────────────
+
+async function handleAccountUpdated(
+  acct: Stripe.Account,
+  db: ReturnType<typeof createClient>,
+) {
+  const { error } = await db
+    .from('org_payment_accounts')
+    .update({
+      charges_enabled:   !!acct.charges_enabled,
+      payouts_enabled:   !!acct.payouts_enabled,
+      details_submitted: !!acct.details_submitted,
+      updated_at:        new Date().toISOString(),
+    })
+    .eq('stripe_account_id', acct.id)
+  if (error) throw new Error(`update payment account (${acct.id}): ${safeMessage(error, 'database update failed')}`)
+}
+
+// ── account.application.deauthorized (Connect) ─────────────────────────────
+
+async function handleAccountDeauthorized(
+  accountId: string,
+  db: ReturnType<typeof createClient>,
+) {
+  const { error } = await db.from('org_payment_accounts').delete().eq('stripe_account_id', accountId)
+  if (error) throw new Error(`remove payment account (${accountId}): ${safeMessage(error, 'database update failed')}`)
+  console.log(`[stripe-webhook] connected account ${accountId} disconnected`)
 }

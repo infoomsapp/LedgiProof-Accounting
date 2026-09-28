@@ -1,13 +1,15 @@
 // PATH: src/pages/InvoicePublic.tsx
 //
 // Facturación paso 1 — Vista pública de invoice (/i/:token). Sin AppShell, como
-// /e/:token. El cliente abre el link, ve la factura y su saldo. El botón de
-// pago online se activa cuando se cablee Stripe (paso 3).
+// /e/:token. El cliente abre el link, ve la factura y su saldo. "Pay now"
+// aparece solo si el negocio conectó su propia cuenta de Stripe y puede
+// cobrar (invoice_accepts_card); el pago va directo a esa cuenta. Stripe
+// devuelve al cliente aquí mismo con ?paid=1.
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { getInvoiceByPublicToken, type PublicInvoicePayload } from '../services/invoice.service'
-import { createInvoiceCheckoutSession } from '../services/stripe.service'
+import { createInvoiceCheckoutSession, invoiceAcceptsCard } from '../services/stripe.service'
 import { formatCurrency } from '../lib/currency'
 
 const fmt = (n: number, ccy = 'USD') => formatCurrency(Number(n) || 0, ccy)
@@ -28,6 +30,9 @@ export default function InvoicePublic() {
   const [loading, setLoading]     = useState(true)
   const [paying, setPaying]       = useState(false)
   const [payError, setPayError]   = useState<string | null>(null)
+  const [acceptsCard, setAcceptsCard] = useState(false)
+  const [searchParams]            = useSearchParams()
+  const justPaid                  = searchParams.get('paid') === '1'
 
   useEffect(() => {
     if (!token) return
@@ -35,6 +40,7 @@ export default function InvoicePublic() {
       .then(setPayload)
       .catch(e => setErr(e?.message ?? 'This invoice could not be found.'))
       .finally(() => setLoading(false))
+    invoiceAcceptsCard(token).then(setAcceptsCard)
   }, [token])
 
   if (loading) return <div style={wrap}><div style={card}>Loading…</div></div>
@@ -132,8 +138,17 @@ export default function InvoicePublic() {
           </div>
         </div>
 
+        {justPaid && (
+          <div role="status" style={{
+            marginTop: 22, padding: '12px 14px', borderRadius: 10, fontSize: 13,
+            background: 'var(--sem-green-bg)', border: '0.5px solid var(--sem-green)', color: 'var(--lp-text)'
+          }}>
+            ✓ Thank you — your payment was received. It can take a minute to show on this invoice.
+          </div>
+        )}
+
         {/* Pay online */}
-        {balance > 0 && inv.public_token && (
+        {balance > 0 && inv.public_token && acceptsCard && !justPaid && (
           <div style={{ marginTop: 22 }}>
             <button
               onClick={async () => {

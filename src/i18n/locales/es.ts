@@ -755,7 +755,12 @@ export default {
       merchant: 'Comercio conocido',
       income:   'Ingreso',
       ai:       'IA',
+      invoice:  'Cobro de factura',
+      deposit:  'Pago registrado',
     },
+    matches:        'Coincidencias',
+    matchInvoice:   'Cobro de {{number}}{{client}}',
+    matchDeposit:   'Depósito del pago de {{number}}',
   },
   receiptMatch: {
     matched:     'Emparejado con tu movimiento del banco',

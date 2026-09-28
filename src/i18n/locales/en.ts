@@ -759,7 +759,12 @@ export default {
       merchant: 'Known merchant',
       income:   'Income',
       ai:       'AI',
+      invoice:  'Invoice payment',
+      deposit:  'Recorded payment',
     },
+    matches:        'Matches',
+    matchInvoice:   'Payment for {{number}}{{client}}',
+    matchDeposit:   'Deposit of the payment on {{number}}',
   },
   receiptMatch: {
     matched:     'Matched to your bank transaction',

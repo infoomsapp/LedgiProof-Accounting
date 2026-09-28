@@ -341,33 +341,27 @@ export async function voidInvoice(id: string): Promise<void> {
 
 export async function upsertItems(
   invoiceId: string,
-  orgId:     string,
+  _orgId:    string,
   items:     Array<Omit<InvoiceItem, 'id' | 'invoice_id' | 'org_id' | 'created_at' |
                'line_subtotal' | 'line_discount' | 'line_tax' | 'line_total'>>
 ): Promise<InvoiceItem[]> {
-  // Delete existing and re-insert (simpler than tracking edits)
-  await db.from('invoice_items').delete().eq('invoice_id', invoiceId)
-
-  if (items.length === 0) {
-    await db.rpc('compute_invoice_totals', { p_invoice_id: invoiceId })
-    return []
-  }
-
-  const inserts = items.map((item, i) => ({
-    ...item,
-    invoice_id: invoiceId,
-    org_id:     orgId,
-    sort_order: i
-  }))
-
-  const { data, error } = await db
-    .from('invoice_items').insert(inserts).select()
+  // One atomic RPC: replaces the lines and recomputes the totals in a single
+  // transaction. The old client-side delete + insert duplicated every line
+  // (authenticated has no DELETE grant and the error was never checked).
+  // The server refuses a paid, partially paid or void invoice.
+  const { data, error } = await db.rpc('save_invoice_items', {
+    p_invoice_id: invoiceId,
+    p_items: items.map(it => ({
+      item_type:    it.item_type,
+      description:  it.description,
+      quantity:     it.quantity,
+      unit_price:   it.unit_price,
+      discount_pct: it.discount_pct,
+      tax_rate:     it.tax_rate
+    }))
+  })
   if (error) throw dbError(error, 'Failed to save the invoice items')
-
-  // Recompute totals
-  await db.rpc('compute_invoice_totals', { p_invoice_id: invoiceId })
-
-  return (data ?? []) as InvoiceItem[]
+  return (data ?? []) as unknown as InvoiceItem[]
 }
 
 // ── Payments ─────────────────────────────────────────────────────────────────

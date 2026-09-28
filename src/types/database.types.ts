@@ -2788,6 +2788,7 @@ export type Database = {
           payment_date: string
           recorded_by: string
           reference: string | null
+          transaction_id: string | null
         }
         Insert: {
           amount: number
@@ -2802,6 +2803,7 @@ export type Database = {
           payment_date?: string
           recorded_by: string
           reference?: string | null
+          transaction_id?: string | null
         }
         Update: {
           amount?: number
@@ -2816,6 +2818,7 @@ export type Database = {
           payment_date?: string
           recorded_by?: string
           reference?: string | null
+          transaction_id?: string | null
         }
         Relationships: [
           {
@@ -3291,6 +3294,8 @@ export type Database = {
           prepared_by: string
           reversed_by_batch_id: string | null
           reverses_batch_id: string | null
+          source_invoice_id: string | null
+          source_payment_id: string | null
           status: Database["public"]["Enums"]["manual_journal_batch_status"]
           updated_at: string
         }
@@ -3311,6 +3316,8 @@ export type Database = {
           prepared_by: string
           reversed_by_batch_id?: string | null
           reverses_batch_id?: string | null
+          source_invoice_id?: string | null
+          source_payment_id?: string | null
           status?: Database["public"]["Enums"]["manual_journal_batch_status"]
           updated_at?: string
         }
@@ -3331,6 +3338,8 @@ export type Database = {
           prepared_by?: string
           reversed_by_batch_id?: string | null
           reverses_batch_id?: string | null
+          source_invoice_id?: string | null
+          source_payment_id?: string | null
           status?: Database["public"]["Enums"]["manual_journal_batch_status"]
           updated_at?: string
         }
@@ -3648,6 +3657,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "org_billing_prefs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_payment_accounts: {
+        Row: {
+          charges_enabled: boolean
+          created_at: string
+          created_by: string | null
+          details_submitted: boolean
+          org_id: string
+          payouts_enabled: boolean
+          stripe_account_id: string
+          updated_at: string
+        }
+        Insert: {
+          charges_enabled?: boolean
+          created_at?: string
+          created_by?: string | null
+          details_submitted?: boolean
+          org_id: string
+          payouts_enabled?: boolean
+          stripe_account_id: string
+          updated_at?: string
+        }
+        Update: {
+          charges_enabled?: boolean
+          created_at?: string
+          created_by?: string | null
+          details_submitted?: boolean
+          org_id?: string
+          payouts_enabled?: boolean
+          stripe_account_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_payment_accounts_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: true
             referencedRelation: "organizations"
@@ -8408,6 +8458,7 @@ export type Database = {
         }
         Returns: number
       }
+      invoice_accepts_card: { Args: { p_token: string }; Returns: boolean }
       is_client_portal_user: { Args: { p_client_id: string }; Returns: boolean }
       is_client_user: { Args: never; Returns: boolean }
       is_org_member: { Args: { p_org_id: string }; Returns: boolean }
@@ -8780,6 +8831,14 @@ export type Database = {
       }
       rpc_solo_recurring: { Args: { p_org_id: string }; Returns: Json }
       safe_uuid: { Args: { input: string }; Returns: string }
+      save_invoice_items: {
+        Args: { p_invoice_id: string; p_items: Json }
+        Returns: Json
+      }
+      save_recurring_invoice_items: {
+        Args: { p_items: Json; p_recurring_id: string }
+        Returns: undefined
+      }
       score_to_semaphore: {
         Args: { p_score: number }
         Returns: Database["public"]["Enums"]["semaphore_status"]
@@ -9092,6 +9151,8 @@ export type Database = {
         | "depreciation"
         | "opening_balance"
         | "payroll"
+        | "invoice"
+        | "invoice_payment"
       lp_role:
         | "owner"
         | "admin"
@@ -9403,6 +9464,8 @@ export const Constants = {
         "depreciation",
         "opening_balance",
         "payroll",
+        "invoice",
+        "invoice_payment",
       ],
       lp_role: [
         "owner",

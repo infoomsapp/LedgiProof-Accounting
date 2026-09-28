@@ -1,7 +1,11 @@
 // PATH: supabase/functions/create-checkout-session/index.ts
 //
 // Creates a Stripe Checkout Session in two modes:
-//   'invoice'      — one-time payment for a client-facing invoice
+//   'invoice'      — one-time payment for a client-facing invoice, charged
+//                    ON THE BUSINESS'S OWN connected Stripe account (direct
+//                    charge; see stripe-connect) -- the money never touches
+//                    LedgiProof's account. Refused when the workspace hasn't
+//                    connected Stripe or can't take charges yet.
 //                    Auth: none required (access gated by public_token UUID)
 //   'subscription' — recurring SaaS plan for LedgiProof itself
 //                    Auth: requires valid user JWT
@@ -12,6 +16,8 @@
 //   STRIPE_PRICE_ID_ENTREPRENEUR
 //   STRIPE_PRICE_ID_BOOKKEEPER
 //   STRIPE_PRICE_ID_ACCOUNTANT
+//   STRIPE_APPLICATION_FEE_BPS  (optional) platform fee on invoice payments,
+//                               in basis points (100 = 1%). Default 0.
 //
 // Returns: { url: string }  — redirect the browser to this Stripe-hosted URL.
 
@@ -19,13 +25,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe           from 'npm:stripe@17'
 import { getCorsHeaders } from '../_shared/cors.ts'
 import { safeMessage } from '../_shared/errors.ts'
+import { isAllowedReturnUrl } from '../_shared/return-url.ts'
 
 const STRIPE_SECRET = Deno.env.get('STRIPE_SECRET_KEY')          ?? ''
 const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')              ?? ''
 const SVC_KEY       = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const FEE_BPS       = Math.max(0, Math.min(1000, Number(Deno.env.get('STRIPE_APPLICATION_FEE_BPS') ?? '0') || 0))
 
+// Null until STRIPE_SECRET_KEY is set: the Stripe SDK throws at construction
+// without a key, which would crash the function on boot for every request.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const stripe = new Stripe(STRIPE_SECRET, { apiVersion: '2025-06-30' as any })
+const stripeClient = STRIPE_SECRET ? new Stripe(STRIPE_SECRET, { apiVersion: '2025-06-30' as any }) : null
 
 // Stripe Price IDs — create in Stripe Dashboard → Products, then:
 //   supabase secrets set STRIPE_PRICE_ID_STARTER=price_xxx ...
@@ -56,8 +66,14 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {
+    if (!stripeClient) return fail('Online payments are not configured yet', 503, cors)
+    const stripe = stripeClient
     const body: InvoiceRequest | SubscriptionRequest = await req.json()
     const db = createClient(SUPABASE_URL, SVC_KEY)
+
+    if (!isAllowedReturnUrl(body.success_url) || !isAllowedReturnUrl(body.cancel_url)) {
+      return fail('Invalid return URL', 400, cors)
+    }
 
     // ── Invoice payment (public — no auth needed) ─────────────────────────────
     if (body.type === 'invoice') {
@@ -75,12 +91,33 @@ Deno.serve(async (req) => {
       if (status === 'paid' || status === 'void') {
         return fail(`Invoice is already ${status}`, 400, cors)
       }
+      if (status === 'draft') {
+        return fail('This invoice has not been issued yet', 400, cors)
+      }
       if (Number(inv.balance_due) <= 0) {
         return fail('No outstanding balance on this invoice', 400, cors)
       }
 
+      // The business's own Stripe account.
+      const { data: payAcct } = await db
+        .from('org_payment_accounts')
+        .select('stripe_account_id, charges_enabled')
+        .eq('org_id', inv.org_id)
+        .maybeSingle()
+      if (!payAcct?.charges_enabled) {
+        return fail('This business does not accept online card payments yet', 400, cors)
+      }
+
       const currency   = (inv.currency ?? 'USD').toLowerCase()
       const unitAmount = Math.round(Number(inv.balance_due) * 100)
+      const fee        = FEE_BPS > 0 ? Math.floor(unitAmount * FEE_BPS / 10000) : 0
+      const invoiceMeta = {
+        type:        'invoice',
+        invoice_id:  inv.id,
+        org_id:      inv.org_id,
+        created_by:  (inv as any).created_by as string,
+        currency:    currency.toUpperCase(),
+      }
 
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
@@ -95,16 +132,14 @@ Deno.serve(async (req) => {
             },
           },
         }],
-        metadata: {
-          type:        'invoice',
-          invoice_id:  inv.id,
-          org_id:      inv.org_id,
-          created_by:  (inv as any).created_by as string,
-          currency:    currency.toUpperCase(),
+        metadata: invoiceMeta,
+        payment_intent_data: {
+          metadata: invoiceMeta,
+          ...(fee > 0 ? { application_fee_amount: fee } : {}),
         },
         success_url,
         cancel_url,
-      })
+      }, { stripeAccount: payAcct.stripe_account_id as string })
 
       return ok({ url: session.url }, cors)
     }

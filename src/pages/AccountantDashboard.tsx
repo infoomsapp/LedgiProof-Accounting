@@ -282,6 +282,13 @@ export default function AccountantDashboard() {
                     >
                       {t('dashboard.closePeriodButton')}
                     </button>
+                    <button
+                      className="lp-btn lp-btn-ghost"
+                      onClick={() => navigate('/periods')}
+                      style={{ width: '100%', fontSize: 12 }}
+                    >
+                      {t('dashboard.closeOwnBooksLink')}
+                    </button>
                   </>
                 )}
               </div>

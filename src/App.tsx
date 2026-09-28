@@ -581,6 +581,10 @@ export default function App() {
             </FirmRouteRedirect>
           } />
           <Route path="reports"       element={<ReportsEntry />} />
+          {/* Close the workspace's own books (a client's: /clients/:id/periods) */}
+          <Route path="periods"       element={
+            <ErrorBoundary section="period controls"><PeriodControls /></ErrorBoundary>
+          } />
           <Route path="time"          element={
             <FirmRouteRedirect>
               <ErrorBoundary section="time tracking"><Time /></ErrorBoundary>

@@ -241,6 +241,7 @@ export default {
     manualEntryButton:           '+ Manual Entry',
     manualEntryButtonTitle:      'Select a client to post a manual journal entry',
     closePeriodButton:           'Close Period',
+    closeOwnBooksLink:           'Close our own books',
     closePeriodButtonTitle:      'Select a client to manage and close periods',
 
     attentionCriticalPending:  'Critical Pending',
@@ -806,6 +807,16 @@ export default {
   // One entry per server error code (SQLSTATE L????). src/lib/errors.ts
   // translates with the values the server sent in DETAIL; the build fails
   // (error-codes.test.ts) if a code raised in supabase/sql has no entry here.
+  snapshot: {
+    owedToYou:       'Owed to you',
+    youOwe:          'You owe',
+    cash:            'Cash',
+    profitThisMonth: 'Profit this month',
+    overdue:         '{{amount}} overdue',
+    lastMonth:       'Last month {{amount}}',
+    toReview:        "{{count}} bank transaction(s) aren't in these numbers until they're categorized.",
+    openReview:      'Open For review',
+  },
   dbErrors: {
     LA001: 'Choose who you keep the books for',
     LA002: 'Enter your business name',
@@ -850,6 +861,16 @@ export default {
     LO010: 'Debits ({{debit}}) and credits ({{credit}}) must be equal — difference {{difference}}',
     LO011: 'Opening balances were already imported for {{date}}. Replace them?',
     LO012: 'This kind of entry is posted by LedgiProof itself (opening balances: use Import → Opening balances).',
+    LP001: '{{period}} is closed. Reopen it to make changes.',
+    LP002: '{{period}} is in adjustment: only adjusting journal entries are allowed.',
+    LP003: '{{count}} transaction(s) up to {{through}} are still waiting in For review. Categorize them before closing.',
+    LP004: '{{count}} draft journal entr(ies) are dated up to {{through}}. Post or delete them before closing.',
+    LP005: 'Only an owner or admin can reopen a closed period',
+    LP006: 'Give a reason of at least 5 characters',
+    LP007: 'Only months that have started can be closed',
+    LQ008: "Period closing isn't included in the {{plan}} plan.",
+    LT001: 'Choose a valid date range',
+    LT002: 'Aging is either receivables or payables',
     LQ001: "You've reached this month's limit of {{limit}} invoices on the {{plan}} plan.",
     LQ002: "You've reached this month's limit of {{limit}} receipts on the {{plan}} plan.",
     LQ003: "You've reached this month's limit of {{limit}} mileage trips on the {{plan}} plan.",

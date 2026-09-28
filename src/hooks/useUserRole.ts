@@ -7,8 +7,8 @@
 //   · Reads organizations.is_accountant_firm (v44) to identify firm kind.
 //   · Derives canPostJournalEntries / canClosePeriods / canReverseManualBatch
 //     based on lp_role within the org (Controller is lp_role='accountant').
-//   · canReopenClosedPeriod restricted to super_admin (matches DB trigger
-//     enforcement in v45.enforce_period_transition).
+//   · canReopenClosedPeriod: owner/admin (matches reopen_books_from and
+//     enforce_period_transition, phase4_period_close.sql).
 
 import { useMemo } from 'react'
 import { useAuthStore } from '../store/auth.store'
@@ -71,8 +71,8 @@ export interface UserRoleInfo {
   //   Required: same as canPostJournalEntries (it IS a journal post).
   canReverseManualBatch:   boolean
 
-  // canReopenClosedPeriod: transition CLOSED → OPEN. Restricted to super_admin
-  //   to match the v45 DB trigger enforcement.
+  // canReopenClosedPeriod: move the closing date back (CLOSED → OPEN), with a
+  //   reason. Owner/admin, as reopen_books_from() enforces.
   canReopenClosedPeriod:   boolean
 
   // canApproveManualBatch: set manual_journal_batches.approved_by (segregation
@@ -223,8 +223,8 @@ export function useUserRole(): UserRoleInfo {
     const canClosePeriods       = isSuperAdmin || isControllerInAccountantFirm
     const canReverseManualBatch = isSuperAdmin || isControllerInAccountantFirm
 
-    // CLOSED → OPEN is super_admin only (matches v45 DB trigger)
-    const canReopenClosedPeriod = isSuperAdmin
+    // CLOSED → OPEN: owner/admin (reopen_books_from, LP005 otherwise)
+    const canReopenClosedPeriod = isSuperAdmin || workspaceRole === 'owner' || workspaceRole === 'admin'
 
     // Approval segregation: owner/admin only.
     // UI must ALSO check prepared_by !== current user before showing approve button.

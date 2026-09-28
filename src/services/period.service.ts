@@ -1,16 +1,24 @@
 // PATH: src/services/period.service.ts
-// Manages accounting period lifecycle: OPEN → ADJUSTMENT → CLOSED.
-// Absence of a row in period_controls means the period is implicitly OPEN
-// (the DB trigger and get_period_status() RPC both default to OPEN).
+// Month-end close, QuickBooks/Xero style: a closing date per set of books.
+//   · closeBooksThrough(y, m)  closes that month and every earlier one with
+//     activity (close_books_through). Refused while transactions in the
+//     period wait in For review (LP003) or a draft journal batch is dated in
+//     it (LP004). Needs the plan's period_closing feature (LQ008).
+//   · reopenBooksFrom(y, m, reason)  owner/admin moves the closing date back:
+//     that month and every later one reopen (reopen_books_from, LP005/LP006).
+// Works for the workspace's own books (clientId null) and a firm's client
+// books. period_controls is read-only to the app; only those two RPCs write it.
+// A month without a row is OPEN.
 
 import { db } from '../lib/supabase'
-import { toSafeMessage } from '../lib/errors'
+import { dbError } from '../lib/errors'
 
 export type PeriodStatus = 'OPEN' | 'ADJUSTMENT' | 'CLOSED'
 
 export interface PeriodControl {
+  id:           string
   org_id:       string
-  client_id:    string
+  client_id:    string | null
   period_year:  number
   period_month: number
   status:       PeriodStatus
@@ -20,125 +28,58 @@ export interface PeriodControl {
   created_at:   string
 }
 
-const NEXT_STATUS: Record<PeriodStatus, PeriodStatus | null> = {
-  OPEN:        'ADJUSTMENT',
-  ADJUSTMENT:  'CLOSED',
-  CLOSED:      null,
+export interface CloseChecklist {
+  through:              string
+  /** Blocking: bank transactions up to that date not yet categorized. */
+  to_review:            number
+  /** Blocking: draft manual journal batches dated up to then. */
+  draft_batches:        number
+  /** Informational: open reconciliation sessions ending by then. */
+  open_reconciliations: number
+  closed_through:       string | null
 }
 
-// Returns all period_controls rows for (org, client, year).
-// Months without a row are implicitly OPEN — callers should use
-// `buildYearGrid()` to get a full 12-month picture.
-export async function getPeriodControls(
-  orgId:    string,
-  clientId: string,
-  year:     number
-): Promise<PeriodControl[]> {
-  const { data, error } = await db
-    .from('period_controls')
-    .select('*')
-    .eq('org_id',      orgId)
-    .eq('client_id',   clientId)
-    .eq('period_year', year)
-    .order('period_month')
-
-  if (error) throw new Error(`[Period] Load failed: ${toSafeMessage(error, 'database error')}`)
-  return (data ?? []) as PeriodControl[]
+export async function getPeriodControls(orgId: string, clientId: string | null, year: number): Promise<PeriodControl[]> {
+  let q = db.from('period_controls').select('*').eq('org_id', orgId).eq('period_year', year)
+  q = clientId ? q.eq('client_id', clientId) : q.is('client_id', null)
+  const { data, error } = await q.order('period_month')
+  if (error) throw dbError(error, 'Could not load the periods')
+  return (data ?? []) as unknown as PeriodControl[]
 }
 
-// Returns the effective status for a single period (falls back to RPC which
-// defaults to OPEN when no row exists).
-export async function getPeriodStatus(
-  orgId:    string,
-  clientId: string,
-  year:     number,
-  month:    number
-): Promise<PeriodStatus> {
-  const isoDate = `${year}-${String(month).padStart(2, '0')}-01`
-  const { data, error } = await db.rpc('get_period_status', {
-    p_org_id:    orgId,
-    p_client_id: clientId,
-    p_date:      isoDate
+export async function getCloseChecklist(orgId: string, clientId: string | null, year: number, month: number): Promise<CloseChecklist> {
+  const { data, error } = await db.rpc('get_close_checklist', {
+    p_org_id: orgId, p_client_id: clientId as string, p_year: year, p_month: month,
   })
-  if (error) throw new Error(`[Period] Status check failed: ${toSafeMessage(error, 'database error')}`)
-  return (data as PeriodStatus) ?? 'OPEN'
+  if (error) throw dbError(error, 'Could not check the period')
+  return data as unknown as CloseChecklist
 }
 
-// Advances period one step: OPEN → ADJUSTMENT → CLOSED.
-// Throws if already CLOSED (reopening requires super_admin — use reopenPeriod).
-export async function advancePeriod(
-  orgId:    string,
-  clientId: string,
-  year:     number,
-  month:    number,
-  userId:   string,
-  reason?:  string
-): Promise<PeriodControl> {
-  const current = await getPeriodStatus(orgId, clientId, year, month)
-  const next    = NEXT_STATUS[current]
-  if (!next) throw new Error('[Period] Period is already CLOSED')
-
-  const { data, error } = await db
-    .from('period_controls')
-    .upsert({
-      org_id:       orgId,
-      client_id:    clientId,
-      period_year:  year,
-      period_month: month,
-      status:       next,
-      updated_by:   userId,
-      reason:       reason ?? null
-    }, { onConflict: 'org_id,client_id,period_year,period_month' })
-    .select()
-    .single()
-
-  if (error) throw new Error(`[Period] Advance failed: ${toSafeMessage(error, 'database error')}`)
-  return data as PeriodControl
+export async function closeBooksThrough(orgId: string, clientId: string | null, year: number, month: number) {
+  const { data, error } = await db.rpc('close_books_through', {
+    p_org_id: orgId, p_client_id: clientId as string, p_year: year, p_month: month,
+  })
+  if (error) throw dbError(error, 'Could not close the books')
+  return data as unknown as { closed_through: string; months_closed: number; open_reconciliations: number }
 }
 
-// Reverts a period to OPEN. DB trigger enforces this is super_admin only.
-export async function reopenPeriod(
-  orgId:    string,
-  clientId: string,
-  year:     number,
-  month:    number,
-  userId:   string,
-  reason:   string
-): Promise<PeriodControl> {
-  if (!reason.trim()) throw new Error('[Period] Reason required to reopen a closed period')
-
-  const { data, error } = await db
-    .from('period_controls')
-    .upsert({
-      org_id:       orgId,
-      client_id:    clientId,
-      period_year:  year,
-      period_month: month,
-      status:       'OPEN',
-      updated_by:   userId,
-      reason:       reason.trim()
-    }, { onConflict: 'org_id,client_id,period_year,period_month' })
-    .select()
-    .single()
-
-  if (error) throw new Error(`[Period] Reopen failed: ${toSafeMessage(error, 'database error')}`)
-  return data as PeriodControl
+export async function reopenBooksFrom(orgId: string, clientId: string | null, year: number, month: number, reason: string) {
+  const { data, error } = await db.rpc('reopen_books_from', {
+    p_org_id: orgId, p_client_id: clientId as string, p_year: year, p_month: month, p_reason: reason,
+  })
+  if (error) throw dbError(error, 'Could not reopen the books')
+  return data as unknown as { reopened_from: string; months_reopened: number }
 }
 
-// Builds a 12-month grid for the UI — merges DB rows with implicit OPEN defaults.
+// A 12-month grid for the UI: DB rows merged with implicit OPEN months.
 export function buildYearGrid(
-  year:  number,
-  rows:  PeriodControl[]
+  year: number,
+  rows: PeriodControl[]
 ): Array<{ month: number; label: string; status: PeriodStatus; row: PeriodControl | null }> {
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   return Array.from({ length: 12 }, (_, i) => {
     const month = i + 1
     const row   = rows.find(r => r.period_month === month) ?? null
-    return {
-      month,
-      label:  `${MONTHS[i]} ${year}`,
-      status: row?.status ?? 'OPEN',
-      row
-    }
+    return { month, label: `${MONTHS[i]} ${year}`, status: row?.status ?? 'OPEN', row }
   })
 }

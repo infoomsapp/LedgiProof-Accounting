@@ -9,7 +9,15 @@ import { formatDate }     from '../lib/dates'
 import { toSafeMessage } from '../lib/errors'
 import { useAuthStore } from '../store/auth.store'
 import BudgetEditor from '../components/reports/BudgetEditor'
+import TrialBalanceReport from '../components/reports/TrialBalanceReport'
+import GeneralLedgerReport, { onNormalSide } from '../components/reports/GeneralLedgerReport'
+import AgingReport, { agingByParty } from '../components/reports/AgingReport'
 import { getBudgetVsActual, type BudgetVsActualData } from '../services/budget.service'
+import {
+  getProfitAndLossRange, getTrialBalance, getGeneralLedger, getAging,
+  presetRange, formatRange, isoDate, RANGE_PRESETS, AGING_BUCKETS,
+  type PlRow, type TrialBalance, type GeneralLedger, type Aging, type RangePreset
+} from '../services/reports.service'
 
 const fmt = (n: number) => formatCurrency(n)
 
@@ -41,21 +49,38 @@ interface BalanceSheetData {
 const MONTHS = ['January','February','March','April','May','June',
   'July','August','September','October','November','December']
 
-type ReportKey = 'balance_sheet' | 'pl' | 'cash_flow' | 'budget'
+type ReportKey =
+  | 'balance_sheet' | 'pl' | 'cash_flow' | 'budget'
+  | 'trial_balance' | 'general_ledger' | 'ar_aging' | 'ap_aging'
 
 const REPORT_TABS: [ReportKey, string][] = [
-  ['balance_sheet', 'Balance Sheet'],
-  ['pl',            'P&L'],
-  ['cash_flow',     'Cash Flow'],
-  ['budget',        'Budget vs Actual'],
+  ['balance_sheet',  'Balance Sheet'],
+  ['pl',             'P&L'],
+  ['cash_flow',      'Cash Flow'],
+  ['trial_balance',  'Trial Balance'],
+  ['general_ledger', 'General Ledger'],
+  ['ar_aging',       'A/R Aging'],
+  ['ap_aging',       'A/P Aging'],
+  ['budget',         'Budget vs Actual'],
 ]
 
 const REPORT_TITLES: Record<ReportKey, string> = {
-  balance_sheet: 'Balance Sheet',
-  pl:            'P&L',
-  cash_flow:     'Cash Flow',
-  budget:        'Budget vs Actual',
+  balance_sheet:  'Balance Sheet',
+  pl:             'P&L',
+  cash_flow:      'Cash Flow',
+  budget:         'Budget vs Actual',
+  trial_balance:  'Trial Balance',
+  general_ledger: 'General Ledger',
+  ar_aging:       'Accounts Receivable Aging',
+  ap_aging:       'Accounts Payable Aging',
 }
+
+// How each report is scoped in time.
+const RANGE_REPORTS  = new Set<ReportKey>(['pl', 'general_ledger'])
+const AS_OF_REPORTS  = new Set<ReportKey>(['trial_balance', 'ar_aging', 'ap_aging'])
+// Invoices and bills live in the workspace's own books: no aging inside a
+// firm's client workspace.
+const OWN_BOOKS_ONLY = new Set<ReportKey>(['ar_aging', 'ap_aging'])
 
 // Who may write a budget, mirroring budgets_write (owner/admin/accountant) so
 // the editor is only offered where saving will actually succeed. A client
@@ -197,7 +222,23 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
   const [bvaData, setBvaData] = useState<BudgetVsActualData | null>(null)
   const [showBudgetEditor, setShowBudgetEditor] = useState(false)
   const [bsData,  setBsData] = useState<BalanceSheetData | null>(null)
-  const [plData,  setPlData] = useState<any[] | null>(null)
+  const [plData,  setPlData] = useState<PlRow[] | null>(null)
+  const [preset,  setPreset] = useState<RangePreset>('this_year')
+  const [from,    setFrom]   = useState(presetRange('this_year').from)
+  const [to,      setTo]     = useState(presetRange('this_year').to)
+  const [asOf,    setAsOf]   = useState(isoDate(now))
+  const [tbData,  setTbData] = useState<TrialBalance | null>(null)
+  const [glData,  setGlData] = useState<GeneralLedger | null>(null)
+  const [agData,  setAgData] = useState<Aging | null>(null)
+  const tabs = REPORT_TABS.filter(([k]) => !(clientId && OWN_BOOKS_ONLY.has(k)))
+
+  function choosePreset(p: RangePreset) {
+    setPreset(p)
+    if (p !== 'custom') {
+      const r = presetRange(p)
+      setFrom(r.from); setTo(r.to)
+    }
+  }
   const [loading, setLoading] = useState(false)
   const [error,   setError]  = useState<string | null>(null)
   const [hasRun,  setHasRun] = useState(false)
@@ -234,44 +275,39 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
     setLoading(false); setHasRun(true)
   }, [orgId, clientId, year, month])
 
+  // P&L for any date range (get_profit_and_loss_range: the same ledger lines
+  // as every other report).
   const runPL = useCallback(async () => {
     setLoading(true); setError(null)
-    // Server-side RPC (SECURITY DEFINER, auth-checked for org staff or the
-    // matching client_portal_users member) — replaces a direct journal_entries
-    // table read, which had no client-portal-aware RLS and would have
-    // silently returned zero rows for an invited client instead of erroring.
-    const { data: rows, error: err } = await db.rpc('get_profit_and_loss', {
-      p_org_id: orgId, p_year: year, p_month: month,
-      ...(clientId ? { p_client_id: clientId } : {})
-    })
-
-    if (err) { setError(toSafeMessage(err, 'Could not run the profit and loss report')); setLoading(false); return }
-
-    type PlRow = {
-      account_id: string
-      code:       string
-      name:       string
-      type:       string
-      debit:      number
-      credit:     number
+    try {
+      setPlData((await getProfitAndLossRange(orgId, from, to, clientId)).sort((a, b) => a.code.localeCompare(b.code)))
+      setHasRun(true)
+    } catch (e) {
+      setError(toSafeMessage(e, 'Could not run the profit and loss report'))
     }
+    setLoading(false)
+  }, [orgId, clientId, from, to])
 
-    // The RPC already aggregates debit/credit per account server-side —
-    // just filter to income/expense and hand the rows straight through.
-    const map = new Map<string, { code:string; name:string; type:string; debit:number; credit:number }>()
-    for (const row of (rows ?? []) as unknown as PlRow[]) {
-      if (!['income','expense'].includes(row.type)) continue
-      map.set(row.account_id, { code:row.code, name:row.name, type:row.type, debit:Number(row.debit), credit:Number(row.credit) })
+  const runOther = useCallback(async (key: ReportKey) => {
+    setLoading(true); setError(null)
+    try {
+      if (key === 'trial_balance')  setTbData(await getTrialBalance(orgId, asOf, clientId))
+      if (key === 'general_ledger') setGlData(await getGeneralLedger(orgId, from, to, clientId))
+      if (key === 'ar_aging')       setAgData(await getAging(orgId, 'ar', asOf))
+      if (key === 'ap_aging')       setAgData(await getAging(orgId, 'ap', asOf))
+      setHasRun(true)
+    } catch (e) {
+      setError(toSafeMessage(e, 'Could not run the report'))
     }
-    setPlData(Array.from(map.values()).sort((a,b) => a.code.localeCompare(b.code)))
-    setLoading(false); setHasRun(true)
-  }, [orgId, clientId, year, month])
+    setLoading(false)
+  }, [orgId, clientId, from, to, asOf])
 
   function handleRun() {
     if (report === 'balance_sheet') runBalanceSheet()
     else if (report === 'cash_flow') runCashFlow()
     else if (report === 'budget') runBudget()
-    else runPL()
+    else if (report === 'pl') runPL()
+    else runOther(report)
   }
 
   const incomeRows   = plData?.filter(r => r.type === 'income')  ?? []
@@ -286,12 +322,13 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:10 }}>
         <div>
           <h1 className="lp-page-title">Financial Reports</h1>
-          <p className="lp-page-sub">Balance Sheet & Profit and Loss</p>
+          <p className="lp-page-sub">Statements, ledger and aging — all from the same journal entries</p>
         </div>
         {hasRun && !loading && (
           <div style={{ display:'flex', gap:8 }}>
             <button
-              onClick={() => printToPDF(`${entityName} — ${REPORT_TITLES[report]} ${year}-${String(month).padStart(2,'0')}`)}
+              onClick={() => printToPDF(`${entityName} — ${REPORT_TITLES[report]} ${
+                RANGE_REPORTS.has(report) ? `${from} to ${to}` : AS_OF_REPORTS.has(report) ? asOf : `${year}-${String(month).padStart(2,'0')}`}`)}
               className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
             >
               ⬇ PDF
@@ -301,7 +338,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                 onClick={() => {
                   const rows = plData.map(r => [r.code, r.name, r.type,
                     r.type === 'income' ? r.credit - r.debit : r.debit - r.credit])
-                  downloadCSV(buildCSV(['Code','Account','Type','Amount'], rows), `pl-${year}-${month}.csv`)
+                  downloadCSV(buildCSV(['Code','Account','Type','Amount'], rows), `pl-${from}-to-${to}.csv`)
                 }}
                 className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
               >
@@ -322,6 +359,36 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                   downloadCSV(buildCSV(['Code','Account','Budget','Actual','Remaining','Over'], rows),
                     `budget-vs-actual-${year}-${month}.csv`)
                 }}
+                className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
+              >
+                ⬇ CSV
+              </button>
+            )}
+            {report === 'trial_balance' && tbData && (
+              <button
+                onClick={() => downloadCSV(buildCSV(['Code','Account','Type','Debit','Credit'],
+                  tbData.rows.map(r => [r.code, r.name, r.type, r.debit, r.credit])), `trial-balance-${tbData.as_of}.csv`)}
+                className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
+              >
+                ⬇ CSV
+              </button>
+            )}
+            {report === 'general_ledger' && glData && (
+              <button
+                onClick={() => downloadCSV(buildCSV(['Code','Account','Date','Type','Description','Debit','Credit','Balance'],
+                  glData.accounts.flatMap(a => a.lines.map(l => [a.code, a.name, l.date, l.kind, l.memo ?? '',
+                    l.debit, l.credit, onNormalSide(a, Number(l.balance))]))), `general-ledger-${from}-to-${to}.csv`)}
+                className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
+              >
+                ⬇ CSV
+              </button>
+            )}
+            {(report === 'ar_aging' || report === 'ap_aging') && agData && (
+              <button
+                onClick={() => downloadCSV(buildCSV(
+                  [agData.kind === 'ar' ? 'Customer' : 'Vendor', ...AGING_BUCKETS.map(b => b.label), 'Total'],
+                  agingByParty(agData).map(r => [r.party, ...AGING_BUCKETS.map(b => r.buckets[b.key]), r.total])),
+                  `${agData.kind}-aging-${agData.as_of}.csv`)}
                 className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
               >
                 ⬇ CSV
@@ -353,11 +420,11 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
       <div className="lp-card" style={{ marginBottom:20, display:'flex', gap:12, alignItems:'flex-end', flexWrap:'wrap' }}>
         <div>
           <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>Report</label>
-          <div style={{ display:'flex' }}>
+          <div style={{ display:'flex', flexWrap:'wrap' }}>
             {/* Rounding is keyed on position, not on a report's name: with a
                 fourth report the old name-based rule gave every button after
                 the first a right-rounded edge. */}
-            {REPORT_TABS.map(([k,l], i) => (
+            {tabs.map(([k,l], i) => (
               <button key={k} onClick={() => { setReport(k); setHasRun(false); setShowBudgetEditor(false) }} style={{
                 padding:'8px 16px', cursor:'pointer', fontFamily:'inherit', fontSize:13,
                 fontWeight: report===k ? 500 : 400,
@@ -365,13 +432,43 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                 color:      report===k ? '#fff'    : 'var(--lp-text-muted)',
                 border:'0.5px solid var(--lp-border)', transition:'all 0.12s',
                 borderRadius: i === 0 ? '7px 0 0 7px'
-                            : i === REPORT_TABS.length - 1 ? '0 7px 7px 0' : 0,
+                            : i === tabs.length - 1 ? '0 7px 7px 0' : 0,
                 borderLeft:   i === 0 ? undefined : 'none'
               }}>{l}</button>
             ))}
           </div>
         </div>
 
+        {RANGE_REPORTS.has(report) && (
+          <>
+            <div>
+              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>Period</label>
+              <select className="lp-input" style={{ width:140 }} value={preset}
+                onChange={e => choosePreset(e.target.value as RangePreset)}>
+                {RANGE_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>From</label>
+              <input type="date" className="lp-input" value={from}
+                onChange={e => { setFrom(e.target.value); setPreset('custom') }} />
+            </div>
+            <div>
+              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>To</label>
+              <input type="date" className="lp-input" value={to}
+                onChange={e => { setTo(e.target.value); setPreset('custom') }} />
+            </div>
+          </>
+        )}
+
+        {AS_OF_REPORTS.has(report) && (
+          <div>
+            <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>As of</label>
+            <input type="date" className="lp-input" value={asOf} onChange={e => setAsOf(e.target.value)} />
+          </div>
+        )}
+
+        {!RANGE_REPORTS.has(report) && !AS_OF_REPORTS.has(report) && (<>
         <div>
           <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>Year</label>
           <select className="lp-input" style={{ width:90 }} value={year}
@@ -392,8 +489,10 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
             {MONTHS.map((m,i) => <option key={i} value={i+1}>{m}</option>)}
           </select>
         </div>
+        </>)}
 
-        <button onClick={handleRun} disabled={loading} className="lp-btn lp-btn-primary"
+        <button onClick={handleRun} disabled={loading || (RANGE_REPORTS.has(report) && (!from || !to || from > to))}
+          className="lp-btn lp-btn-primary"
           style={{ padding:'9px 24px' }}>
           {loading ? 'Generating…' : 'Run report'}
         </button>
@@ -715,7 +814,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
           <ReportLetterhead
             entityName={entityName}
             reportTitle="Profit & Loss Statement"
-            period={`January – ${MONTHS[month-1]} ${year}`}
+            period={formatRange(from, to)}
           />
 
           {[
@@ -763,6 +862,31 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
             </span>
           </div>
 
+          <ReportFooter />
+        </div>
+      )}
+
+      {/* ── Trial balance / General ledger / Aging ─────────────────────────── */}
+      {report === 'trial_balance' && tbData && hasRun && (
+        <div style={{ maxWidth:820 }}>
+          <ReportLetterhead entityName={entityName} reportTitle="Trial Balance"
+            period={`As of ${new Date(tbData.as_of + 'T12:00:00').toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}`} />
+          <TrialBalanceReport data={tbData} />
+          <ReportFooter />
+        </div>
+      )}
+      {report === 'general_ledger' && glData && hasRun && (
+        <div style={{ maxWidth:980 }}>
+          <ReportLetterhead entityName={entityName} reportTitle="General Ledger" period={formatRange(glData.from, glData.to)} />
+          <GeneralLedgerReport data={glData} />
+          <ReportFooter />
+        </div>
+      )}
+      {(report === 'ar_aging' || report === 'ap_aging') && agData && agData.kind === (report === 'ar_aging' ? 'ar' : 'ap') && hasRun && (
+        <div style={{ maxWidth:980 }}>
+          <ReportLetterhead entityName={entityName} reportTitle={REPORT_TITLES[report]}
+            period={`As of ${new Date(agData.as_of + 'T12:00:00').toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}`} />
+          <AgingReport data={agData} />
           <ReportFooter />
         </div>
       )}

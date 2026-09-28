@@ -3891,8 +3891,9 @@ export type Database = {
       }
       period_controls: {
         Row: {
-          client_id: string
+          client_id: string | null
           created_at: string
+          id: string
           org_id: string
           period_month: number
           period_year: number
@@ -3902,8 +3903,9 @@ export type Database = {
           updated_by: string
         }
         Insert: {
-          client_id: string
+          client_id?: string | null
           created_at?: string
+          id?: string
           org_id: string
           period_month: number
           period_year: number
@@ -3913,8 +3915,9 @@ export type Database = {
           updated_by: string
         }
         Update: {
-          client_id?: string
+          client_id?: string | null
           created_at?: string
+          id?: string
           org_id?: string
           period_month?: number
           period_year?: number
@@ -3944,7 +3947,7 @@ export type Database = {
         Row: {
           changed_at: string
           changed_by: string
-          client_id: string
+          client_id: string | null
           from_status: Database["public"]["Enums"]["period_status"] | null
           id: string
           is_super_admin_override: boolean
@@ -3957,7 +3960,7 @@ export type Database = {
         Insert: {
           changed_at?: string
           changed_by: string
-          client_id: string
+          client_id?: string | null
           from_status?: Database["public"]["Enums"]["period_status"] | null
           id?: string
           is_super_admin_override?: boolean
@@ -3970,7 +3973,7 @@ export type Database = {
         Update: {
           changed_at?: string
           changed_by?: string
-          client_id?: string
+          client_id?: string | null
           from_status?: Database["public"]["Enums"]["period_status"] | null
           id?: string
           is_super_admin_override?: boolean
@@ -7920,6 +7923,15 @@ export type Database = {
         Args: { p_client_id: string; p_template_id: string }
         Returns: number
       }
+      close_books_through: {
+        Args: {
+          p_client_id: string
+          p_month: number
+          p_org_id: string
+          p_year: number
+        }
+        Returns: Json
+      }
       close_reconciliation_session: {
         Args: {
           p_accept_difference_note?: string
@@ -8134,6 +8146,10 @@ export type Database = {
       }
       get_accountant_dashboard: { Args: { p_org_id: string }; Returns: Json }
       get_admin_command_center: { Args: never; Returns: Json }
+      get_aging: {
+        Args: { p_as_of?: string; p_kind: string; p_org_id: string }
+        Returns: Json
+      }
       get_audit_summary: {
         Args: {
           p_client_id?: string
@@ -8173,6 +8189,10 @@ export type Database = {
         Returns: Json
       }
       get_bookkeeper_dashboard: { Args: { p_org_id: string }; Returns: Json }
+      get_books_snapshot: {
+        Args: { p_client_id?: string; p_org_id: string }
+        Returns: Json
+      }
       get_budget_vs_actual: {
         Args: {
           p_client_id?: string
@@ -8220,6 +8240,15 @@ export type Database = {
           tax_id: string
           updated_at: string
         }[]
+      }
+      get_close_checklist: {
+        Args: {
+          p_client_id: string
+          p_month: number
+          p_org_id: string
+          p_year: number
+        }
+        Returns: Json
       }
       get_document_signed_url: {
         Args: { p_document_id: string }
@@ -8273,6 +8302,16 @@ export type Database = {
           payment_date: string
           payment_usd: number
         }[]
+      }
+      get_general_ledger: {
+        Args: {
+          p_account_id?: string
+          p_client_id?: string
+          p_from: string
+          p_org_id: string
+          p_to: string
+        }
+        Returns: Json
       }
       get_governance_overview_admin: {
         Args: { p_days?: number }
@@ -8375,6 +8414,15 @@ export type Database = {
         }
         Returns: Json
       }
+      get_profit_and_loss_range: {
+        Args: {
+          p_client_id?: string
+          p_from: string
+          p_org_id: string
+          p_to: string
+        }
+        Returns: Json
+      }
       get_pyme_dashboard: { Args: { p_client_id: string }; Returns: Json }
       get_recent_admin_events: { Args: { p_limit?: number }; Returns: Json }
       get_review_queue: {
@@ -8455,6 +8503,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_trial_balance: {
+        Args: { p_as_of?: string; p_client_id?: string; p_org_id: string }
+        Returns: Json
       }
       get_usage_status: { Args: { p_org_id: string }; Returns: Json }
       get_user_directory_admin: {
@@ -8896,6 +8948,16 @@ export type Database = {
           p_signer_name?: string
           p_token: string
           p_user_agent?: string
+        }
+        Returns: Json
+      }
+      reopen_books_from: {
+        Args: {
+          p_client_id: string
+          p_month: number
+          p_org_id: string
+          p_reason: string
+          p_year: number
         }
         Returns: Json
       }

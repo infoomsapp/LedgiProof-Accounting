@@ -20,6 +20,8 @@
 // paid") passes through unchanged — this only strips detail from genuine
 // database-shaped errors.
 
+import i18n from '../i18n'
+
 interface PostgrestLikeError {
   message: string
   code?:    string | null
@@ -59,10 +61,49 @@ const CODE_MESSAGES: Record<string, string> = {
  * Always logs the real error to the console (never silently dropped) — only
  * what reaches the caller's return value is sanitized.
  */
+// LedgiProof's own errors: every distinct error our RPCs raise for the user
+// has ITS OWN SQLSTATE of the form L + area letter + 3 digits (LO011 =
+// opening balances don't balance, LB003 = …). One code never covers two
+// different errors -- src/lib/error-codes.test.ts fails the build if a code
+// is reused for another message or has no translation. The message is the
+// English text; values it mentions travel as JSON in the error's DETAIL and
+// are interpolated into the translation (dbErrors.<code> in en.ts / es.ts).
+export const LP_ERROR_CODE = /^L[A-Z][0-9]{3}$/
+
+/** An error LedgiProof raised on purpose, already translated for the screen. */
+export class LpDbError extends Error {
+  constructor(
+    public readonly code:   string,
+    message:                string,
+    public readonly params: Record<string, unknown>
+  ) {
+    super(message)
+    this.name = 'LpDbError'
+  }
+}
+
+function lpParams(details: string | null | undefined): Record<string, unknown> {
+  if (!details) return {}
+  try {
+    const parsed = JSON.parse(details)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
 export function dbError(err: unknown, fallback = 'Something went wrong. Please try again.'): Error {
   if (looksLikeDbError(err)) {
     console.error('[db error]', err)
     const code = err.code ?? ''
+    if (LP_ERROR_CODE.test(code)) {
+      const params = lpParams(err.details)
+      const text   = i18n.t(`dbErrors.${code}`, {
+        ...params,
+        defaultValue: err.message || fallback,
+      })
+      return new LpDbError(code, text, params)
+    }
     return new Error(CODE_MESSAGES[code] ?? fallback)
   }
   if (err instanceof Error) return err

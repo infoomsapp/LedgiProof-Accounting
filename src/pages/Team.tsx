@@ -130,7 +130,7 @@ export default function Team() {
 
     setInviting(true); setInvError(null); setInvResult(null)
 
-    const limit = await checkTeamMemberLimit(userId, orgId)
+    const limit = await checkTeamMemberLimit(orgId)
     if (!limit.allowed) {
       setInviting(false)
       setLimitModal(limit)

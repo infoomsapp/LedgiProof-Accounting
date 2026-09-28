@@ -117,7 +117,11 @@ function NewSessionForm({ orgId, userId, clientId, onCreated }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Reconciliation() {
-  const { profile } = useAuthStore()
+  const { profile, membership } = useAuthStore()
+  // Accepting a statement that doesn't balance is an owner/admin decision
+  // (close_reconciliation_session enforces the same, LR003).
+  const canAcceptDifference = membership?.role === 'owner' || membership?.role === 'admin'
+    || profile?.system_role === 'super_admin'
   // scope.clientId is set when reached via /clients/:clientId/reconciliation.
   // Without it, every client's reconciliation sessions and unreconciled
   // transactions were combined into one unfiltered list regardless of which
@@ -197,11 +201,20 @@ export default function Reconciliation() {
   }
 
   // ── Close session ──────────────────────────────────────────────────────
-  async function handleClose() {
+  async function handleClose(acceptDifference = false) {
     if (!activeId || !userId) return
+    let note: string | undefined
+    if (acceptDifference) {
+      const reason = window.prompt(
+        `The statement is off by ${fmt(difference)}. Why is it OK to close this period anyway? ` +
+        'The reason is saved with the reconciliation.'
+      )
+      if (!reason || !reason.trim()) return
+      note = reason.trim()
+    }
     setClosing(true)
     try {
-      const result = await closeSession(activeId, userId)
+      const result = await closeSession(activeId, userId, note)
       setClosedResult(result)
       await loadSessions()
       await loadActive()
@@ -340,8 +353,19 @@ export default function Reconciliation() {
                   <button onClick={handleUnclearAll} className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}>
                     ✗ None
                   </button>
+                  {!isBalanced && canAcceptDifference && (
+                    <button
+                      onClick={() => { void handleClose(true) }}
+                      disabled={closing}
+                      className="lp-btn lp-btn-ghost"
+                      style={{ fontSize:12.5 }}
+                      title="Close this period with the difference, recording why"
+                    >
+                      Close with difference…
+                    </button>
+                  )}
                   <button
-                    onClick={handleClose}
+                    onClick={() => { void handleClose(false) }}
                     disabled={closing || !isBalanced}
                     className="lp-btn lp-btn-primary"
                     style={{ fontSize:12.5,

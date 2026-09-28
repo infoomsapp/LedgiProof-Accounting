@@ -1,18 +1,7 @@
 // PATH: src/services/quota.service.ts
-// Centralized quota guard. Wraps every billable operation with a check_quota
-// pre-flight call and (on success) increment_usage.
-//
-// Usage:
-//   const ok = await assertQuota(orgId, 'ai_queries')
-//   if (!ok.allowed) { throw new QuotaExceededError(ok.message) }
-//   await doAiCall()
-//   await trackUsage(orgId, 'ai_queries')
-//
-// Or with the convenience wrapper:
-//   const result = await runWithQuota(orgId, 'ai_queries', async () => doAiCall())
+// Quota errors as the UI sees them. Enforcement lives on the server only
+// (see "Server refusals" below).
 
-import { db } from '../lib/supabase'
-import { toSafeMessage } from '../lib/errors'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,93 +44,40 @@ export class QuotaExceededError extends Error {
   }
 }
 
-// ── Pre-flight check ─────────────────────────────────────────────────────────
+// ── Server refusals ─────────────────────────────────────────────────────────
+//
+// Quotas are enforced ONLY on the server: the ai-query and
+// plaid-create-link-token edge functions check and count (check_quota /
+// increment_usage), the database triggers cover invoices, receipts, mileage,
+// transactions and seats (plan_limits_server.sql). The browser never checks
+// or counts on its own -- that is how AI queries used to be counted twice.
+// An edge function at the cap answers 429 { code: 'QUOTA_EXCEEDED', … };
+// this turns that response into a QuotaExceededError the UI already handles.
 
-/**
- * Calls check_quota RPC. Returns the decision.
- * Throws if the RPC errors out (auth, network, etc.)
- *
- * NOTE: This DOES log overage events as a side effect when applicable.
- *       It does NOT increment the usage counter — that's `trackUsage`.
- */
-export async function assertQuota(
-  orgId: string,
-  metric: UsageMetric,
-  amount = 1
-): Promise<QuotaResult> {
-  const { data, error } = await db.rpc('check_quota', {
-    p_org_id: orgId,
-    p_metric: metric,
-    p_amount: amount
-  })
-  if (error) throw new Error(`Quota check failed: ${toSafeMessage(error, 'database error')}`)
-  return data as unknown as QuotaResult
-}
-
-// ── Increment counter ────────────────────────────────────────────────────────
-
-/**
- * Increments the usage counter. Should be called AFTER the operation
- * succeeds (so failed attempts don't burn quota).
- *
- * Does NOT throw on error — usage tracking failures should never break
- * the user's actual workflow. Errors are logged to console.
- */
-export async function trackUsage(
-  orgId: string,
-  metric: UsageMetric,
-  amount = 1
-): Promise<void> {
+export async function quotaErrorFromFunction(
+  err: unknown,
+  metric: UsageMetric
+): Promise<QuotaExceededError | null> {
+  const ctx = (err as { context?: unknown } | null)?.context
+  if (!(ctx instanceof Response) || ctx.status !== 429) return null
   try {
-    const { error } = await db.rpc('increment_usage', {
-      p_org_id: orgId,
-      p_metric: metric,
-      p_amount: amount
-    })
-    if (error) {
-      console.warn(`[trackUsage] ${metric} +${amount} failed:`, error.message)
+    const body = await ctx.clone().json() as {
+      code?: string; error?: string; reason?: QuotaReason; plan?: string
+      current?: number; limit?: number; used_pct?: number
     }
-  } catch (e: any) {
-    console.warn(`[trackUsage] ${metric} +${amount} threw:`, e?.message)
+    if (body.code !== 'QUOTA_EXCEEDED') return null
+    return new QuotaExceededError(metric, {
+      allowed:       false,
+      reason:        body.reason ?? 'hard_cap',
+      current_value: body.current ?? 0,
+      limit_value:   body.limit ?? 0,
+      used_pct:      body.used_pct ?? 100,
+      plan:          body.plan ?? '',
+      ...(body.error ? { message: body.error } : {}),
+    })
+  } catch {
+    return null
   }
-}
-
-// ── Convenience wrapper ──────────────────────────────────────────────────────
-
-/**
- * Runs an async operation with full quota protection:
- *   1. Pre-flight check_quota
- *   2. Throws QuotaExceededError if blocked
- *   3. Runs the operation
- *   4. Increments usage on success
- *   5. Does NOT increment on operation failure
- *
- * Example:
- *   const reply = await runWithQuota(
- *     orgId,
- *     'ai_queries',
- *     () => askAi('What is my net profit Q1?')
- *   )
- */
-export async function runWithQuota<T>(
-  orgId: string,
-  metric: UsageMetric,
-  fn: () => Promise<T>,
-  amount = 1
-): Promise<T> {
-  // 1. Pre-flight
-  const check = await assertQuota(orgId, metric, amount)
-  if (!check.allowed) {
-    throw new QuotaExceededError(metric, check)
-  }
-
-  // 2. Run the operation
-  const result = await fn()
-
-  // 3. Track usage (non-blocking)
-  void trackUsage(orgId, metric, amount)
-
-  return result
 }
 
 // ── Helper: friendly metric labels ───────────────────────────────────────────

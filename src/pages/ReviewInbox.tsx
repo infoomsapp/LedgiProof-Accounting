@@ -46,6 +46,7 @@ interface Choice {
   /** Set when the choice is "this deposit pays invoice X" / "brings in payment Y". */
   invoiceId?: string
   paymentId?: string
+  billId?:    string
 }
 
 // The suggestion the server made for a row, as a Choice.
@@ -57,6 +58,7 @@ function suggestedChoice(it: ReviewItem): Choice | null {
     confidence: it.suggestion_confidence,
     ...(it.invoice_match ? { invoiceId: it.invoice_match.invoice_id } : {}),
     ...(it.deposit_match ? { paymentId: it.deposit_match.payment_id } : {}),
+    ...(it.bill_match ? { billId: it.bill_match.bill_id } : {}),
   }
 }
 
@@ -147,6 +149,7 @@ export default function ReviewInbox() {
         source:         x.choice!.source,
         ...(x.choice!.invoiceId ? { invoice_id: x.choice!.invoiceId } : {}),
         ...(x.choice!.paymentId ? { payment_id: x.choice!.paymentId } : {}),
+        ...(x.choice!.billId ? { bill_id: x.choice!.billId } : {}),
       }))
     if (payload.length === 0) return
 
@@ -353,7 +356,7 @@ export default function ReviewInbox() {
                   <select
                     className="lp-input"
                     aria-label={t('review.choose')}
-                    value={choice?.invoiceId || choice?.paymentId ? 'match' : (choice?.accountId ?? '')}
+                    value={choice?.invoiceId || choice?.paymentId || choice?.billId ? 'match' : (choice?.accountId ?? '')}
                     disabled={isBusy}
                     onChange={e => {
                       const value = e.target.value
@@ -364,7 +367,7 @@ export default function ReviewInbox() {
                     }}
                   >
                     <option value="" disabled>{t('review.choose')}</option>
-                    {(it.invoice_match || it.deposit_match) && (
+                    {(it.invoice_match || it.deposit_match || it.bill_match) && (
                       <optgroup label={t('review.matches')}>
                         <option value="match">
                           {it.invoice_match
@@ -372,7 +375,12 @@ export default function ReviewInbox() {
                                 number: it.invoice_match.invoice_number,
                                 client: it.invoice_match.client_name ? ` · ${it.invoice_match.client_name}` : ''
                               })
-                            : t('review.matchDeposit', { number: it.deposit_match!.invoice_number })}
+                            : it.deposit_match
+                              ? t('review.matchDeposit', { number: it.deposit_match.invoice_number })
+                              : t(it.bill_match!.kind === 'open' ? 'review.matchBill' : 'review.matchBillPayment', {
+                                  number: it.bill_match!.bill_number ? ` ${it.bill_match!.bill_number}` : '',
+                                  vendor: it.bill_match!.vendor_name
+                                })}
                         </option>
                       </optgroup>
                     )}

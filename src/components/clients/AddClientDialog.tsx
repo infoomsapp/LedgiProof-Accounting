@@ -129,7 +129,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
 
     try {
       // ── Step 0: enforce the plan's client limit ──────────────────────
-      const limit = await checkClientLimit(profile.id, orgId)
+      const limit = await checkClientLimit(orgId)
       if (!limit.allowed) {
         setLimitModal(limit)
         setSaving(false)

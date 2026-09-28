@@ -8,8 +8,9 @@ import Button           from '../ui/Button'
 import { useUserRole, USER_KIND_LABELS } from '../../hooks/useUserRole'
 import { toSafeMessage } from '../../lib/errors'
 import SalesTaxSettingsCard from './SalesTaxSettingsCard'
+import { SUPPORTED_CURRENCIES } from '../../lib/currency'
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'MXN', 'ARS', 'COP']
+const CURRENCIES = SUPPORTED_CURRENCIES
 const MONTHS = ['January','February','March','April','May','June',
                 'July','August','September','October','November','December']
 

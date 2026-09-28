@@ -1,13 +1,17 @@
 // PATH: src/services/bill.service.ts
 //
-// Bill tracking & reminders — Bookkeeper/Accountant plan feature.
+// Bills (accounts payable) — Bookkeeper/Accountant plan feature (the server
+// refuses it on other plans, LB009).
 //
-// Scope note: this tracks vendor bills (amount, due date, paid/pending) and
-// computes due-soon/overdue status client-side for reminder badges. It does
-// NOT move money — actually paying a bill still happens outside the app
-// (check, ACH, wire, whatever the firm already uses) and is recorded here
-// after the fact via markBillPaid. Real payment execution needs a connected
-// payment processor, which isn't wired up yet.
+// Every write posts to the ledger by itself (bills_ledger.sql):
+//   · a bill            Dr its expense account / Cr Accounts Payable, on bill_date
+//   · markBillPaid      Dr AP / Cr Bill Payments in Transit -- the money left
+//                       outside the app; the bank withdrawal then shows up in
+//                       "For review" as "Withdrawal of the payment for bill X"
+//   · a bill paid straight from the bank feed (the review inbox matched the
+//     withdrawal to the open bill) posts nothing here: the bank line is
+//     Dr AP / Cr Bank. Either way the payment is counted exactly once.
+// Nothing here moves money; paying still happens by check/ACH/wire.
 
 import { db } from '../lib/supabase'
 import { dbError } from '../lib/errors'
@@ -42,19 +46,41 @@ export async function createBill(
   return data
 }
 
+/** Paid outside the app, for the full amount (partial payments: LB004). */
 export async function markBillPaid(
   id: string,
-  paidAmount: number,
   paidAt: string = new Date().toISOString()
 ): Promise<VendorBill> {
   const { data, error } = await db
     .from('vendor_bills')
-    .update({ status: 'paid', paid_amount: paidAmount, paid_at: paidAt })
+    .update({ status: 'paid', paid_at: paidAt })
     .eq('id', id)
+    .neq('status', 'paid')
     .select()
     .single()
   if (error) throw dbError(error, 'Failed to mark the bill as paid')
   return data
+}
+
+/** Undo "Mark paid" -- refused once a bank withdrawal is matched (LB006). */
+export async function markBillUnpaid(bill: VendorBill): Promise<VendorBill> {
+  const overdue = bill.due_date < new Date().toISOString().slice(0, 10)
+  const { data, error } = await db
+    .from('vendor_bills')
+    .update({ status: overdue ? 'overdue' : 'pending' })
+    .eq('id', bill.id)
+    .select()
+    .single()
+  if (error) throw dbError(error, 'Failed to mark the bill as unpaid')
+  return data
+}
+
+/** open | paid, waiting for the bank withdrawal | paid and matched to the bank. */
+export type BillPaymentState = 'open' | 'in_transit' | 'settled'
+
+export function billPaymentState(bill: VendorBill): BillPaymentState {
+  if (bill.status !== 'paid') return 'open'
+  return bill.transaction_id || bill.paid_via === 'bank' ? 'settled' : 'in_transit'
 }
 
 export async function deleteBill(id: string): Promise<void> {

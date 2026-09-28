@@ -162,7 +162,7 @@ export default function LandingPage() {
 
         <div className="web-hero-trust">
           <span>✓ No credit card required</span>
-          <span>✓ 30-day free trial</span>
+          <span>✓ Free trial on every plan</span>
           <span>✓ Cancel anytime</span>
         </div>
 

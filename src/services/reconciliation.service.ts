@@ -110,13 +110,21 @@ export async function getSession(sessionId: string): Promise<ReconciliationSumma
   return data as ReconciliationSummary | null
 }
 
+/**
+ * Seals the period. The server refuses (LR001) while a cleared transaction
+ * isn't categorized, and (LR002) when the statement doesn't balance -- unless
+ * an owner/admin passes the reason for accepting the difference (LR003 for
+ * anyone else); that reason is recorded on the session.
+ */
 export async function closeSession(
-  sessionId: string,
-  userId:    string
+  sessionId:            string,
+  userId:               string,
+  acceptDifferenceNote?: string
 ): Promise<{ balanced: boolean; difference: number }> {
   const { data, error } = await db.rpc('close_reconciliation_session', {
     p_session_id: sessionId,
-    p_user_id:    userId
+    p_user_id:    userId,
+    ...(acceptDifferenceNote ? { p_accept_difference_note: acceptDifferenceNote } : {})
   })
   if (error) throw dbError(error, 'Failed to close the reconciliation session')
   return {

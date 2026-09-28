@@ -8,6 +8,7 @@ import { approveTransaction } from './transactions.service'
 import { getExchangeRate } from './exchange-rate.service'
 import type { JournalEntry, EntryTypeEnum } from '../types/database.types'
 import { toSafeMessage } from '../lib/errors'
+import type { Database } from '../types/database.types'
 
 // ── Multi-currency: normalize every posted line to USD ──────────────────────
 // journal_entries.amount/currency stay exactly as-transacted (audit fidelity
@@ -310,12 +311,9 @@ export function validateBalance(lines: JournalLine[]): void {
 //  MANUAL JOURNAL BATCHES (Controller / Accountant feature — v43)
 // ═════════════════════════════════════════════════════════════════════════════
 
-export type JournalEntryKind =
-  | 'transaction_linked'
-  | 'manual_adjustment'
-  | 'closing_entry'
-  | 'depreciation'
-  | 'opening_balance'
+// The database enum itself: system-posted kinds (opening balances, invoices,
+// payments, bills, payroll) appear in the journal next to manual ones.
+export type JournalEntryKind = Database['public']['Enums']['journal_entry_kind']
 
 export type BatchStatus = 'draft' | 'posted' | 'reversed'
 

@@ -3,8 +3,10 @@
 // 4-step wizard. STRICT accounting validation:
 //   · transition_date required
 //   · Sum(debit) == Sum(credit) within 0.01
-//   · Each row has either debit OR credit, not both
-//   · All account_codes must exist (enforced server-side)
+//   · Each row has either debit OR credit, not both; zero rows are skipped
+//   · All account_codes must exist in THIS scope's chart (enforced server-side)
+// import_opening_balances posts one 'opening_balance' manual batch; a second
+// import is refused until the user explicitly chooses to replace the first.
 
 import { useState, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -16,6 +18,7 @@ import ImportPreviewTable from '../../components/import/ImportPreviewTable'
 import { suggestColumnsForSchema, type ParseResult } from '../../lib/csv-parser'
 import {
   importOpeningBalances,
+  OpeningBalancesExistError,
   type OpeningBalanceResult,
   type OpeningBalanceEntry
 } from '../../services/import.service'
@@ -64,6 +67,9 @@ export default function ImportOpeningBalances() {
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<OpeningBalanceResult | null>(null)
+  // These books already have opening balances: the server's message, shown
+  // with an explicit "Replace them" (never replaced without asking).
+  const [existing, setExisting] = useState<string | null>(null)
 
   const entries = useMemo<OpeningBalanceEntry[]>(() => {
     if (!sheet) return []
@@ -77,7 +83,9 @@ export default function ImportOpeningBalances() {
           ...(get('memo') ? { memo: get('memo') } : {})
         }
       })
-      .filter(e => e.account_code)
+      // A trial balance export lists every account; zero balances have
+      // nothing to post (the server skips them too).
+      .filter(e => e.account_code && (e.debit !== 0 || e.credit !== 0))
   }, [sheet, mapping])
 
   const rowErrors = useMemo(() => {
@@ -88,7 +96,6 @@ export default function ImportOpeningBalances() {
       else if (seen.has(e.account_code)) errs.set(i, `Duplicate code: ${e.account_code}`)
       else if (e.debit < 0 || e.credit < 0) errs.set(i, 'Negative values not allowed')
       else if (e.debit > 0 && e.credit > 0) errs.set(i, 'Cannot have both debit and credit')
-      else if (e.debit === 0 && e.credit === 0) errs.set(i, 'Must have either debit or credit')
       seen.add(e.account_code)
     })
     return errs
@@ -129,19 +136,21 @@ export default function ImportOpeningBalances() {
     setStep(2)
   }
 
-  async function handleConfirmImport() {
+  async function handleConfirmImport(replace = false) {
     if (!totals.balanced) {
       setError(`Debits and credits must match. Diff: ${totals.diff.toFixed(2)}`)
       return
     }
     setImporting(true)
     setError(null)
+    setExisting(null)
     try {
-      const res = await importOpeningBalances(orgId, transitionDate, validEntries, undefined, clientId)
+      const res = await importOpeningBalances(orgId, transitionDate, validEntries, undefined, clientId, replace)
       setResult(res)
       setStep(3)
     } catch (e: any) {
-      setError(e?.message ?? 'Import failed')
+      if (e instanceof OpeningBalancesExistError) setExisting(e.message)
+      else setError(e?.message ?? 'Import failed')
     } finally {
       setImporting(false)
     }
@@ -337,14 +346,37 @@ export default function ImportOpeningBalances() {
               <strong style={{ color: 'var(--lp-text)' }}>Transition date:</strong> {transitionDate}
             </div>
             <div>
-              On confirm, a single journal entry will be created with {validEntries.length} lines.
+              On confirm, one posted opening-balance entry is created with the accounts that have an
+              amount (zero balances are skipped). You'll find it in Journal Entries.
             </div>
           </div>
 
+          {existing && (
+            <div role="alert" style={{
+              marginTop: 16, padding: 14, borderRadius: 8, fontSize: 12.5, lineHeight: 1.6,
+              background: 'var(--sem-amber-bg)', border: '0.5px solid var(--sem-amber)', color: 'var(--lp-text)'
+            }}>
+              <strong>{existing}</strong>
+              <div style={{ color: 'var(--lp-text-muted)', margin: '4px 0 10px' }}>
+                Replacing reverses the earlier opening balances on their own date and posts these instead,
+                so nothing is counted twice. Both entries stay in the audit trail.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="lp-btn lp-btn-primary" disabled={importing}
+                  onClick={() => { void handleConfirmImport(true) }}>
+                  {importing ? 'Replacing…' : 'Replace them'}
+                </button>
+                <button className="lp-btn lp-btn-ghost" disabled={importing} onClick={() => setExisting(null)}>
+                  Keep the existing ones
+                </button>
+              </div>
+            </div>
+          )}
+
           <FooterActions
-            onBack={() => setStep(1)} onNext={handleConfirmImport}
+            onBack={() => setStep(1)} onNext={() => { void handleConfirmImport(false) }}
             nextLabel={importing ? 'Importing…' : 'Confirm import'}
-            nextDisabled={importing || !totals.balanced}
+            nextDisabled={importing || !totals.balanced || !!existing}
             stepInfo={totals.balanced
               ? '✓ Ready to import'
               : `Imbalanced by $${totals.diff.toFixed(2)} — fix before importing`}
@@ -360,7 +392,7 @@ export default function ImportOpeningBalances() {
         }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>✓</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--sem-green)', marginBottom: 14 }}>
-            Opening balances imported
+            {result.replaced ? 'Opening balances replaced' : 'Opening balances imported'}
           </div>
           <div style={{
             display: 'flex', justifyContent: 'center', gap: 32,

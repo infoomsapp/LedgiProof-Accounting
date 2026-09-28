@@ -19,7 +19,7 @@
 import { db } from '../lib/supabase'
 import { pruneRpcArgs } from '../lib/rpc-args'
 import type { Json } from '../types/database.types'
-import { dbError } from '../lib/errors'
+import { dbError, LpDbError } from '../lib/errors'
 
 // ════════════════════════════════════════════════════════════════════════════
 // LAYER 1 — Low-level RPC wrappers
@@ -180,11 +180,24 @@ export interface OpeningBalanceRow {
 }
 
 export interface OpeningBalanceResult {
+  /** The posted manual batch (entry_kind 'opening_balance'); same as batch_id. */
   journal_entry_id: string
+  batch_id:         string
   lines_count:      number
   total_debit:      number
   total_credit:     number
+  currency:         string
   transition_date:  string
+  /** True when an earlier import was reversed (on its own date) and replaced. */
+  replaced:         boolean
+}
+
+/** These books already have opening balances; retry with replace to swap them. */
+export class OpeningBalancesExistError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'OpeningBalancesExistError'
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -407,15 +420,21 @@ export async function importOpeningBalances(
   transitionDate: string,
   entries:        OpeningBalanceEntry[],
   memo            = 'Opening balances import',
-  clientId?:      string | null   // firm mode: scope account resolution to this client
+  clientId?:      string | null,  // firm mode: post to this client's books
+  replace         = false         // reverse the earlier import and post this one
 ): Promise<OpeningBalanceResult> {
   const { data, error } = await db.rpc('import_opening_balances', {
     p_org_id:          orgId,
     p_transition_date: transitionDate,
     p_rows:            entries as unknown as Json,
     p_memo:            memo,
+    p_replace:         replace,
     ...(clientId ? { p_client_id: clientId } : {})
   })
-  if (error) throw dbError(error, 'Failed to import opening balances')
+  if (error) {
+    const e = dbError(error, 'Failed to import opening balances')
+    if (e instanceof LpDbError && e.code === 'LO011') throw new OpeningBalancesExistError(e.message)
+    throw e
+  }
   return data as unknown as OpeningBalanceResult
 }

@@ -159,7 +159,7 @@ export default function LpAddMenu({ orgId, onClientCreated }: Props) {
         open={upgradeModalOpen}
         onClose={() => setUpgradeModalOpen(false)}
         feature="clients"
-        currentPlan={plan.plan}
+        currentPlan={plan.subscription?.plan ?? 'starter'}
         reason={clientsLimit === 0 ? 'feature_disabled' : 'limit_exhausted'}
         used={clientsUsed}
         limit={clientsLimit}

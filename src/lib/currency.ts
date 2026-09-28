@@ -12,13 +12,17 @@
 //   fromUSD(amount, ccy)      = amount * rates[ccy]
 //   convertAmount(amt, A, B)  = toUSD(amt, A) * rates[B]
 
+// The ONE list of currencies the app offers: those the exchange-rate feed
+// (fetch-exchange-rates, ECB via Frankfurter) publishes. The database refuses
+// any other (lp_private.assert_supported_currency, error LX002), so adding one
+// here without a rate source would only move the failure to save time.
 export const SUPPORTED_CURRENCIES = [
-  'USD', 'EUR', 'GBP', 'CAD', 'MXN', 'ARS', 'COP',
+  'USD', 'EUR', 'GBP', 'CAD', 'MXN',
 ] as const
 export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 
 const SYMBOLS: Record<string, string> = {
-  USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', MXN: 'MX$', ARS: 'AR$', COP: 'CO$',
+  USD: '$', EUR: '€', GBP: '£', CAD: 'CA$', MXN: 'MX$',
 }
 
 export function getSymbol(currency: string): string {
@@ -58,8 +62,7 @@ export function formatCompact(amount: number, currency = 'USD'): string {
 export type ExchangeRates = Record<string, number>
 
 // Throws rather than silently falling back to a 1:1 rate when a currency has
-// no entry in `rates` — a missing rate (e.g. ARS/COP, which the free Frankfurter
-// FX source this app uses doesn't carry) must never be mistaken for "already
+// no entry in `rates` — a missing rate must never be mistaken for "already
 // in USD". Callers that can legitimately hit a missing rate should catch this
 // explicitly rather than let it produce a silently wrong converted amount.
 export function toUSD(amount: number, currency: string, rates: ExchangeRates): number {

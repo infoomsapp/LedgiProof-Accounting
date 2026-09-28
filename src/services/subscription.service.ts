@@ -1,109 +1,65 @@
 // PATH: src/services/subscription.service.ts
-// Read-only service for subscription + plan features.
+// The workspace's plan, from ONE place: get_workspace_plan(org) -- the
+// organization owner's subscription + plan_features, this month's usage
+// (usage_meters) and standing seats. The same rules the server enforces
+// (plan_limits_server.sql), so the UI never disagrees with the database.
+//
+// Before, this read the CALLER's own subscription: a firm's employee (no
+// subscription of their own) saw every feature locked, and usage came from
+// usage_tracking, which nothing ever incremented (always 0 used).
 
 import { db } from '../lib/supabase'
+import { dbError } from '../lib/errors'
 import type { SubscriptionPlan } from '../types/database.types'
 
-// ── Types ────────────────────────────────────────────────────────────────────
+/** 'none' = sign-up still in progress; 'expired' = the plan ended. */
+export type EffectivePlan = SubscriptionPlan | 'exempt' | 'expired' | 'none'
 
 export interface Subscription {
-  id:                       string
-  user_id:                  string
-  org_id:                   string | null
-  plan:                     SubscriptionPlan
-  status:                   'trialing' | 'active' | 'past_due' | 'canceled' | 'expired'
-  trial_started_at:         string | null
-  trial_ends_at:            string | null
-  current_period_start:     string
-  current_period_end:       string | null
-  canceled_at:              string | null
-  stripe_customer_id:       string | null
-  stripe_subscription_id:   string | null
-  created_at:               string
-  updated_at:               string
+  plan:               SubscriptionPlan
+  status:             'trialing' | 'active' | 'past_due' | 'canceled' | 'expired'
+  trial_started_at:   string | null
+  trial_ends_at:      string | null
+  current_period_end: string | null
+  canceled_at:        string | null
 }
 
-export interface PlanFeature {
-  plan:        SubscriptionPlan
-  feature_key: string
-  limit_value: number     // -1 = unlimited; 0 = disabled; 1+ = quota or boolean
-  is_enabled:  boolean
-}
-
-export interface UsageEntry {
-  feature_key:   string
-  period_year:   number
-  period_month:  number
-  count:         number
-  last_used_at:  string | null
-}
-
-// ── My subscription ──────────────────────────────────────────────────────────
-
-export async function getMySubscription(userId: string): Promise<Subscription | null> {
-  const { data, error } = await db
-    .from('subscriptions')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    console.warn('[getMySubscription]', error.message)
-    return null
+export interface WorkspacePlan {
+  plan:         EffectivePlan
+  is_owner:     boolean
+  subscription: Subscription | null
+  /** feature_key -> limit: -1 unlimited, 0 not included, n = cap. */
+  features:     Record<string, number>
+  /** This month's counters (usage_meters). */
+  usage: {
+    transactions: number; receipts: number; mileage_trips: number; invoices: number
+    ai_queries: number; plaid_connections: number; storage_mb: number
   }
-  return data as Subscription | null
+  /** Standing counts; team_members includes the owner (plan_features semantics). */
+  seats: { clients: number; team_members: number }
 }
 
-// ── Plan features (cached per plan) ──────────────────────────────────────────
-
-const featureCache = new Map<SubscriptionPlan, PlanFeature[]>()
-
-export async function getPlanFeatures(plan: SubscriptionPlan): Promise<PlanFeature[]> {
-  if (featureCache.has(plan)) {
-    return featureCache.get(plan)!
-  }
-
-  const { data, error } = await db
-    .from('plan_features')
-    .select('*')
-    .eq('plan', plan)
-
-  if (error) {
-    console.warn('[getPlanFeatures]', error.message)
-    return []
-  }
-
-  const features = (data ?? []) as PlanFeature[]
-  featureCache.set(plan, features)
-  return features
+export async function getWorkspacePlan(orgId: string): Promise<WorkspacePlan> {
+  const { data, error } = await db.rpc('get_workspace_plan', { p_org_id: orgId })
+  if (error) throw dbError(error, 'Could not load your plan')
+  return data as unknown as WorkspacePlan
 }
 
-// Clear cache when plan changes (after upgrade)
-export function invalidateFeatureCache(): void {
-  featureCache.clear()
-}
-
-// ── Current month usage ──────────────────────────────────────────────────────
-
-export async function getCurrentUsage(userId: string): Promise<UsageEntry[]> {
-  const now   = new Date()
-  const year  = now.getFullYear()
-  const month = now.getMonth() + 1
-
-  const { data, error } = await db
-    .from('usage_tracking')
-    .select('feature_key, period_year, period_month, count, last_used_at')
-    .eq('user_id', userId)
-    .eq('period_year',  year)
-    .eq('period_month', month)
-
-  if (error) {
-    console.warn('[getCurrentUsage]', error.message)
-    return []
+// How much of a feature's limit is used: monthly counters for the metered
+// features, real row counts for seats. Features without a counter are 0.
+export function usedFor(wp: WorkspacePlan, featureKey: string): number {
+  switch (featureKey) {
+    case 'clients':           return wp.seats.clients
+    case 'team_members':      return wp.seats.team_members
+    case 'receipts_per_mo':   return wp.usage.receipts
+    case 'transactions':      return wp.usage.transactions
+    case 'mileage_trips':     return wp.usage.mileage_trips
+    case 'invoices':          return wp.usage.invoices
+    case 'ai_queries':        return wp.usage.ai_queries
+    case 'plaid_connections': return wp.usage.plaid_connections
+    case 'storage_mb':        return wp.usage.storage_mb
+    default:                  return 0
   }
-  return (data ?? []) as UsageEntry[]
 }
 
 // ── Trial helpers ────────────────────────────────────────────────────────────

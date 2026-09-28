@@ -2,16 +2,21 @@
 // Pricing page — toggle between self-employed plans and bookkeeper plans.
 // Each CTA passes ?plan=X&type=Y to /signup so SignUp can pre-fill the flow.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import logoSrc from '../assets/logo.png'
 import Icon from '../components/ui/Icon'
+import {
+  PAID_PLANS, PLAN_CATALOG, FEATURE_LABELS, COUNTED_FEATURES,
+  priceLabel, trialLabel, planHighlights, describeLimit, getFeatureMatrix,
+  type PaidPlan, type FeatureMatrix
+} from '../lib/plans'
 import '../styles/web.css'
 
 type Segment = 'self_employed' | 'bookkeeper'
 
 interface Plan {
-  id:           'starter' | 'entrepreneur' | 'bookkeeper' | 'accountant' | 'enterprise'
+  id:           PaidPlan
   name:         string
   tagline:      string
   price:        string
@@ -22,101 +27,44 @@ interface Plan {
   cta:          string
 }
 
-const SE_PLANS: Plan[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    tagline: 'Get started — first month on us',
-    price: '$9.99',
-    priceSub: '/mo',
-    features: [
-      'First month free',
-      'Manual transaction entry',
-      'AI semaphore (50 transactions/mo)',
-      '5 receipts/mo',
-      '5 mileage trips/mo',
-      '2 invoices/mo',
-      'Basic monthly reports',
-      'Optional bank sync — $1.50/mo per Plaid connection'
-    ],
-    cta: 'Start 30-day free trial'
-  },
-  {
-    id: 'entrepreneur',
-    name: 'Entrepreneur',
-    tagline: 'For self-employed and freelancers',
-    price: '$19.99',
-    priceSub: '/mo',
-    badge: '15-day free trial',
-    highlight: true,
-    features: [
-      '3 bank connections included',
-      '500 transactions/mo with AI semaphore',
-      '30 receipts/mo with OCR',
-      '50 mileage trips/mo',
-      '10 invoices/mo',
-      'Time tracking',
-      'Schedule C export PDF',
-      'Quarterly tax estimator',
-      'AI Assistant — 50 queries/mo',
-      'Quarterly P&L reports'
-    ],
-    cta: 'Start with Entrepreneur →'
-  }
-]
+const SEGMENT_PLANS: Record<Segment, PaidPlan[]> = {
+  self_employed: ['starter', 'entrepreneur'],
+  bookkeeper:    ['bookkeeper', 'accountant'],
+}
+const HIGHLIGHTED: PaidPlan[] = ['entrepreneur', 'accountant']
 
-const BK_PLANS: Plan[] = [
-  {
-    id: 'bookkeeper',
-    name: 'Bookkeeper',
-    tagline: 'For independent bookkeepers',
-    price: '$59.99',
+// Card = catalog (name, price, trial) + that plan's plan_features row.
+function toCard(id: PaidPlan, matrix: FeatureMatrix): Plan {
+  const info  = PLAN_CATALOG[id]
+  const trial = trialLabel(id)
+  return {
+    id,
+    name:     info.name,
+    tagline:  info.tagline,
+    price:    priceLabel(id),
     priceSub: '/mo',
-    badge: '15-day free trial',
-    features: [
-      'Up to 25 clients',
-      '8 bank connections (Plaid included)',
-      '2,000 transactions/mo',
-      'Multi-client management',
-      'Client Portal for PYMEs',
-      'Reconciliation workflows',
-      'Time tracking',
-      'Bill tracking & reminders',
-      'AI Assistant — 200 queries/mo'
-    ],
-    cta: 'Try Free 15 Days →'
-  },
-  {
-    id: 'accountant',
-    name: 'Accountant',
-    tagline: 'For accounting & CPA firms',
-    price: '$69.99',
-    priceSub: '/mo',
-    badge: 'Professional',
-    highlight: true,
-    features: [
-      'Up to 100 clients',
-      '50 bank connections (Plaid included)',
-      '10,000 transactions/mo',
-      'Multi-client management',
-      'Client Portal for PYMEs',
-      'Reconciliation workflows',
-      'Time tracking',
-      'Up to 5 team members',
-      'Bill tracking & reminders',
-      'White-label invoicing',
-      'API access',
-      'AI Assistant — 1,000 queries/mo'
-    ],
-    cta: 'Try Free 15 Days →'
+    ...(trial ? { badge: trial } : {}),
+    highlight: HIGHLIGHTED.includes(id),
+    features: planHighlights(matrix[id]),
+    cta:      trial ? `Start your ${trial} →` : `Start with ${info.name} →`,
   }
-]
+}
 
 export default function Pricing() {
   const navigate = useNavigate()
   const [segment, setSegment] = useState<Segment>('self_employed')
+  const [matrix,  setMatrix]  = useState<FeatureMatrix | null>(null)
+  const [failed,  setFailed]  = useState(false)
 
-  const plans = segment === 'self_employed' ? SE_PLANS : BK_PLANS
+  useEffect(() => {
+    let alive = true
+    getFeatureMatrix()
+      .then(m => { if (alive) setMatrix(m) })
+      .catch(() => { if (alive) setFailed(true) })
+    return () => { alive = false }
+  }, [])
+
+  const plans = matrix ? SEGMENT_PLANS[segment].map(id => toCard(id, matrix)) : []
 
   function handleStart(planId: Plan['id']) {
     navigate(`/signup?plan=${planId}&type=${segment}`)
@@ -204,10 +152,15 @@ export default function Pricing() {
               onStart={() => handleStart(plan.id)}
             />
           ))}
+          {!matrix && (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--web-text-muted)', fontSize: 14 }}>
+              {failed ? "Couldn't load the plan details. Please refresh the page." : 'Loading plans…'}
+            </div>
+          )}
         </div>
 
-        {/* Plaid disclosure — only for Starter (self-employed segment) */}
-        {segment === 'self_employed' && (
+        {/* Bank connections: what each plan includes, from plan_features */}
+        {segment === 'self_employed' && matrix && (
           <div style={{
             maxWidth: 1100,
             margin: '24px auto 0',
@@ -223,9 +176,8 @@ export default function Pricing() {
           }}>
             <span style={{ color: 'var(--web-text-muted)', display: 'flex' }}><Icon name="billing" size={18} /></span>
             <span>
-              <strong style={{ color: 'var(--web-text)' }}>Banking on Starter:</strong>{' '}
-              Plaid bank connections cost $1.50/mo per account on the Starter plan.
-              On <strong>Entrepreneur, Bookkeeper, and Accountant</strong> the Plaid fees are included.
+              <strong style={{ color: 'var(--web-text)' }}>Bank connections:</strong>{' '}
+              {PAID_PLANS.map(id => `${PLAN_CATALOG[id].name} ${describeLimit('plaid_connections', matrix[id]?.plaid_connections) ?? 'no bank connections'}`).join(' · ')}.
             </span>
           </div>
         )}
@@ -236,7 +188,7 @@ export default function Pricing() {
         <h2>Compare plans side-by-side</h2>
         <p className="web-section-sub">Every feature, every limit. No surprises.</p>
 
-        <CompareTable />
+        {matrix && <CompareTable matrix={matrix} />}
       </section>
 
       {/* ── FAQ ────────────────────────────────────────────────────── */}
@@ -249,15 +201,15 @@ export default function Pricing() {
           />
           <FAQ
             q="What happens if I exceed my plan limits?"
-            a="Operations beyond your monthly limit are blocked, and you'll see an upgrade prompt. Existing data stays untouched."
+            a="Transactions keep importing: anything over your monthly allowance is billed at $5 per 1,000. Invoices, receipts and mileage trips pause at the limit until next month or an upgrade (Bookkeeper and Accountant can turn on pay-as-you-go). Existing data always stays untouched."
           />
           <FAQ
-            q="Do firms really get a free 15-day trial?"
-            a="Yes. Sign up as a bookkeeper or accountant and you get full access for 15 days. No credit card required upfront."
+            q={`Do firms really get a free ${PLAN_CATALOG.bookkeeper.trialDays}-day trial?`}
+            a={`Yes. Sign up as a bookkeeper or accountant and you get full access for ${PLAN_CATALOG.bookkeeper.trialDays} days. No credit card required upfront.`}
           />
           <FAQ
             q="What happens when my trial ends?"
-            a="Every plan starts with a free trial — 30 days on Starter, 15 days on the others. When it ends, you choose a plan to keep working. Nothing is deleted while you decide."
+            a={`Every plan starts with a free trial — ${PAID_PLANS.map(id => `${PLAN_CATALOG[id].trialDays} days on ${PLAN_CATALOG[id].name}`).join(', ')}. When it ends, you choose a plan to keep working. Nothing is deleted while you decide.`}
           />
           <FAQ
             q="How does PYME client access work?"
@@ -412,28 +364,31 @@ function Checkmark({ color = '#22c55e' }: { color?: string }) {
   )
 }
 
-function CompareTable() {
-  const rows: Array<[string, string | boolean, string | boolean, string | boolean, string | boolean]> = [
-    // [label, starter, entrepreneur, bookkeeper, accountant]
-    ['Bank connections',          '0 (manual)', '3', '8', '50'],
-    ['Transactions / month',      '50',         '500', '2,000', '10,000'],
-    ['Receipts / month',          '5',          '30',  '100',   '500'],
-    ['Mileage trips / month',     '5',          '50',  '200',   '1,000'],
-    ['Invoices / month',          '2',          '10',  '50',    '250'],
-    ['Clients (billing)',         '0',          '3',   '10',    '100'],
-    ['Team members',              '0',          '0',   '0',     '5'],
-    ['AI queries / month',        '5',          '50',  '200',   '1,000'],
-    ['Storage',                   '100 MB',     '1 GB','5 GB',  '25 GB'],
-    ['Schedule C export',         false,        true,  true,    true],
-    ['Quarterly tax estimator',   false,        true,  true,    true],
-    ['Time tracking',             false,        true,  true,    true],
-    ['Accountant guest access',   false,        false, true,    'N/A'],
-    ['Bill tracking & reminders', false,        false, true,    true],
-    ['Reconciliation',            false,        false, true,    true],
-    ['Client portal for PYMEs',   false,        false, true,    true],
-    ['White-label invoicing',     false,        false, false,   true],
-    ['API access',                false,        false, false,   true]
+function CompareTable({ matrix }: { matrix: FeatureMatrix }) {
+  const cols = PAID_PLANS
+  const cell = (key: string, id: PaidPlan): string | boolean => {
+    const v = matrix[id]?.[key] ?? 0
+    if (!(COUNTED_FEATURES as readonly string[]).includes(key)) return v !== 0
+    if (v === -1) return 'Unlimited'
+    if (v === 0)  return false
+    if (key === 'storage_mb') return v >= 1000 ? `${v / 1000} GB` : `${v} MB`
+    return v.toLocaleString('en-US')
+  }
+  const keys = [
+    ...COUNTED_FEATURES,
+    'multi_client', 'reconciliation', 'bill_tracking', 'time_tracking', 'schedule_c_export',
+    'payroll', 'journal_entries', 'period_closing', 'approval_workflow', 'tax_forms',
+    'white_label', 'api_access', 'reports_export',
   ]
+  const label = (key: string) => {
+    if (key === 'storage_mb') return 'Storage'
+    const l = FEATURE_LABELS[key]
+    if (!l) return key
+    return (COUNTED_FEATURES as readonly string[]).includes(key)
+      ? l.many.charAt(0).toUpperCase() + l.many.slice(1)
+      : l.one
+  }
+  const rows: Array<[string, ...(string | boolean)[]]> = keys.map(k => [label(k), ...cols.map(id => cell(k, id))])
 
   return (
     <div style={{
@@ -446,10 +401,11 @@ function CompareTable() {
         <thead>
           <tr style={{ background: 'var(--web-surface-alt)' }}>
             <th style={thStyle}>Feature</th>
-            <th style={thStyle}>Starter</th>
-            <th style={{ ...thStyle, color: 'var(--web-primary)' }}>Entrepreneur</th>
-            <th style={thStyle}>Bookkeeper</th>
-            <th style={thStyle}>Accountant</th>
+            {cols.map(id => (
+              <th key={id} style={HIGHLIGHTED.includes(id) ? { ...thStyle, color: 'var(--web-primary)' } : thStyle}>
+                {PLAN_CATALOG[id].name}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>

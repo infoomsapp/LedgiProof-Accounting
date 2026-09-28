@@ -11,7 +11,7 @@
 //   - client portal flows
 
 import { supabase } from '../lib/supabase'
-import { assertQuota, QuotaExceededError } from './quota.service'
+import { quotaErrorFromFunction } from './quota.service'
 import { dbError } from '../lib/errors'
 
 // ── Plaid Link script loader (CDN) ────────────────────────────────────────
@@ -118,7 +118,10 @@ export async function getLinkToken(): Promise<string> {
     headers: { Authorization: `Bearer ${session.access_token}` }
   })
 
-  if (res.error) throw dbError(res.error, 'Failed to start the bank connection')
+  if (res.error) {
+    throw (await quotaErrorFromFunction(res.error, 'plaid_connections'))
+      ?? dbError(res.error, 'Failed to start the bank connection')
+  }
 
   const data = res.data as { link_token?: string; error?: string }
 
@@ -139,14 +142,9 @@ export async function openPlaidLink(
 }> {
   const ctx = normalizeOpenContext(input)
 
-  // 🔒 PRE-FLIGHT QUOTA CHECK — must run before the widget appears, so
-  // users at cap see a clear "upgrade" message instead of getting through
-  // Plaid only to fail at exchange.
-  const check = await assertQuota(ctx.orgId, 'plaid_connections', 1)
-  if (!check.allowed) {
-    throw new QuotaExceededError('plaid_connections', check)
-  }
-
+  // The quota is checked by plaid-create-link-token (before the widget
+  // appears, so a user at the cap sees "upgrade" instead of failing at
+  // exchange) and by the bank_connections trigger -- never in the browser.
   await loadPlaidScript()
   const linkToken = await getLinkToken()
 

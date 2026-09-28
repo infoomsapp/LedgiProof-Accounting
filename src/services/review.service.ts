@@ -15,7 +15,9 @@
 import { db } from '../lib/supabase'
 import { dbError } from '../lib/errors'
 
-export type SuggestionSource = 'rule' | 'learned' | 'vendor' | 'merchant' | 'income' | 'ai' | 'invoice' | 'deposit'
+export type SuggestionSource =
+  | 'rule' | 'learned' | 'vendor' | 'merchant' | 'income' | 'ai'
+  | 'invoice' | 'deposit' | 'bill' | 'bill_payment'
 
 /** A deposit whose amount is exactly an open invoice's balance. */
 export interface InvoiceMatch {
@@ -31,6 +33,18 @@ export interface DepositMatch {
   invoice_number: string
   payment_date:   string
   method:         string | null
+}
+
+/**
+ * A withdrawal that pays a bill: 'open' = an unpaid bill for exactly this
+ * amount (confirming marks it paid); 'in_transit' = a bill already marked paid
+ * whose money this withdrawal is (confirming clears Bill Payments in Transit).
+ */
+export interface BillMatch {
+  bill_id:     string
+  bill_number: string | null
+  vendor_name: string
+  kind:        'open' | 'in_transit'
 }
 
 export interface ReviewItem {
@@ -51,6 +65,7 @@ export interface ReviewItem {
   has_receipt:            boolean
   invoice_match:          InvoiceMatch | null
   deposit_match:          DepositMatch | null
+  bill_match:             BillMatch | null
 }
 
 export interface ReviewQueue {
@@ -108,6 +123,8 @@ export async function postReviewed(
     invoice_id?:    string
     /** The deposit brings in this recorded payment. */
     payment_id?:    string
+    /** The withdrawal pays (or clears the recorded payment of) this bill. */
+    bill_id?:       string
   }[]
 ): Promise<PostResult> {
   const { data, error } = await db.rpc('post_reviewed_transactions', {

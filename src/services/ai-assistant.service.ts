@@ -1,17 +1,14 @@
 // PATH: src/services/ai-assistant.service.ts
 //
-// AI Assistant client with quota guard.
-//
-// 🔒 WIRING: Every AI call goes through runWithQuota('ai_queries').
-//    - If user is at hard cap → throws QuotaExceededError
-//    - If allowed → calls the edge function, then increments counter
-//    - If the AI call fails → counter is NOT incremented
+// AI Assistant client. The ai-query edge function checks the plan's AI
+// quota, runs the query and counts it -- once, on the server. At the cap it
+// answers 429, surfaced here as QuotaExceededError.
 //
 // Use this from ANY component that talks to the AI:
 //   const reply = await askAi(orgId, "What was my Q1 net profit?")
 
 import { db } from '../lib/supabase'
-import { runWithQuota } from './quota.service'
+import { quotaErrorFromFunction } from './quota.service'
 import { dbError } from '../lib/errors'
 
 export interface AiChatRequest {
@@ -33,56 +30,37 @@ export interface AiChatResponse {
 }
 
 /**
- * Send a prompt to the AI assistant. Protected by quota.
+ * Send a prompt to the AI assistant (quota enforced by the edge function).
  *
  * Throws:
  *   - QuotaExceededError when user is at hard cap (caller should show upgrade modal)
  *   - Error for any other failure (network, auth, model error)
  */
 export async function askAi(req: AiChatRequest): Promise<AiChatResponse> {
-  return runWithQuota(req.orgId, 'ai_queries', async () => {
-    const { data: { session } } = await db.auth.getSession()
-    if (!session) throw new Error('Not authenticated')
+  const { data: { session } } = await db.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
 
-    const res = await db.functions.invoke('ai-query', {
-      body: {
-        org_id:  req.orgId,
-        prompt:  req.prompt,
-        context: req.context ?? {}
-      },
-      headers: { Authorization: `Bearer ${session.access_token}` }
-    })
-
-    if (res.error) throw dbError(res.error, 'The assistant is unavailable right now')
-    const data = res.data as any
-    if (data?.error) throw new Error(data.error)
-    if (!data?.reply) throw new Error('AI returned no reply')
-
-    return {
-      reply:      data.reply,
-      tokens_in:  data.tokens_in,
-      tokens_out: data.tokens_out,
-      model:      data.model
-    }
+  const res = await db.functions.invoke('ai-query', {
+    body: {
+      org_id:  req.orgId,
+      prompt:  req.prompt,
+      context: req.context ?? {}
+    },
+    headers: { Authorization: `Bearer ${session.access_token}` }
   })
-}
 
-// ── Convenience: classify a single transaction ───────────────────────────────
+  if (res.error) {
+    throw (await quotaErrorFromFunction(res.error, 'ai_queries'))
+      ?? dbError(res.error, 'The assistant is unavailable right now')
+  }
+  const data = res.data as any
+  if (data?.error) throw new Error(data.error)
+  if (!data?.reply) throw new Error('AI returned no reply')
 
-export async function classifyTransaction(
-  orgId: string,
-  transactionId: string
-): Promise<{ semaphore: 'blue' | 'green' | 'amber' | 'red'; reason: string }> {
-  return runWithQuota(orgId, 'ai_queries', async () => {
-    const { data: { session } } = await db.auth.getSession()
-    if (!session) throw new Error('Not authenticated')
-
-    const res = await db.functions.invoke('ai-classify-tx', {
-      body: { org_id: orgId, transaction_id: transactionId },
-      headers: { Authorization: `Bearer ${session.access_token}` }
-    })
-
-    if (res.error) throw dbError(res.error, 'Failed to classify the transaction')
-    return res.data as { semaphore: any; reason: string }
-  })
+  return {
+    reply:      data.reply,
+    tokens_in:  data.tokens_in,
+    tokens_out: data.tokens_out,
+    model:      data.model
+  }
 }

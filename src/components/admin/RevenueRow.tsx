@@ -1,5 +1,6 @@
 // PATH: src/components/admin/RevenueRow.tsx
 
+import { PLAN_CATALOG, priceLabel } from '../../lib/plans'
 import type { RevenueData } from '../../services/admin-command.service'
 import KpiCard from './KpiCard'
 
@@ -72,10 +73,10 @@ function PlanDistribution({ data }: { data: RevenueData }) {
     data.plan_distribution.accountant
 
   const plans = [
-    { key: 'starter',      label: 'Starter',      count: data.plan_distribution.starter,      color: '#64748b', price: '$9.99'  },
-    { key: 'entrepreneur', label: 'Entrepreneur', count: data.plan_distribution.entrepreneur, color: '#3b82f6', price: '$19.99' },
-    { key: 'bookkeeper',   label: 'Bookkeeper',   count: data.plan_distribution.bookkeeper,   color: '#06b6d4', price: '$59.99' },
-    { key: 'accountant',   label: 'Accountant',   count: data.plan_distribution.accountant,   color: '#a78bfa', price: '$69.99' }
+    { key: 'starter',      label: PLAN_CATALOG.starter.name,      count: data.plan_distribution.starter,      color: '#64748b', price: priceLabel('starter')  },
+    { key: 'entrepreneur', label: PLAN_CATALOG.entrepreneur.name, count: data.plan_distribution.entrepreneur, color: '#3b82f6', price: priceLabel('entrepreneur') },
+    { key: 'bookkeeper',   label: PLAN_CATALOG.bookkeeper.name,   count: data.plan_distribution.bookkeeper,   color: '#06b6d4', price: priceLabel('bookkeeper') },
+    { key: 'accountant',   label: PLAN_CATALOG.accountant.name,   count: data.plan_distribution.accountant,   color: '#a78bfa', price: priceLabel('accountant') }
   ]
 
   return (

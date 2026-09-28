@@ -5,6 +5,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { SubscriptionPlan } from '../../types/database.types'
+import { FEATURE_LABELS, PLAN_CATALOG, PLAN_UPGRADE_PATH, priceLabel } from '../../lib/plans'
 
 interface UpgradeModalProps {
   open:        boolean
@@ -16,42 +17,11 @@ interface UpgradeModalProps {
   limit?:      number
 }
 
-const PLAN_UPGRADE_PATH: Record<SubscriptionPlan, SubscriptionPlan | null> = {
-  starter:      'entrepreneur',
-  entrepreneur: 'bookkeeper',
-  bookkeeper:   'accountant',
-  accountant:   'enterprise',
-  enterprise:   null
-}
-
-const PLAN_PRICE: Record<SubscriptionPlan, string> = {
-  starter:      '$9.99',
-  entrepreneur: '$19.99',
-  bookkeeper:   '$59.99',
-  accountant:   '$69.99',
-  enterprise:   'Custom'
-}
-
-const FEATURE_LABEL: Record<string, string> = {
-  bank_connections:    'bank connections',
-  transactions_per_mo: 'transactions',
-  receipts_per_mo:     'receipt uploads',
-  mileage_per_mo:      'mileage entries',
-  invoices_per_mo:     'invoices',
-  clients:             'clients',
-  team_members:        'team members',
-  ai_queries_per_mo:   'AI queries',
-  storage_mb:          'storage',
-  schedule_c_export:   'Schedule C export',
-  quarterly_tax:       'quarterly tax estimator',
-  reconciliation:      'reconciliation',
-  client_portal:       'client portal',
-  hash_chain_audit:    'hash chain audit',
-  bill_pay:            'bill pay',
-  accountant_access:   'accountant access',
-  white_label:         'white-label invoicing',
-  bill_tracking:       'bill tracking',
-  api_access:          'API access'
+// Names, prices and the upgrade path come from src/lib/plans.ts; the
+// feature labels are the real plan_features keys.
+function featureLabel(feature?: string): string {
+  const l = feature ? FEATURE_LABELS[feature] : undefined
+  return l ? l.many.replace(/ \/ month$/, '') : 'this feature'
 }
 
 export default function UpgradeModal({
@@ -76,24 +46,24 @@ export default function UpgradeModal({
   if (!open) return null
 
   const nextPlan      = PLAN_UPGRADE_PATH[currentPlan]
-  const featureLabel  = (feature && FEATURE_LABEL[feature]) ?? 'this feature'
+  const label         = featureLabel(feature)
 
   let title:    string
   let subtitle: string
 
   switch (reason) {
     case 'feature_disabled':
-      title    = `${capitalize(featureLabel)} is not available on ${currentPlan}`
-      subtitle = `Upgrade to unlock ${featureLabel} and more.`
+      title    = `${capitalize(label)} is not available on ${PLAN_CATALOG[currentPlan].name}`
+      subtitle = `Upgrade to unlock ${label} and more.`
       break
     case 'trial_expired':
       title    = 'Your trial has ended'
       subtitle = 'Choose a plan to keep your workspace and data.'
       break
     default:
-      title    = `You've hit your ${featureLabel} limit`
+      title    = `You've hit your ${label} limit`
       subtitle = (used != null && limit != null)
-        ? `You've used ${used} of ${limit} ${featureLabel} this month.`
+        ? `You've used ${used} of ${limit} ${label}.`
         : `Upgrade to get more.`
   }
 
@@ -155,12 +125,12 @@ export default function UpgradeModal({
                 Recommended upgrade
               </div>
               <div style={{ fontSize: 16, fontWeight: 600, color: '#0f172a' }}>
-                {capitalize(nextPlan)} plan
+                {PLAN_CATALOG[nextPlan].name} plan
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 22, fontWeight: 700, color: '#3b82f6' }}>
-                {PLAN_PRICE[nextPlan]}
+                {priceLabel(nextPlan)}
                 <span style={{ fontSize: 13, color: 'var(--lp-text-muted)', fontWeight: 400 }}>
                   /mo
                 </span>

@@ -1,62 +1,38 @@
 // PATH: src/services/seat-limits.service.ts
 //
-// Real enforcement for the "Up to N clients" / "Up to N team members"
-// numbers on the pricing page -- audit found these were pure marketing
-// copy with nothing in code checking them (a Bookkeeper-plan org could
-// add 500 clients and nothing would stop it).
-//
-// Deliberately NOT built on quota.service.ts's check_quota/usage_meters
-// machinery: that system tracks monthly EVENTS (an AI query, a receipt
-// upload) via an incrementing counter that can drift from reality.
-// Clients and team members are STANDING COUNTS of real rows, so this
-// counts the actual rows every time instead of trusting a separate
-// tracked number.
+// "Up to N clients" / "Up to N team members": a pre-check so the UI can say
+// so before the user fills a form. The server enforces the same numbers
+// (trg_seat_clients / trg_seat_members, errors LQ004 / LQ005) from the same
+// source -- get_workspace_plan: the org owner's plan and the real row counts.
 
-import { db } from '../lib/supabase'
-import { dbError } from '../lib/errors'
-import { getMySubscription, getPlanFeatures } from './subscription.service'
+import { getWorkspacePlan } from './subscription.service'
 import type { SubscriptionPlan } from '../types/database.types'
 
 export interface SeatLimitResult {
   allowed: boolean
   used:    number
   limit:   number   // -1 = unlimited
+  /** The plan being paid for (what an upgrade starts from). */
   plan:    SubscriptionPlan
 }
 
-async function getLimitFor(userId: string, featureKey: string): Promise<{ limit: number; plan: SubscriptionPlan }> {
-  const sub = await getMySubscription(userId)
-  const plan = sub?.plan ?? 'starter'
-  const features = await getPlanFeatures(plan)
-  const row = features.find(f => f.feature_key === featureKey)
-  const limit = row?.is_enabled ? row.limit_value : 0
-  return { limit, plan }
+async function check(orgId: string, featureKey: 'clients' | 'team_members'): Promise<SeatLimitResult> {
+  const wp    = await getWorkspacePlan(orgId)
+  const limit = wp.features[featureKey] ?? 0
+  const used  = featureKey === 'clients' ? wp.seats.clients : wp.seats.team_members
+  return {
+    allowed: limit === -1 || used < limit,
+    used,
+    limit,
+    plan: wp.subscription?.plan ?? 'starter'
+  }
 }
 
-export async function checkClientLimit(userId: string, orgId: string): Promise<SeatLimitResult> {
-  const { limit, plan } = await getLimitFor(userId, 'clients')
-
-  const { count, error } = await db
-    .from('clients')
-    .select('id', { count: 'exact', head: true })
-    .eq('org_id', orgId)
-    .eq('is_active', true)
-  if (error) throw dbError(error, 'Failed to check your client count')
-
-  const used = count ?? 0
-  return { allowed: limit === -1 || used < limit, used, limit, plan }
+export function checkClientLimit(orgId: string): Promise<SeatLimitResult> {
+  return check(orgId, 'clients')
 }
 
-export async function checkTeamMemberLimit(userId: string, orgId: string): Promise<SeatLimitResult> {
-  const { limit, plan } = await getLimitFor(userId, 'team_members')
-
-  const { count, error } = await db
-    .from('organization_memberships')
-    .select('id', { count: 'exact', head: true })
-    .eq('org_id', orgId)
-    .eq('is_active', true)
-  if (error) throw dbError(error, 'Failed to check your team size')
-
-  const used = count ?? 0
-  return { allowed: limit === -1 || used < limit, used, limit, plan }
+/** Counts everyone in the workspace, owner included (Starter's 1 = just the owner). */
+export function checkTeamMemberLimit(orgId: string): Promise<SeatLimitResult> {
+  return check(orgId, 'team_members')
 }

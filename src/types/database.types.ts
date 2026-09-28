@@ -2849,6 +2849,41 @@ export type Database = {
             referencedRelation: "v_user_directory"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoice_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_chat_inbox"
+            referencedColumns: ["transaction_id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_doc_transaction_id"
+            referencedColumns: ["transaction_id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transaction_with_client"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_payments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transaction_with_evidence"
+            referencedColumns: ["transaction_id"]
+          },
         ]
       }
       invoice_reminder_settings: {
@@ -3294,6 +3329,7 @@ export type Database = {
           prepared_by: string
           reversed_by_batch_id: string | null
           reverses_batch_id: string | null
+          source_bill_id: string | null
           source_invoice_id: string | null
           source_payment_id: string | null
           status: Database["public"]["Enums"]["manual_journal_batch_status"]
@@ -3316,6 +3352,7 @@ export type Database = {
           prepared_by: string
           reversed_by_batch_id?: string | null
           reverses_batch_id?: string | null
+          source_bill_id?: string | null
           source_invoice_id?: string | null
           source_payment_id?: string | null
           status?: Database["public"]["Enums"]["manual_journal_batch_status"]
@@ -3338,6 +3375,7 @@ export type Database = {
           prepared_by?: string
           reversed_by_batch_id?: string | null
           reverses_batch_id?: string | null
+          source_bill_id?: string | null
           source_invoice_id?: string | null
           source_payment_id?: string | null
           status?: Database["public"]["Enums"]["manual_journal_batch_status"]
@@ -3370,6 +3408,13 @@ export type Database = {
             columns: ["reverses_batch_id"]
             isOneToOne: false
             referencedRelation: "manual_journal_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_journal_batches_source_invoice_id_fkey"
+            columns: ["source_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -6181,6 +6226,7 @@ export type Database = {
           created_by: string
           id: string
           is_active: boolean
+          is_rule: boolean
           keyword: string | null
           match_count: number
           merchant_name: string | null
@@ -6200,6 +6246,7 @@ export type Database = {
           created_by: string
           id?: string
           is_active?: boolean
+          is_rule?: boolean
           keyword?: string | null
           match_count?: number
           merchant_name?: string | null
@@ -6219,6 +6266,7 @@ export type Database = {
           created_by?: string
           id?: string
           is_active?: boolean
+          is_rule?: boolean
           keyword?: string | null
           match_count?: number
           merchant_name?: string | null
@@ -6362,49 +6410,61 @@ export type Database = {
       vendor_bills: {
         Row: {
           amount: number
+          bill_date: string
           bill_number: string | null
           client_id: string | null
           created_at: string
           created_by: string
           due_date: string
+          expense_account_id: string | null
           id: string
           notes: string | null
           org_id: string
           paid_amount: number | null
           paid_at: string | null
+          paid_via: string | null
           status: Database["public"]["Enums"]["vendor_bill_status"]
+          transaction_id: string | null
           updated_at: string
           vendor_id: string
         }
         Insert: {
           amount: number
+          bill_date?: string
           bill_number?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string
           due_date: string
+          expense_account_id?: string | null
           id?: string
           notes?: string | null
           org_id: string
           paid_amount?: number | null
           paid_at?: string | null
+          paid_via?: string | null
           status?: Database["public"]["Enums"]["vendor_bill_status"]
+          transaction_id?: string | null
           updated_at?: string
           vendor_id: string
         }
         Update: {
           amount?: number
+          bill_date?: string
           bill_number?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string
           due_date?: string
+          expense_account_id?: string | null
           id?: string
           notes?: string | null
           org_id?: string
           paid_amount?: number | null
           paid_at?: string | null
+          paid_via?: string | null
           status?: Database["public"]["Enums"]["vendor_bill_status"]
+          transaction_id?: string | null
           updated_at?: string
           vendor_id?: string
         }
@@ -6417,11 +6477,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "vendor_bills_expense_account_id_fkey"
+            columns: ["expense_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "vendor_bills_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_chat_inbox"
+            referencedColumns: ["transaction_id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_doc_transaction_id"
+            referencedColumns: ["transaction_id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transaction_with_client"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_bills_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "v_transaction_with_evidence"
+            referencedColumns: ["transaction_id"]
           },
           {
             foreignKeyName: "vendor_bills_vendor_id_fkey"
@@ -7802,10 +7904,6 @@ export type Database = {
         }
         Returns: Json
       }
-      check_feature_access: {
-        Args: { p_feature_key: string; p_user_id: string }
-        Returns: Json
-      }
       check_quota: {
         Args: {
           p_amount?: number
@@ -7823,7 +7921,11 @@ export type Database = {
         Returns: number
       }
       close_reconciliation_session: {
-        Args: { p_session_id: string; p_user_id: string }
+        Args: {
+          p_accept_difference_note?: string
+          p_session_id: string
+          p_user_id: string
+        }
         Returns: Json
       }
       complete_account_setup: {
@@ -7914,13 +8016,13 @@ export type Database = {
         }
         Returns: Json
       }
-      create_initial_subscription: {
-        Args: { p_account_type: string; p_user_id: string }
-        Returns: undefined
-      }
       create_expense_from_receipt: {
         Args: { p_document_id: string }
         Returns: Json
+      }
+      create_initial_subscription: {
+        Args: { p_account_type: string; p_user_id: string }
+        Returns: undefined
       }
       create_personal_org_for_bookkeeper: {
         Args: { p_display_name?: string; p_user_id: string }
@@ -7972,16 +8074,12 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: Json
       }
-      dismiss_receipt: { Args: { p_document_id: string }; Returns: undefined }
       demote_admin: {
         Args: { p_requesting_admin_id: string; p_target_user_id: string }
         Returns: Json
       }
+      dismiss_receipt: { Args: { p_document_id: string }; Returns: undefined }
       encrypt_tin: { Args: { p_tin: string }; Returns: string }
-      enforce_and_consume_feature: {
-        Args: { p_feature_key: string; p_increment?: number; p_user_id: string }
-        Returns: Json
-      }
       evaluate_transaction_evidence: {
         Args: { p_transaction_id: string }
         Returns: {
@@ -8235,6 +8333,7 @@ export type Database = {
           ein: string | null
           fiscal_year_start: number
           id: string
+          industry: string | null
           invoice_footer: string | null
           invoice_terms: string | null
           is_accountant_firm: boolean
@@ -8414,6 +8513,7 @@ export type Database = {
         Args: { p_before?: string; p_conversation_id: string; p_limit?: number }
         Returns: Json
       }
+      get_workspace_plan: { Args: { p_org_id: string }; Returns: Json }
       grant_role: {
         Args: {
           p_notes?: string
@@ -8450,14 +8550,11 @@ export type Database = {
           p_client_id?: string
           p_memo?: string
           p_org_id: string
+          p_replace?: boolean
           p_rows: Json
           p_transition_date: string
         }
         Returns: Json
-      }
-      increment_feature_usage: {
-        Args: { p_feature_key: string; p_increment?: number; p_user_id: string }
-        Returns: undefined
       }
       increment_usage: {
         Args: {
@@ -8826,10 +8923,6 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: Json
       }
-      revert_feature_usage: {
-        Args: { p_decrement?: number; p_feature_key: string; p_user_id: string }
-        Returns: Json
-      }
       review_document_request: {
         Args: { p_approve: boolean; p_request_id: string }
         Returns: Json
@@ -9162,6 +9255,8 @@ export type Database = {
         | "payroll"
         | "invoice"
         | "invoice_payment"
+        | "bill"
+        | "bill_payment"
       lp_role:
         | "owner"
         | "admin"
@@ -9475,6 +9570,8 @@ export const Constants = {
         "payroll",
         "invoice",
         "invoice_payment",
+        "bill",
+        "bill_payment",
       ],
       lp_role: [
         "owner",

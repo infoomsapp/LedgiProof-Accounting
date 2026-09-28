@@ -32,8 +32,19 @@ const ENTRY_KINDS: Array<{ value: Exclude<JournalEntryKind,'transaction_linked'>
   { value: 'manual_adjustment', label: 'Manual Adjustment' },
   { value: 'closing_entry',     label: 'Closing Entry'     },
   { value: 'depreciation',      label: 'Depreciation'      },
-  { value: 'opening_balance',   label: 'Opening Balance'   },
+  // Opening balances go through Import → Opening balances only: one set per
+  // set of books, replaced explicitly -- never a second manual batch.
 ]
+
+// Posted by LedgiProof itself (never chosen in the form): shown by name.
+const SYSTEM_KIND_LABELS: Partial<Record<JournalEntryKind, string>> = {
+  opening_balance: 'Opening Balance',
+  invoice:         'Invoice',
+  invoice_payment: 'Invoice payment',
+  bill:            'Bill',
+  bill_payment:    'Bill payment',
+  payroll:         'Payroll',
+}
 
 const STATUS_COLORS: Record<BatchStatus, string> = {
   draft:    'var(--sem-amber)',
@@ -325,7 +336,7 @@ function BatchRow({
         </span>
 
         <span style={{ fontSize:13, fontWeight:600, color:'var(--lp-text)', flex:1, minWidth:0 }}>
-          {ENTRY_KINDS.find(k => k.value === batch.entry_kind)?.label ?? batch.entry_kind}
+          {ENTRY_KINDS.find(k => k.value === batch.entry_kind)?.label ?? SYSTEM_KIND_LABELS[batch.entry_kind as JournalEntryKind] ?? batch.entry_kind}
           <span style={{ fontWeight:400, color:'var(--lp-text-muted)', marginLeft:8 }}>
             {batch.memo}
           </span>

@@ -15,15 +15,13 @@ import { createSubscriptionCheckoutSession } from '../services/stripe.service'
 import LogoBrand from '../components/ui/LogoBrand'
 import SemaphoreMark from '../components/ui/SemaphoreMark'
 import type { OrgAccess } from '../hooks/useOrgAccess'
+import { PAID_PLANS, PLAN_CATALOG, priceLabel } from '../lib/plans'
 
 type PlanId = 'starter' | 'entrepreneur' | 'bookkeeper' | 'accountant'
 
-const PLAN_INFO: Record<PlanId, { name: string; price: string }> = {
-  starter:      { name: 'Starter',      price: '$9.99' },
-  entrepreneur: { name: 'Entrepreneur', price: '$19.99' },
-  bookkeeper:   { name: 'Bookkeeper',   price: '$59.99' },
-  accountant:   { name: 'Accountant',   price: '$69.99' },
-}
+const PLAN_INFO: Record<PlanId, { name: string; price: string }> = Object.fromEntries(
+  PAID_PLANS.map(id => [id, { name: PLAN_CATALOG[id].name, price: priceLabel(id) }])
+) as Record<PlanId, { name: string; price: string }>
 
 interface Props {
   access:    OrgAccess

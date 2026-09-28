@@ -18,6 +18,7 @@ import TermsNotice from '../components/consent/TermsNotice'
 import { IconUser, IconBriefcase, IconCalculator } from '../components/ui/AccountTypeIcons'
 import { recordSignupConsents } from '../services/consent.service'
 import type { AccountType, SubscriptionPlan } from '../types/database.types'
+import { PLAN_CATALOG, priceLabel, trialLabel } from '../lib/plans'
 
 interface SignUpProps {
   onGoToLogin:        () => void
@@ -41,12 +42,11 @@ function getStrength(pw: string): { score: number; label: string; color: string 
   return              { score, label: 'Strong', color: 'var(--sem-green)' }
 }
 
-const PLAN_LABEL: Record<SubscriptionPlan, string> = {
-  starter:      'Starter ($9.99/mo · first month free)',
-  entrepreneur: 'Entrepreneur ($19.99/mo · 15-day free trial)',
-  bookkeeper:   'Bookkeeper ($59.99/mo · 15-day free trial)',
-  accountant:   'Accountant ($69.99/mo · 15-day free trial)',
-  enterprise: 'Enterprise'
+const PLAN_LABEL = (plan: SubscriptionPlan): string => {
+  const trial = trialLabel(plan)
+  return PLAN_CATALOG[plan].price == null
+    ? PLAN_CATALOG[plan].name
+    : `${PLAN_CATALOG[plan].name} (${priceLabel(plan)}/mo${trial ? ` · ${trial}` : ''})`
 }
 
 const TYPE_LABEL: Record<AccountType, string> = {
@@ -191,7 +191,7 @@ export default function SignUp({
                   : accountType ? TYPE_LABEL[accountType] : 'Your plan'}
               </div>
               {plan && !isInvite && (
-                <div>Starting plan: <strong>{PLAN_LABEL[plan]}</strong></div>
+                <div>Starting plan: <strong>{PLAN_LABEL(plan)}</strong></div>
               )}
             </div>
           </div>

@@ -1,93 +1,55 @@
 // PATH: src/components/settings/BillingTab.tsx
-// Simple billing tab: shows current plan + trial status + link to /pricing.
-// Stripe checkout integration will come in a later sprint.
+// Billing tab: the workspace's plan and trial (get_workspace_plan), what it
+// includes (plan_features) and Stripe checkout to change it.
 
 import { useEffect, useState } from 'react'
 import { useOrgStore } from '../../store/org.store'
 import { useAuthStore } from '../../store/auth.store'
-import { db } from '../../lib/supabase'
 import Button from '../ui/Button'
 import { useUserRole } from '../../hooks/useUserRole'
 import { formatDate } from '../../lib/dates'
 import { createSubscriptionCheckoutSession } from '../../services/stripe.service'
-import { toSafeMessage } from '../../lib/errors'
+import { getWorkspacePlan, type Subscription } from '../../services/subscription.service'
+import {
+  PAID_PLANS, PLAN_CATALOG, planHighlights, trialLabel, getFeatureMatrix,
+  type PaidPlan, type FeatureMatrix
+} from '../../lib/plans'
 
-// ── Plan matrix (matches pricing page + v23 SQL) ────────────────────────────
+// ── Plans: names/prices from src/lib/plans.ts, what each includes from
+// plan_features (the numbers the server enforces). Only colors live here.
 
 interface PlanInfo {
-  id:    string
-  name:  string
-  price: number
+  id:       PlanId
+  name:     string
+  price:    number
   features: string[]
-  color: string
+  color:    string
 }
 
-type PlanId = 'starter' | 'entrepreneur' | 'bookkeeper' | 'accountant'
+type PlanId = PaidPlan
 
 function isPlanId(v: string): v is PlanId {
-  return v === 'starter' || v === 'entrepreneur' || v === 'bookkeeper' || v === 'accountant'
+  return (PAID_PLANS as string[]).includes(v)
 }
 
-const PLANS: Record<PlanId, PlanInfo> = {
-  starter: {
-    id: 'starter', name: 'Starter', price: 9.99,
-    color: 'var(--lp-text-muted)',
-    features: [
-      'First month free',
-      '50 transactions / month',
-      '5 AI queries',
-      '5 receipts',
-      '2 invoices',
-      'Bank sync: $1.50/mo per Plaid connection'
-    ]
-  },
-  entrepreneur: {
-    id: 'entrepreneur', name: 'Entrepreneur', price: 19.99,
-    color: '#22c55e',
-    features: [
-      '15-day free trial',
-      '3 bank connections',
-      '500 transactions / month',
-      '50 AI queries',
-      '30 receipts',
-      'Schedule C support'
-    ]
-  },
-  bookkeeper: {
-    id: 'bookkeeper', name: 'Bookkeeper', price: 59.99,
-    color: '#3b82f6',
-    features: [
-      '15-day free trial',
-      '8 bank connections',
-      '2,000 transactions / month',
-      '200 AI queries',
-      'Multi-client management',
-      'Pay-as-you-go available'
-    ]
-  },
-  accountant: {
-    id: 'accountant', name: 'Accountant', price: 69.99,
-    color: '#a78bfa',
-    features: [
-      '15-day free trial',
-      '50 bank connections',
-      '10,000 transactions / month',
-      '1,000 AI queries',
-      'Multi-client management',
-      'Professional-grade controls',
-      'Pay-as-you-go available'
-    ]
-  }
+const PLAN_COLOR: Record<PlanId, string> = {
+  starter:      'var(--lp-text-muted)',
+  entrepreneur: '#22c55e',
+  bookkeeper:   '#3b82f6',
+  accountant:   '#a78bfa',
 }
 
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface Subscription {
-  plan:               string
-  status:             string
-  trial_started_at:   string | null
-  trial_ends_at:      string | null
-  current_period_end: string | null
+function buildPlans(matrix: FeatureMatrix): Record<PlanId, PlanInfo> {
+  return Object.fromEntries(PAID_PLANS.map(id => {
+    const trial = trialLabel(id)
+    return [id, {
+      id,
+      name:     PLAN_CATALOG[id].name,
+      price:    PLAN_CATALOG[id].price ?? 0,
+      color:    PLAN_COLOR[id],
+      features: [...(trial ? [trial] : []), ...planHighlights(matrix[id])],
+    }]
+  })) as Record<PlanId, PlanInfo>
 }
 
 interface Props {
@@ -102,6 +64,7 @@ export default function BillingTab({ onMessage }: Props) {
   const role             = useUserRole()
 
   const [sub, setSub]                 = useState<Subscription | null>(null)
+  const [matrix, setMatrix]           = useState<FeatureMatrix>({})
   const [loading, setLoading]         = useState(true)
   const [showPicker, setShowPicker]   = useState(false)
   const [subscribing, setSubscribing] = useState<PlanId | null>(null)
@@ -124,22 +87,14 @@ export default function BillingTab({ onMessage }: Props) {
       if (!activeOrg?.id) return
       setLoading(true)
       try {
-        const { data, error } = await db
-          .from('subscriptions')
-          .select('plan, status, trial_started_at, trial_ends_at, current_period_end')
-          .eq('org_id', activeOrg.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
+        // The workspace owner's subscription -- the same one the server
+        // enforces -- and what each plan includes.
+        const [wp, m] = await Promise.all([getWorkspacePlan(activeOrg.id), getFeatureMatrix()])
         if (!alive) return
-        if (error) {
-          onMessage?.({ type: 'err', text: toSafeMessage(error, 'Could not load your subscription') })
-        } else {
-          setSub(data)
-        }
+        setSub(wp.subscription)
+        setMatrix(m)
       } catch (e: any) {
-        if (alive) onMessage?.({ type: 'err', text: e?.message ?? 'Failed to load subscription' })
+        if (alive) onMessage?.({ type: 'err', text: e?.message ?? 'Could not load your subscription' })
       } finally {
         if (alive) setLoading(false)
       }
@@ -156,6 +111,7 @@ export default function BillingTab({ onMessage }: Props) {
     )
   }
 
+  const PLANS       = buildPlans(matrix)
   const currentPlan = sub && isPlanId(sub.plan) ? PLANS[sub.plan] : PLANS.starter
   const isTrialing  = sub?.status === 'trialing'
   const trialEndsAt = sub?.trial_ends_at ? new Date(sub.trial_ends_at) : null

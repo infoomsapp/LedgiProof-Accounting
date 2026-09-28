@@ -25,7 +25,12 @@ import {
   type ReviewItem, type RulePrompt, type SuggestionSource
 } from '../services/review.service'
 import { formatCurrency } from '../lib/currency'
-import type { Account } from '../types/database.types'
+import { useAuthStore } from '../store/auth.store'
+import PendingReceipts from '../components/review/PendingReceipts'
+import type { Account, LpRole } from '../types/database.types'
+
+// Same roles post_reviewed_transactions() accepts (the journal write policy).
+const POST_ROLES: LpRole[] = ['owner', 'admin', 'accountant']
 
 const SEM_COLOR: Record<ReviewItem['semaphore'], string> = {
   blue:  'var(--sem-blue)',
@@ -61,8 +66,11 @@ export default function ReviewInbox() {
   const scope    = useScope()
   const orgId    = scope.orgId
   const clientId = scope.clientId
+  const membership = useAuthStore(s => s.membership)
+  const isSuperAdmin = useAuthStore(s => s.profile?.system_role === 'super_admin')
+  const canPost  = isSuperAdmin || POST_ROLES.includes(membership?.role ?? 'readonly')
 
-  const [items,       setItems]       = useState<ReviewItem[]>([])
+  const [items,      setItems]       = useState<ReviewItem[]>([])
   const [total,       setTotal]       = useState(0)
   const [hasBank,     setHasBank]     = useState(true)
   const [accounts,    setAccounts]    = useState<Account[]>([])
@@ -201,7 +209,7 @@ export default function ReviewInbox() {
             {t('review.subtitle')}
           </p>
         </div>
-        {bulkIds.length > 0 && hasBank && (
+        {canPost && bulkIds.length > 0 && hasBank && (
           <button
             type="button"
             className="lp-btn lp-btn-primary"
@@ -257,6 +265,15 @@ export default function ReviewInbox() {
             {t('review.noBankCta')}
           </button>
         </div>
+      )}
+
+      {orgId && (
+        <PendingReceipts
+          orgId={orgId}
+          clientId={clientId ?? null}
+          canWrite={canPost}
+          onExpenseCreated={() => { void load() }}
+        />
       )}
 
       {items.length === 0 ? (
@@ -381,7 +398,8 @@ export default function ReviewInbox() {
                 <button
                   type="button"
                   className="lp-btn lp-btn-primary"
-                  disabled={!choice?.accountId || isBusy || !hasBank}
+                  title={canPost ? undefined : t('review.readOnly')}
+                  disabled={!canPost || !choice?.accountId || isBusy || !hasBank}
                   onClick={() => { void confirm([it.id]) }}
                   style={{ justifyContent: 'center', minWidth: 100 }}
                 >

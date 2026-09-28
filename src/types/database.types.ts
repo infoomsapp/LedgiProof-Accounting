@@ -7918,6 +7918,10 @@ export type Database = {
         Args: { p_account_type: string; p_user_id: string }
         Returns: undefined
       }
+      create_expense_from_receipt: {
+        Args: { p_document_id: string }
+        Returns: Json
+      }
       create_personal_org_for_bookkeeper: {
         Args: { p_display_name?: string; p_user_id: string }
         Returns: string
@@ -7968,6 +7972,7 @@ export type Database = {
         Args: { p_message_id: string }
         Returns: Json
       }
+      dismiss_receipt: { Args: { p_document_id: string }; Returns: undefined }
       demote_admin: {
         Args: { p_requesting_admin_id: string; p_target_user_id: string }
         Returns: Json
@@ -8253,6 +8258,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_pending_receipts: {
+        Args: { p_client_id?: string; p_org_id: string }
+        Returns: Json
       }
       get_period_status: {
         Args: { p_client_id: string; p_date: string; p_org_id: string }

@@ -64,6 +64,63 @@ export async function linkReceipt(documentId: string, transactionId: string): Pr
   if (error) throw dbError(error, "Couldn't link the receipt")
 }
 
+// ── Receipts still waiting for their bank line ──────────────────────────────
+
+export interface PendingReceipt {
+  id:             string
+  filename:       string
+  created_at:     string
+  match_status:   'suggested' | 'unmatched' | 'no_amount'
+  ocr_merchant:   string | null
+  ocr_amount:     number | null
+  ocr_date:       string | null          // YYYY-MM-DD
+  ocr_currency:   string | null
+  ocr_confidence: number | null
+  candidates:     ReceiptMatchTx[]
+}
+
+export async function getPendingReceipts(orgId: string, clientId: string | null): Promise<PendingReceipt[]> {
+  const { data, error } = await db.rpc('get_pending_receipts', {
+    p_org_id: orgId,
+    ...(clientId ? { p_client_id: clientId } : {})
+  })
+  if (error) throw dbError(error, 'Could not load the receipts waiting for a match')
+  return ((data as unknown as { items?: PendingReceipt[] })?.items) ?? []
+}
+
+/**
+ * The user corrected what OCR read: store it and look for the bank line
+ * again (match_receipt is the same function the edge function runs).
+ */
+export async function correctReceipt(
+  documentId: string,
+  fields: { merchant: string | null; amount: number | null; date: string | null; currency: string }
+): Promise<ReceiptMatch> {
+  const { data, error } = await db.rpc('match_receipt', {
+    p_document_id: documentId,
+    p_merchant:    fields.merchant ?? '',
+    p_amount:      fields.amount as number,
+    p_date:        fields.date as string,
+    p_currency:    fields.currency,
+    p_confidence:  100
+  })
+  if (error) throw dbError(error, "Couldn't save the receipt")
+  return data as unknown as ReceiptMatch
+}
+
+/** Paid in cash / from an account that isn't imported: the receipt becomes the expense. */
+export async function createExpenseFromReceipt(documentId: string): Promise<ReceiptMatchTx> {
+  const { data, error } = await db.rpc('create_expense_from_receipt', { p_document_id: documentId })
+  if (error) throw dbError(error, "Couldn't record the expense")
+  return (data as unknown as { transaction: ReceiptMatchTx }).transaction
+}
+
+/** The receipt doesn't need a transaction (personal, duplicate, already recorded). */
+export async function dismissReceipt(documentId: string): Promise<void> {
+  const { error } = await db.rpc('dismiss_receipt', { p_document_id: documentId })
+  if (error) throw dbError(error, "Couldn't dismiss the receipt")
+}
+
 export function confidenceLabel(confidence: number): string {
   if (confidence >= 85) return 'High'
   if (confidence >= 60) return 'Medium'

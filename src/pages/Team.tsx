@@ -310,6 +310,7 @@ export default function Team() {
                   {members.map(m => {
                     const isSelf = m.user_id === userId
                     const canRemove = isAdmin && !isSelf && m.role !== 'owner'
+                      && (m.role !== 'admin' || workspaceRole === 'owner')
                     return (
                       <tr key={m.id}>
                         <td>{m.profiles?.display_name ?? '—'}</td>

@@ -17,6 +17,8 @@ import type { Database } from '../types/database.types'
 // so a EUR line and a USD line stop summing as if they were the same unit.
 // Rate convention (exchange-rate.service.ts): usd_rate = "1 USD = N of this
 // currency", so USD = foreign_amount / usd_rate.
+// The database recomputes amount_usd on every direct write from the app
+// (security_ledger_guards.sql) and overwrites the value computed here.
 async function toUsd(amount: number, currency: string): Promise<number> {
   const code = currency.toUpperCase()
   if (code === 'USD') return amount
@@ -126,80 +128,6 @@ export async function postTransactionToLedger(
   )
 
   await approveTransaction({ transactionId: tx.id, orgId, approverId })
-}
-
-// ── Reverse a set of entries (creates mirror rows, marks originals) ──────────
-
-export async function reverseJournalEntries(
-  originalEntryIds: string[],
-  memo = 'Reversal entry'
-): Promise<JournalEntry[]> {
-  // Load originals
-  const { data: originals, error: fetchErr } = await db
-    .from('journal_entries')
-    .select('*')
-    .in('id', originalEntryIds)
-
-  if (fetchErr || !originals?.length) {
-    throw new Error(`[Journal] Originals not found: ${toSafeMessage(fetchErr, 'database error')}`)
-  }
-
-  // Check none are already reversed
-  const alreadyReversed = originals.filter(e => e.is_reversed)
-  if (alreadyReversed.length > 0) {
-    throw new Error('[Journal] One or more entries are already reversed')
-  }
-
-  // Insert mirror entries (opposite entry_type). amount_usd is copied
-  // straight from the original, not recomputed -- a reversal must offset
-  // the exact USD figure that was actually posted, not whatever today's
-  // exchange rate happens to be.
-  //
-  // 🐛 Real bug found and fixed (found live while testing multi-currency,
-  // unrelated to it): get_profit_and_loss/get_balance_sheet/
-  // compute_account_balance all filter `WHERE is_reversed = FALSE`. The
-  // original entry gets marked is_reversed=true below (correctly excluding
-  // it), but this mirror row used to be inserted with is_reversed: false --
-  // so instead of both rows canceling out to zero, only the mirror stayed
-  // active, leaving every reversed transaction's account with the FLIPPED
-  // amount still counted (e.g. reversing a +$100 credit didn't return the
-  // balance to $0, it left it at -$100). The mirror must also be excluded;
-  // together they represent "this never should have counted," not a second
-  // real entry that itself needs to keep affecting the books.
-  const reversals = originals.map(e => ({
-    transaction_id: e.transaction_id,
-    account_id:     e.account_id,
-    entry_type:     e.entry_type === 'debit' ? 'credit' : 'debit' as EntryTypeEnum,
-    amount:         e.amount,
-    amount_usd:     e.amount_usd,
-    currency:       e.currency,
-    memo:           `${memo} — ref: ${e.id.slice(0, 8)}`,
-    period_year:    e.period_year,
-    period_month:   e.period_month,
-    is_reversed:    true
-  }))
-
-  const { data: reversalRows, error: insertErr } = await db
-    .from('journal_entries')
-    .insert(reversals)
-    .select()
-
-  if (insertErr || !reversalRows) {
-    throw new Error(`[Journal] Reversal insert failed: ${toSafeMessage(insertErr, 'database error')}`)
-  }
-
-  // Mark originals as reversed and link to their reversal
-  for (let i = 0; i < originals.length; i++) {
-    await db
-      .from('journal_entries')
-      .update({
-        is_reversed:       true,
-        reversal_entry_id: reversalRows[i]?.id ?? null
-      })
-      .eq('id', originals[i]!.id)
-  }
-
-  return reversalRows
 }
 
 // ── Read entries for a transaction ───────────────────────────────────────────

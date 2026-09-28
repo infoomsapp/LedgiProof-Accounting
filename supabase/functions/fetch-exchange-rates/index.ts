@@ -6,26 +6,27 @@
 // Rate stored: usd_rate = "1 USD = N of this currency"
 // Source:      https://api.frankfurter.app/latest?base=USD
 //
-// Deploy:   supabase functions deploy fetch-exchange-rates
-// Invoke:   POST /functions/v1/fetch-exchange-rates  (service role auth)
-// Schedule: See cron note in supabase/sql/multimoneda.sql (00:05 UTC daily)
+// Deploy:   supabase functions deploy fetch-exchange-rates --no-verify-jwt
+// Invoke:   POST /functions/v1/fetch-exchange-rates with x-scheduler-secret
+//           (same vault secret as invoice-scheduler; checked by
+//           verify_scheduler_secret). pg_cron job refresh-exchange-rates,
+//           00:05 UTC daily -- see supabase/sql/security_ledger_guards.sql.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { safeMessage } from '../_shared/errors.ts'
 
 const SUPABASE_URL         = Deno.env.get('SUPABASE_URL')                ?? ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')   ?? ''
-const FRANKFURTER_URL      = 'https://api.frankfurter.app/latest?base=USD&symbols=EUR,GBP,CAD,MXN,ARS,COP'
+const FRANKFURTER_URL      = 'https://api.frankfurter.app/latest?base=USD&symbols=EUR,GBP,CAD,MXN'
 
 Deno.serve(async (req) => {
-  const authHeader = req.headers.get('authorization') ?? ''
-  const isCron     = req.headers.get('x-cron-source') === 'supabase'
-  const isService  = authHeader.includes(SUPABASE_SERVICE_KEY) ||
-                     authHeader === `Bearer ${SUPABASE_SERVICE_KEY}`
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
-  if (!isService && !isCron) {
-    return new Response('Unauthorized', { status: 401 })
-  }
+  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const { data: ok } = await db.rpc('verify_scheduler_secret', {
+    p: req.headers.get('x-scheduler-secret') ?? '',
+  })
+  if (ok !== true) return new Response('Unauthorized', { status: 401 })
 
   try {
     const res = await fetch(FRANKFURTER_URL)
@@ -48,7 +49,6 @@ Deno.serve(async (req) => {
     // Always keep USD itself seeded (rate = 1.0, never fetched from API)
     rows.push({ currency: 'USD', usd_rate: 1.0, fetched_at: fetchedAt })
 
-    const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     const { error } = await db
       .from('exchange_rates')
       .upsert(rows, { onConflict: 'currency' })

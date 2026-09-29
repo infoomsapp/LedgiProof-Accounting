@@ -18,6 +18,7 @@ import { getCGCBadgeConfig }     from '../../services/cgc.service'
 import { openOrGetTransactionConversation, sendTransactionMessage } from '../../services/chat-tx.service'
 import { db }                    from '../../lib/supabase'
 import { formatCurrency }        from '../../lib/currency'
+import BrainWhy from '../review/BrainWhy'
 
 interface TransactionDetailProps {
   transaction: Transaction
@@ -338,8 +339,25 @@ export default function TransactionDetail({ transaction: tx, orgId, onClose }: T
                     </div>
                   )}
 
+                  {/* What happened and why, as sealed in the chain: the note, who
+                      acted, and -- when a category was chosen -- what the Brain
+                      suggested, its reasons, and whether the person followed it. */}
+                  {typeof (evt.metadata as any)?.note === 'string' && (
+                    <div style={{ fontSize: 12, color: 'var(--lp-text)', marginBottom: 3 }}>
+                      {(evt.metadata as any).note}
+                    </div>
+                  )}
+                  {(evt.metadata as any)?.brain?.evidence && (
+                    <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', marginBottom: 3 }}>
+                      {(evt.metadata as any).brain.followed === false
+                        ? t('review.why.notFollowed')
+                        : t('review.why.followed')}
+                      <BrainWhy evidence={(evt.metadata as any).brain.evidence} />
+                    </div>
+                  )}
                   <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)' }}>
                     {new Date(evt.created_at).toLocaleString()}
+                    {evt.actor_role && ` · ${evt.actor_role}`}
                   </div>
                   <div style={{
                     fontSize: 10.5, fontFamily: 'monospace', color: '#334155',

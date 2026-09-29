@@ -223,8 +223,8 @@ export default {
 
     clientCountOne:          '{{count}} cliente',
     clientCountOther:        '{{count}} clientes',
-    clientsAcrossStagesOne:  '{{count}} cliente en 5 etapas',
-    clientsAcrossStagesOther:'{{count}} clientes en 5 etapas',
+    clientsAcrossStagesOne:  '{{count}} cliente en el flujo de trabajo',
+    clientsAcrossStagesOther:'{{count}} clientes en el flujo de trabajo',
 
     certifyHintTitle:            'Certificar',
     certifyHintMessage:          'Certifica tú mismo las transacciones sencillas, directamente desde el encabezado — sin esperar a que tu contador las cierre.',
@@ -800,6 +800,8 @@ export default {
     },
     why: {
       button:        '¿Por qué?',
+      followed:      'La persona eligió lo que sugirió el Brain.',
+      notFollowed:   'La persona eligió otra cuenta distinta de la sugerida por el Brain.',
       rule:          'Tu regla: «{{merchant}}» siempre va a {{account}}',
       learned_one:   '«{{merchant}}» confirmado una vez en {{account}}',
       learned_other: '«{{merchant}}» confirmado {{count}} veces en {{account}}',
@@ -893,6 +895,7 @@ export default {
     LD007: 'Ese movimiento fue editado; elige su versión actual',
     LE001: 'Cotización no encontrada',
     LE002: 'Esta cotización aún no se ha enviado',
+    LF001: 'Los libros propios de la firma se llevan en Personal: cambia a Personal para registrarlo, o elige un cliente',
     LG001: 'El registro de actividad no se puede modificar ni borrar',
     LI001: 'No se pudieron leer las líneas de la factura',
     LI002: 'Máximo 200 líneas por factura',

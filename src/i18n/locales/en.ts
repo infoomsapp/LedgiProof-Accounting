@@ -227,8 +227,8 @@ export default {
 
     clientCountOne:          '{{count}} client',
     clientCountOther:        '{{count}} clients',
-    clientsAcrossStagesOne:  '{{count}} client across 5 stages',
-    clientsAcrossStagesOther:'{{count}} clients across 5 stages',
+    clientsAcrossStagesOne:  '{{count}} client in the workflow',
+    clientsAcrossStagesOther:'{{count}} clients in the workflow',
 
     certifyHintTitle:            'Certify',
     certifyHintMessage:          'Certify simple transactions yourself, right from the header — no need to wait on your accountant to close them out.',
@@ -804,6 +804,8 @@ export default {
     },
     why: {
       button:        'Why?',
+      followed:      'The person chose what the Brain suggested.',
+      notFollowed:   'The person chose another account than the Brain suggested.',
       rule:          'Your rule: “{{merchant}}” always goes to {{account}}',
       learned_one:   '“{{merchant}}” confirmed once in {{account}}',
       learned_other: '“{{merchant}}” confirmed {{count}} times in {{account}}',
@@ -900,6 +902,7 @@ export default {
     LD007: 'That transaction was edited; pick its current version',
     LE001: 'Estimate not found',
     LE002: 'This estimate has not been sent yet',
+    LF001: "A firm's own books are kept in Personal: switch to Personal to add this, or choose a client",
     LG001: "The activity log can't be changed or deleted",
     LI001: 'The invoice lines could not be read',
     LI002: 'At most 200 lines per invoice',

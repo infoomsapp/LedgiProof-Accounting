@@ -998,6 +998,8 @@ export default {
     LI009: 'Los días de recordatorio antes del vencimiento deben estar entre 0 y 30',
     LI010: 'Recordatorios de vencida: hasta 6 valores entre 1 y 90 días',
     LI011: 'Esta factura aún no se ha enviado',
+    LK001: 'Este cliente no pertenece a este espacio de trabajo',
+    LK002: 'Esta nota necesita la aprobación de otra persona antes de marcarla como hecha',
     LJ001: 'Este asiento no cuadra: débitos {{debit}}, créditos {{credit}}',
     LJ002: 'Esa cuenta pertenece a otra contabilidad',
     LM001: 'El owner se define al crear el espacio de trabajo',

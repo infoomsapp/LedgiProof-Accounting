@@ -1005,6 +1005,8 @@ export default {
     LI009: 'Reminder days before the due date must be between 0 and 30',
     LI010: 'Overdue reminders: up to 6 values between 1 and 90 days',
     LI011: 'This invoice has not been sent yet',
+    LK001: "This client is not one of this workspace's clients",
+    LK002: "This note needs a second person's approval before it can be marked done",
     LJ001: "This entry doesn't balance: debits {{debit}}, credits {{credit}}",
     LJ002: 'That account belongs to a different set of books',
     LM001: 'The owner is set when the workspace is created',

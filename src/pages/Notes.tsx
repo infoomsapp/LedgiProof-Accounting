@@ -24,6 +24,8 @@ import type { ContextRef } from '../services/workspace-chat.service'
 import type { Client } from '../types/database.types'
 import Modal from '../components/ui/modal'
 import { formatDate } from '../lib/dates'
+import Icon, { type IconName } from '../components/ui/Icon'
+import { clientLabel } from '../lib/client-name'
 
 type FilterTab = 'all' | WorkspaceNoteStatus
 
@@ -35,8 +37,8 @@ const FILTERS: { key: FilterTab; label: string }[] = [
   { key: 'done',             label: 'Done' },
 ]
 
-function clientName(c: { display_name: string | null; company_name: string | null } | null): string {
-  return c?.display_name ?? c?.company_name ?? '(unnamed client)'
+function refIcon(type: ContextRef['type']): IconName {
+  return type === 'transaction' ? 'billing' : type === 'account' ? 'accounts' : 'calendar'
 }
 
 export default function Notes() {
@@ -218,7 +220,7 @@ export default function Notes() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="lp-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>📝</div>
+            <div style={{ marginBottom: 12, color: 'var(--lp-text-muted)', display: 'flex', justifyContent: 'center' }}><Icon name="edit" size={36} strokeWidth={1.4} /></div>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>
               {filter === 'all' ? 'No notes yet' : 'Nothing in this filter'}
             </div>
@@ -248,7 +250,7 @@ export default function Notes() {
                             fontSize: 12.5, fontWeight: 600, color: 'var(--lp-accent)', fontFamily: 'inherit',
                           }}
                         >
-                          {clientName(n.clients)}
+                          {clientLabel(n.clients, '(unnamed client)')}
                         </button>
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 20,
@@ -258,8 +260,8 @@ export default function Notes() {
                           {style.label}
                         </span>
                         {n.due_at && (
-                          <span style={{ fontSize: 10.5, color: 'var(--lp-text-muted)' }}>
-                            ⏰ {formatDate(n.due_at)}
+                          <span style={{ fontSize: 10.5, color: 'var(--lp-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Icon name="time" size={11} /> {formatDate(n.due_at)}
                           </span>
                         )}
                       </div>
@@ -268,7 +270,7 @@ export default function Notes() {
                       </div>
                       {n.context_ref && (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 10.5, color: 'var(--lp-accent)' }}>
-                          <span>{n.context_ref.type === 'transaction' ? '💳' : n.context_ref.type === 'account' ? '📚' : '📅'}</span>
+                          <Icon name={refIcon(n.context_ref.type)} size={11} />
                           {n.context_ref.label}
                         </div>
                       )}
@@ -281,9 +283,10 @@ export default function Notes() {
                         style={{
                           background: 'none', border: '0.5px solid var(--lp-border)', borderRadius: 6,
                           padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: 'var(--lp-text-muted)', fontFamily: 'inherit',
+                          display: 'flex', alignItems: 'center',
                         }}
                       >
-                        💬
+                        <Icon name="chat" size={13} />
                       </button>
                       {canApproveThis && (
                         <button
@@ -352,7 +355,7 @@ export default function Notes() {
                       background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, color: 'var(--lp-text)',
                     }}
                   >
-                    {clientName(c)}
+                    {clientLabel(c, '(unnamed client)')}
                   </button>
                 ))
               )}
@@ -361,7 +364,7 @@ export default function Notes() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--lp-text-muted)' }}>
-              For <strong style={{ color: 'var(--lp-text)' }}>{clientName(pickedClient)}</strong>
+              For <strong style={{ color: 'var(--lp-text)' }}>{clientLabel(pickedClient, '(unnamed client)')}</strong>
               <button
                 onClick={() => setPickedClient(null)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lp-accent)', fontSize: 11.5, fontFamily: 'inherit' }}
@@ -412,7 +415,7 @@ export default function Notes() {
                 padding: '4px 8px', borderRadius: 6, background: 'var(--lp-surface-2)', border: '0.5px solid var(--lp-accent)',
                 fontSize: 11, color: 'var(--lp-accent)', maxWidth: '100%',
               }}>
-                <span>{contextRef.type === 'transaction' ? '💳' : contextRef.type === 'account' ? '📚' : '📅'}</span>
+                <Icon name={refIcon(contextRef.type)} size={12} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>{contextRef.label}</span>
                 <button onClick={() => setContextRef(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lp-text-muted)', fontSize: 13, lineHeight: 1, padding: '0 2px', fontFamily: 'inherit' }}>✕</button>
               </div>
@@ -422,9 +425,10 @@ export default function Notes() {
                 style={{
                   alignSelf: 'flex-start', fontSize: 11, color: 'var(--lp-text-muted)', background: 'none',
                   border: '0.5px solid var(--lp-border)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
                 }}
               >
-                🔗 Link to a transaction
+                <Icon name="link" size={12} /> Link to a transaction
               </button>
             )}
 

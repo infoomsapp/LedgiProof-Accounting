@@ -232,7 +232,7 @@ export default function WorkspaceRequestsTab({ orgId, clientId, viewerRole }: Pr
                   </span>
                   {r.due_at && (
                     <span style={{ fontSize: 10, color: 'var(--lp-text-muted)' }}>
-                      ⏰ {formatDate(r.due_at)}
+                      <Icon name="time" size={11} style={{ verticalAlign: '-1px' }} /> {formatDate(r.due_at)}
                     </span>
                   )}
                 </div>

@@ -31,6 +31,7 @@ import {
   type ClientPortalInvitationWithClient
 } from '../services/client-portal.service'
 import { toSafeMessage } from '../lib/errors'
+import { clientLabel } from '../lib/client-name'
 
 interface Member {
   id:           string
@@ -1051,7 +1052,7 @@ export default function Clients() {
                     <option value="">— Select a client —</option>
                     {clients.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.display_name ?? c.company_name ?? '(unnamed)'}
+                        {clientLabel(c, '(unnamed)')}
                       </option>
                     ))}
                   </select>

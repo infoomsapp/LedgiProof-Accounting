@@ -135,7 +135,7 @@ export default function DeletedChatsModal({ open, onClose, orgId }: Props) {
                 </span>
               </div>
               <div style={{ fontSize: 12.5, color: 'var(--lp-text)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                {m.body ?? (m.document_filename ? `📎 ${m.document_filename}` : '—')}
+                {m.body ?? (m.document_filename ?? '—')}
               </div>
             </div>
           ))}

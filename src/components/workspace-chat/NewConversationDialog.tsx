@@ -20,6 +20,7 @@ import { getClients } from '../../services/invoice.service'
 import { sendWorkspaceMessage } from '../../services/workspace-chat.service'
 import type { Client } from '../../types/database.types'
 import Icon from '../ui/Icon'
+import { clientLabel } from '../../lib/client-name'
 
 interface Props {
   open:        boolean
@@ -183,7 +184,7 @@ export default function NewConversationDialog({
               <option value="">— Select a client —</option>
               {clients.map(c => (
                 <option key={c.id} value={c.id}>
-                  {c.display_name ?? c.company_name ?? '(unnamed)'}
+                  {clientLabel(c, '(unnamed)')}
                 </option>
               ))}
             </select>

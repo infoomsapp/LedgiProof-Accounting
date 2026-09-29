@@ -246,7 +246,7 @@ export default function WorkspaceNotesTab({ orgId, clientId }: Props) {
                   </span>
                   {n.due_at && (
                     <span style={{ fontSize: 10, color: 'var(--lp-text-muted)' }}>
-                      ⏰ {formatDate(n.due_at)}
+                      <Icon name="time" size={11} style={{ verticalAlign: '-1px' }} /> {formatDate(n.due_at)}
                     </span>
                   )}
                 </div>

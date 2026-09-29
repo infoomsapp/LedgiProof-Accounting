@@ -1,6 +1,7 @@
 // PATH: src/components/chat/chatpanel.tsx
 //
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../store/auth.store'
 import { useClientContext } from '../../hooks/useClientContext'
 import type { Transaction, LpRole } from '../../types/database.types'
@@ -55,6 +56,7 @@ function mapDbMessage(row: TransactionMessage): ChatMessageData {
 }
 
 export default function ChatPanel({ transaction: tx, orgId }: ChatPanelProps) {
+  const { t } = useTranslation()
   const { membership, user, profile } = useAuthStore()
   const { isClient } = useClientContext()
 
@@ -180,7 +182,7 @@ export default function ChatPanel({ transaction: tx, orgId }: ChatPanelProps) {
     return (
       <div style={{ padding: 12 }}>
         <button onClick={() => { setOpen(true); initChat() }}>
-          Open chat
+          {t('txChat.open')}
         </button>
       </div>
     )
@@ -204,7 +206,7 @@ export default function ChatPanel({ transaction: tx, orgId }: ChatPanelProps) {
         }}
       >
         <SemaphoreBadge status={tx.semaphore} size="sm" />
-        <button onClick={() => setOpen(false)}>Close</button>
+        <button onClick={() => setOpen(false)}>{t('txChat.close')}</button>
       </div>
 
       <div

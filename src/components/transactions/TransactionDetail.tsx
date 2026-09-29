@@ -1,6 +1,7 @@
 // src/components/transactions/TransactionDetail.tsx
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 //
 // CSS-TODO (file-level): remaining are unique alphas. #334155 (slate-700, 4 occurrences) needs --lp-text-stronger var. rgba(255,255,255,0.02) and rgba(71,85,105,0.06) are dark-mode generic overlays. Direct mappings migrated.
 //
@@ -31,6 +32,7 @@ function fmt(n: number, currency: string) {
 }
 
 export default function TransactionDetail({ transaction: tx, orgId, onClose }: TransactionDetailProps) {
+  const { t } = useTranslation()
   const [tab, setTab] = useState<Tab>('details')
 
   // 🆕 P3: upload-doc state for this transaction
@@ -158,19 +160,19 @@ export default function TransactionDetail({ transaction: tx, orgId, onClose }: T
         borderBottom: '0.5px solid var(--lp-border)',
         padding: '0 20px'
       }}>
-        {(['details', 'history', 'audit', 'journal', 'governance'] as Tab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
+        {(['details', 'history', 'audit', 'journal', 'governance'] as Tab[]).map(k => (
+          <button key={k} onClick={() => setTab(k)} style={{
             padding:    '10px 14px',
             fontSize:   12.5,
-            fontWeight: tab === t ? 500 : 400,
-            color:      tab === t ? 'var(--lp-text)' : 'var(--lp-text-muted)',
+            fontWeight: tab === k ? 500 : 400,
+            color:      tab === k ? 'var(--lp-text)' : 'var(--lp-text-muted)',
             background: 'none',
             border:     'none',
             cursor:     'pointer',
-            borderBottom: tab === t ? '2px solid var(--lp-accent)' : '2px solid transparent',
+            borderBottom: tab === k ? '2px solid var(--lp-accent)' : '2px solid transparent',
             textTransform: 'capitalize'
           }}>
-            {t}
+            {k}
           </button>
         ))}
       </div>
@@ -379,7 +381,7 @@ export default function TransactionDetail({ transaction: tx, orgId, onClose }: T
               style={{ fontSize: 12 }}
               onClick={() => setReviewOpen(true)}
             >
-              Solicitar aclaración formal
+              {t('txChat.formalReview')}
             </button>
           </div>
           <ChatPanel

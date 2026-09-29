@@ -150,7 +150,10 @@ async function applyRule(db: any, rule: any, input: {
       return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.6 : 0, fired, reason: fired ? `No prior transactions with reference "${input.reference}" in ${lookbackDays} days` : null }
     }
     case 'missing_document': {
-      const fired = !input.metadata?.['document_url']
+      // Same rule as the browser Brain: money out of at least min_amount (75 USD).
+      const minAmount = cfgNumber(cfg, 'min_amount', 75)
+      const fired = input.amount < 0 && Math.abs(input.amount) >= minAmount
+        && !input.metadata?.['document_url']
       return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.7 : 0, fired, reason: fired ? 'No supporting document attached to this transaction' : null }
     }
     case 'budget_variance': {

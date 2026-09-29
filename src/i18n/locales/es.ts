@@ -737,6 +737,11 @@ export default {
     create:           'Crear',
     cancel:           'Cancelar',
   },
+  txChat: {
+    formalReview: 'Pedir aclaración formal',
+    open:         'Abrir chat',
+    close:        'Cerrar',
+  },
   semaphoreLabel: {
     all:   'Todas',
     blue:  'Verificada',

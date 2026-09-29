@@ -741,6 +741,11 @@ export default {
     create:           'Create',
     cancel:           'Cancel',
   },
+  txChat: {
+    formalReview: 'Request formal clarification',
+    open:         'Open chat',
+    close:        'Close',
+  },
   semaphoreLabel: {
     all:   'All',
     blue:  'Verified',

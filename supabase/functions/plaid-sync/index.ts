@@ -307,7 +307,13 @@ Deno.serve(async (req) => {
                 plaid_category:       category,          // seed for suggestions
                 plaid_account_id:     plaidTx.account_id,
                 plaid_pending:        false,
-                merchant_name:        plaidTx.merchant_name
+                merchant_name:        plaidTx.merchant_name,
+                // Merchant identity and category detail for the Brain (docs/brain-v3.md):
+                // Plaid's stable merchant id, its detailed category and how sure it is.
+                plaid_merchant_entity_id: plaidTx.merchant_entity_id ?? null,
+                plaid_category_detailed:  plaidTx.personal_finance_category?.detailed ?? null,
+                plaid_category_confidence: plaidTx.personal_finance_category?.confidence_level ?? null,
+                plaid_counterparty:       plaidTx.counterparties?.[0]?.name ?? null
               }
             }
           }))

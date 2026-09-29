@@ -16,6 +16,8 @@
 //   STRIPE_PRICE_ID_ENTREPRENEUR
 //   STRIPE_PRICE_ID_BOOKKEEPER
 //   STRIPE_PRICE_ID_ACCOUNTANT
+//   STRIPE_PRICE_ID_EXTRA_COMPANY_STARTER / _ENTREPRENEUR (optional) — extra
+//                               companies (Option B), added as a second line
 //   STRIPE_APPLICATION_FEE_BPS  (optional) platform fee on invoice payments,
 //                               in basis points (100 = 1%). Default 0.
 //
@@ -44,6 +46,13 @@ const PRICE_IDS: Record<string, string | undefined> = {
   entrepreneur: Deno.env.get('STRIPE_PRICE_ID_ENTREPRENEUR'),
   bookkeeper:   Deno.env.get('STRIPE_PRICE_ID_BOOKKEEPER'),
   accountant:   Deno.env.get('STRIPE_PRICE_ID_ACCOUNTANT'),
+}
+
+// Extra companies past the ones a plan includes (Option B), billed in the same
+// subscription. Same env names sync-company-addon uses.
+const EXTRA_COMPANY_PRICE_IDS: Record<string, string | undefined> = {
+  starter:      Deno.env.get('STRIPE_PRICE_ID_EXTRA_COMPANY_STARTER'),
+  entrepreneur: Deno.env.get('STRIPE_PRICE_ID_EXTRA_COMPANY_ENTREPRENEUR'),
 }
 
 type InvoiceRequest = {
@@ -168,10 +177,27 @@ Deno.serve(async (req) => {
         ? { customer: existingSub.stripe_customer_id as string }
         : { customer_email: user.email! }
 
+      // Companies created during the trial past the plan's included ones are
+      // part of what they subscribe to -- counted, never stored.
+      const { data: allowance } = await db.rpc('workspace_allowance_for_user', { p_user: user.id })
+      const { data: included } = await db.from('plan_features')
+        .select('limit_value').eq('plan', plan).eq('feature_key', 'workspaces').maybeSingle()
+      const used      = Number((allowance as any)?.used ?? 0)
+      const inc       = Number(included?.limit_value ?? 1)
+      const extras    = inc === -1 ? 0 : Math.max(0, used - inc)
+      const extraId   = EXTRA_COMPANY_PRICE_IDS[plan]
+      if (extras > 0 && !extraId) {
+        return fail(`Stripe price not configured for extra companies on plan: ${plan}`, 400, cors)
+      }
+      const lineItems = [
+        { price: priceId, quantity: 1 },
+        ...(extras > 0 && extraId ? [{ price: extraId, quantity: extras }] : []),
+      ]
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         ...customerConfig,
-        line_items: [{ price: priceId, quantity: 1 }],
+        line_items: lineItems,
         metadata: {
           type:    'subscription',
           plan,

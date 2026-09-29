@@ -182,6 +182,7 @@ export default function OrgSelector() {
       />
       <CreateOrgDialog
         open={createOpen}
+        allowance={allowance}
         onClose={() => setCreateOpen(false)}
         onCreated={id => { void switchToNew(id) }}
       />

@@ -119,5 +119,17 @@ export function planHighlights(features: Record<string, number> | undefined): st
     'payroll', 'journal_entries', 'period_closing', 'approval_workflow', 'tax_forms',
     'white_label', 'api_access', 'reports_export',
   ]
-  return order.map(k => describeLimit(k, features[k])).filter((s): s is string => !!s)
+  const lines = order.map(k => describeLimit(k, features[k])).filter((s): s is string => !!s)
+  // Option B: more companies inside the same subscription, each at a share
+  // of the plan (QuickBooks and Xero charge the full price per company).
+  const pct = features['extra_workspace_pct'] ?? 0
+  if (pct > 0) lines.push(`Extra companies: ${pct}% of the plan each`)
+  return lines
+}
+
+/** Monthly price of one extra company on `plan` (null when the plan has no price). */
+export function extraCompanyPrice(plan: SubscriptionPlan, pct: number): number | null {
+  const base = PLAN_CATALOG[plan]?.price
+  // In whole cents first: 9.99 × 50 in floating point is 499.4999…, not 499.5.
+  return base == null || pct <= 0 ? null : Math.round(Math.round(base * 100) * pct / 100) / 100
 }

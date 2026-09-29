@@ -129,6 +129,16 @@ Deno.serve(async (req) => {
   })
 })
 
+// The PLAN's price on a subscription. With extra companies (Option B) a
+// subscription has two items; items[0] could be the extra-company one.
+const EXTRA_COMPANY_PRICES = new Set(
+  [Deno.env.get('STRIPE_PRICE_ID_EXTRA_COMPANY_STARTER'), Deno.env.get('STRIPE_PRICE_ID_EXTRA_COMPANY_ENTREPRENEUR')]
+    .filter((p): p is string => !!p))
+function planItemPrice(sub: Stripe.Subscription): string | null {
+  const item = sub.items.data.find(i => !EXTRA_COMPANY_PRICES.has(i.price?.id ?? '')) ?? sub.items.data[0]
+  return item?.price?.id ?? null
+}
+
 // ── checkout.session.completed ──────────────────────────────────────────────
 
 async function handleCheckoutCompleted(
@@ -238,7 +248,7 @@ async function handleCheckoutCompleted(
 
     if (stripeSubscriptionId) {
       const sub = await stripeClient!.subscriptions.retrieve(stripeSubscriptionId)
-      stripePriceId = sub.items.data[0]?.price?.id ?? null
+      stripePriceId = planItemPrice(sub)
       periodStart   = new Date(sub.current_period_start * 1000).toISOString()
       periodEnd     = new Date(sub.current_period_end   * 1000).toISOString()
     }
@@ -287,7 +297,7 @@ async function handleSubscriptionUpdated(
     paused:             'past_due',
   }
   const status    = STATUS_MAP[sub.status] ?? 'past_due'
-  const priceId   = sub.items.data[0]?.price?.id ?? null
+  const priceId   = planItemPrice(sub)
   const periodEnd = new Date(sub.current_period_end * 1000).toISOString()
 
   const { error } = await db

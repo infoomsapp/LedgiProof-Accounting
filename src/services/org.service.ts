@@ -99,11 +99,18 @@ export async function getUserOrgsByCategory(): Promise<UserOrgsByCategory> {
 
 /** How many workspaces (own books) the user's plan allows, and how many they have. */
 export interface WorkspaceAllowance {
-  plan:       string
-  /** -1 = unlimited */
-  limit:      number
-  used:       number
-  can_create: boolean
+  plan:          string
+  /** Companies included in the plan; -1 = unlimited */
+  limit:         number
+  used:          number
+  /** A firm adds companies as clients, never as organizations. */
+  is_firm:       boolean
+  /** Price of each extra company, % of the plan (0 = no extras on this plan). */
+  extra_pct:     number
+  extra_in_use:  number
+  /** The next company created is billed as an extra. */
+  next_is_extra: boolean
+  can_create:    boolean
 }
 
 export async function getWorkspaceAllowance(): Promise<WorkspaceAllowance> {
@@ -113,9 +120,20 @@ export async function getWorkspaceAllowance(): Promise<WorkspaceAllowance> {
 }
 
 /** Another organization with its own books (refused with LQ009 over the plan). */
-export async function createWorkspaceOrg(name: string): Promise<string> {
-  const { data, error } = await db.rpc('create_workspace_org', { p_name: name })
+export async function createWorkspaceOrg(name: string, acceptExtra = false): Promise<string> {
+  const { data, error } = await db.rpc('create_workspace_org', { p_name: name, p_accept_extra: acceptExtra })
   if (error) throw dbError(error, 'Could not create the organization')
   if (!data) throw new Error('RPC returned no org_id')
   return data as unknown as string
+}
+
+/**
+ * Brings the subscription's "extra company" quantity in line with the
+ * companies that exist (sync-company-addon). Returns why when it could not --
+ * e.g. billing isn't connected yet -- so the screen can say so.
+ */
+export async function syncCompanyAddon(): Promise<{ synced: boolean; reason?: string; quantity?: number }> {
+  const { data, error } = await db.functions.invoke('sync-company-addon', { body: {} })
+  if (error) return { synced: false, reason: (data as { error?: string } | null)?.error ?? error.message }
+  return data as { synced: boolean; reason?: string; quantity?: number }
 }

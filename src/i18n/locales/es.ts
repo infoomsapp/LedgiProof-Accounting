@@ -798,6 +798,10 @@ export default {
       settles:  'Salda {{document}}',
       flagged:  'Marcada — revísala',
     },
+    merge: {
+      label:       'Mismo comercio que otro ({{merchant}})',
+      placeholder: 'Mismo comercio que…',
+    },
     why: {
       button:        '¿Por qué?',
       followed:      'La persona eligió lo que sugirió el Brain.',
@@ -914,6 +918,8 @@ export default {
     LM002: 'Solo un owner puede nombrar a un admin',
     LM003: 'La membresía del owner no se puede cambiar',
     LM004: 'Solo un owner puede cambiar o quitar a un admin',
+    LN001: 'Elige dos comercios distintos para unirlos',
+    LN002: 'Solo owners, admins y contadores pueden unir comercios',
     LO001: 'Elige la fecha de estos saldos',
     LO002: 'Los saldos iniciales necesitan al menos dos cuentas con monto',
     LO003: 'Máximo 2,000 cuentas por importación',

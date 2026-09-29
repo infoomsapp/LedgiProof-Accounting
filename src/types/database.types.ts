@@ -8766,6 +8766,15 @@ export type Database = {
         }
         Returns: Json
       }
+      merge_merchants: {
+        Args: {
+          p_client_id: string
+          p_from_key: string
+          p_org_id: string
+          p_to_key: string
+        }
+        Returns: Json
+      }
       next_estimate_number: { Args: { p_org_id: string }; Returns: string }
       next_invoice_number: { Args: { p_org_id: string }; Returns: string }
       open_or_get_member_conversation: {

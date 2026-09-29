@@ -802,6 +802,10 @@ export default {
       settles:  'Settles {{document}}',
       flagged:  'Flagged — take a look',
     },
+    merge: {
+      label:       'Same merchant as another one ({{merchant}})',
+      placeholder: 'Same merchant as…',
+    },
     why: {
       button:        'Why?',
       followed:      'The person chose what the Brain suggested.',
@@ -921,6 +925,8 @@ export default {
     LM002: 'Only an owner can make someone an admin',
     LM003: "The owner's membership can't be changed",
     LM004: 'Only an owner can change or remove an admin',
+    LN001: 'Choose two different merchants to merge',
+    LN002: 'Only owners, admins and accountants can merge merchants',
     LO001: 'Choose the date of these balances',
     LO002: 'Opening balances need at least two accounts with an amount',
     LO003: 'At most 2,000 accounts per import',

@@ -21,7 +21,7 @@
 
 import { db } from '../lib/supabase'
 import type { Account, Database } from '../types/database.types'
-import { toSafeMessage } from '../lib/errors'
+import { toSafeMessage, dbError } from '../lib/errors'
 
 type AccountUpdate = Database['public']['Tables']['accounts']['Update']
 
@@ -246,7 +246,8 @@ export async function deactivateAccount(accountId: string): Promise<void> {
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq('id', accountId)
 
-  if (error) throw new Error(`[Accounts] Deactivate failed: ${toSafeMessage(error, 'database error')}`)
+  // The database says why (LC001 still has a balance, LC002 LedgiProof posts to it).
+  if (error) throw dbError(error, 'Could not deactivate the account')
 }
 
 // ── Legacy operations (Sprint 5 specific) ───────────────────────────────

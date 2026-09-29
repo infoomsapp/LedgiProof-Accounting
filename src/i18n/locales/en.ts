@@ -980,6 +980,8 @@ export default {
     LB007: "A paid bill can't be deleted. Mark it unpaid first.",
     LB008: 'Enter an amount greater than zero',
     LB009: "Bill tracking isn't included in the {{plan}} plan.",
+    LC001: 'This account still has a balance ({{balance}}): move it to another account before deactivating',
+    LC002: "LedgiProof posts to this account by itself (invoices, payments or bills): it can't be deactivated",
     LD001: 'Document not found',
     LD002: 'This receipt is already linked to a transaction',
     LD003: 'Enter the receipt total first',

@@ -320,8 +320,12 @@ export default function ChartOfAccounts() {
   }
 
   function openEdit(account: Account) {
-    // If it's a legacy account, open the assignment modal instead
-    if (account.is_legacy) {
+    // If it's a legacy account, open the assignment modal instead. "Legacy"
+    // only means something in a firm (accounts belong to a client there): in
+    // your own books every account has no client, so is_legacy is always true
+    // -- and every account showed LEGACY / "Assign…", with no Edit and no
+    // Deactivate at all.
+    if (account.is_legacy && !isSelfMode) {
       setLegacyToAssign(account)
       setAssignClientId('')
       setAssignError(null)
@@ -417,7 +421,7 @@ export default function ChartOfAccounts() {
       }
     } catch (e: any) {
       // Surface error inline at row would be ideal; for now alert
-      alert(`Could not toggle: ${e?.message ?? 'unknown error'}`)
+      alert(e?.message ?? 'Could not change the account')
     }
   }
 
@@ -595,7 +599,7 @@ export default function ChartOfAccounts() {
                   account={root}
                   onEdit={openEdit}
                   onToggle={handleToggle}
-                  isLegacy={root.is_legacy}
+                  isLegacy={!isSelfMode && root.is_legacy}
                 />
               ))}
             </tbody>

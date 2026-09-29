@@ -973,6 +973,8 @@ export default {
     LB007: 'Un bill pagado no se puede eliminar. Márcalo como no pagado primero.',
     LB008: 'Escribe un monto mayor que cero',
     LB009: 'El seguimiento de bills no está incluido en el plan {{plan}}.',
+    LC001: 'Esta cuenta todavía tiene saldo ({{balance}}): muévelo a otra cuenta antes de desactivarla',
+    LC002: 'LedgiProof registra en esta cuenta por sí solo (facturas, pagos o bills): no se puede desactivar',
     LD001: 'Documento no encontrado',
     LD002: 'Este recibo ya está vinculado a un movimiento',
     LD003: 'Escribe primero el total del recibo',

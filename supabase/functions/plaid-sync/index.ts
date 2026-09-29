@@ -297,9 +297,8 @@ Deno.serve(async (req) => {
               transaction_date: plaidTx.date,
               payment_method,                          // 🆕 1099 Fase 2
               vendor_id:        resolveVendorId(plaidTx.merchant_name ?? plaidTx.name), // 🆕 1099 Fase 1 parity
-              // No rules run on bank lines: nothing flagged. The colour is
-              // derived by the database (amber until it is in the books).
-              risk_status:      'green',
+              // risk_status: the database's Brain evaluates every bank line on
+              // insert (trg_00_evaluate_risk); the colour is derived from it.
               version:          1,
               is_current:       true,
               created_by:       callerId ?? conn.connected_by,

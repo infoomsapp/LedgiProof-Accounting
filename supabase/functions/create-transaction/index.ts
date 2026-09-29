@@ -2,19 +2,19 @@
 //
 // Server-side port of the exact pipeline src/services/transactions.service.ts's
 // createTransaction() runs client-side today -- built so the LedgiProof mobile
-// app (and any future non-browser caller) gets the SAME hash-chain, the SAME
-// Brain rule evaluation, and the SAME audit trail as the web app, instead of
-// a second, divergent implementation of financial-integrity logic in Dart.
+// app (and any future non-browser caller) gets the SAME hash-chain and the
+// SAME audit trail as the web app, instead of a second, divergent
+// implementation of financial-integrity logic in Dart.
 //
 //   1. buildRawHash        -> raw_hash  (pre-human fingerprint)
-//   2. Brain.evaluate      -> risk_status (the colour is derived in the DB)
-//   3. db.insert           -> transaction row
-//   4. Brain.persist       -> rule_evaluations row
-//   5. autoAssignLearnedVendor (best-effort, non-blocking)
-//   6. CGC Core governance  (best-effort, non-blocking -- see note below)
-//   7. Audit.append        -> audit_events chain entry
+//   2. db.insert           -> transaction row; the database's risk Brain
+//                             (trg_00_evaluate_risk) sets risk_status and
+//                             writes rule_evaluations, for every caller
+//   3. autoAssignLearnedVendor (best-effort, non-blocking)
+//   4. CGC Core governance  (best-effort, non-blocking -- see note below)
+//   5. Audit.append        -> audit_events chain entry
 //
-// Deliberate scope cut, disclosed rather than faked: step 6 calls the same
+// Deliberate scope cut, disclosed rather than faked: step 4 calls the same
 // remote CGC Core endpoint cgc-evaluate proxies to, but does NOT replicate
 // src/services/cgc.service.ts's embedded-fallback simulation (PoD triplet,
 // EU AI Act scoring, weighting matrices) when the remote is unavailable --
@@ -32,7 +32,6 @@ import { safeMessage } from '../_shared/errors.ts'
 const CGC_ENDPOINT   = Deno.env.get('CGC_ENDPOINT') ?? ''
 const CGC_API_KEY    = Deno.env.get('CGC_API_KEY')  ?? ''
 const CGC_TIMEOUT_MS = 8000
-const ENGINE_VERSION = Deno.env.get('ENGINE_VERSION') ?? '1.0.0'
 
 interface RequestBody {
   org_id:            string
@@ -61,157 +60,6 @@ function buildRawHash(p: { orgId: string; amount: number; currency: string; refe
 
 function buildAuditHash(p: { previousHash: string | null; transactionId: string; transactionVersion: number; eventType: string; timestamp: string; actorId: string }) {
   return sha256Text(JSON.stringify(p))
-}
-
-// ── Brain (mirrors src/services/brain.service.ts) ───────────────────────────
-
-interface EvaluatedRule {
-  id: string; name: string; severity: string; score: number; fired: boolean; reason: string | null; errored?: boolean
-}
-interface BrainResult {
-  finalStatus: string; ruleTriggered: string | null; ruleScore: number | null; explanation: string | null
-  evaluatedRules: EvaluatedRule[]; engineVersion: string
-}
-
-function cfgNumber(cfg: Record<string, unknown>, key: string, fallback: number): number {
-  const v = cfg[key]
-  if (v === undefined || v === null) return fallback
-  if (typeof v === 'number' && Number.isFinite(v)) return v
-  if (typeof v === 'string') {
-    const parsed = Number(v)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return fallback
-}
-
-function errorRule(rule: any, reason: string): EvaluatedRule {
-  return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: 0, fired: false, reason, errored: true }
-}
-
-async function loadRules(db: any, orgId: string) {
-  const [globalRes, orgRes] = await Promise.all([
-    db.from('rule_definitions').select('*').is('org_id', null).eq('is_active', true).order('priority', { ascending: true }),
-    db.from('rule_definitions').select('*').eq('org_id', orgId).eq('is_active', true).order('priority', { ascending: true }),
-  ])
-  if (globalRes.error) throw new Error(`[Brain] global rules: ${globalRes.error.message}`)
-  if (orgRes.error) throw new Error(`[Brain] org rules: ${orgRes.error.message}`)
-  const map = new Map<string, any>()
-  for (const r of globalRes.data ?? []) map.set(r.rule_id, r)
-  for (const r of orgRes.data ?? []) map.set(r.rule_id, r)
-  return Array.from(map.values()).sort((a, b) => a.priority - b.priority)
-}
-
-async function applyRule(db: any, rule: any, input: {
-  orgId: string; clientId: string | null; amount: number; reference: string | null; metadata: Record<string, unknown>
-}): Promise<EvaluatedRule> {
-  const cfg = (rule.config ?? {}) as Record<string, unknown>
-
-  switch (rule.rule_id) {
-    case 'dup_check': {
-      const windowHours = cfgNumber(cfg, 'window_hours', 48)
-      const windowStart = new Date(Date.now() - windowHours * 3_600_000).toISOString()
-      let q = db.from('transactions').select('id', { count: 'exact', head: true })
-        .eq('org_id', input.orgId).eq('amount', input.amount).eq('reference', input.reference ?? '')
-        .eq('is_current', true).gte('created_at', windowStart)
-      if (input.clientId) q = q.eq('client_id', input.clientId)
-      const { count, error } = await q
-      if (error) return errorRule(rule, `Query error: ${error.message}`)
-      const fired = (count ?? 0) > 0
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.95 : 0, fired, reason: fired ? `Duplicate transaction detected within ${windowHours}h window` : null }
-    }
-    case 'threshold_check': {
-      const limit = cfgNumber(cfg, 'default_limit', 5000)
-      const fired = Math.abs(input.amount) > limit
-      const score = fired ? Math.min(Math.abs(input.amount) / limit / 2, 1) : 0
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score, fired, reason: fired ? `Amount $${input.amount} exceeds limit $${limit}` : null }
-    }
-    case 'velocity_check': {
-      const maxPerHour = cfgNumber(cfg, 'max_tx_per_hour', 20)
-      const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString()
-      let q = db.from('transactions').select('id', { count: 'exact', head: true })
-        .eq('org_id', input.orgId).eq('is_current', true).gte('created_at', oneHourAgo)
-      if (input.clientId) q = q.eq('client_id', input.clientId)
-      const { count, error } = await q
-      if (error) return errorRule(rule, `Query error: ${error.message}`)
-      const fired = (count ?? 0) >= maxPerHour
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.85 : 0, fired, reason: fired ? `${count} transactions in the last hour (limit ${maxPerHour})` : null }
-    }
-    case 'new_counterparty': {
-      if (!input.reference) return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: 0, fired: false, reason: null }
-      const lookbackDays = cfgNumber(cfg, 'lookback_days', 90)
-      const lookbackStart = new Date(Date.now() - lookbackDays * 86_400_000).toISOString()
-      let q = db.from('transactions').select('id', { count: 'exact', head: true })
-        .eq('org_id', input.orgId).eq('reference', input.reference).eq('is_current', true)
-        .gte('transaction_date', lookbackStart.slice(0, 10))
-      if (input.clientId) q = q.eq('client_id', input.clientId)
-      const { count, error } = await q
-      if (error) return errorRule(rule, `Query error: ${error.message}`)
-      const fired = (count ?? 0) === 0
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.6 : 0, fired, reason: fired ? `No prior transactions with reference "${input.reference}" in ${lookbackDays} days` : null }
-    }
-    case 'missing_document': {
-      // Same rule as the browser Brain: money out of at least min_amount (75 USD).
-      const minAmount = cfgNumber(cfg, 'min_amount', 75)
-      const fired = input.amount < 0 && Math.abs(input.amount) >= minAmount
-        && !input.metadata?.['document_url']
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.7 : 0, fired, reason: fired ? 'No supporting document attached to this transaction' : null }
-    }
-    case 'budget_variance': {
-      // Same database function the browser Brain calls, so "over budget"
-      // cannot mean two different things depending on where a transaction was
-      // entered from.
-      const variancePct = cfgNumber(cfg, 'variance_pct', 10)
-      const { data, error } = await db.rpc('check_budget_variance', {
-        p_org_id:       input.orgId,
-        p_client_id:    input.clientId ?? null,
-        p_amount:       input.amount,
-        p_variance_pct: variancePct,
-      })
-      if (error) return errorRule(rule, `Query error: ${error.message}`)
-      const fired = Boolean(data?.fired)
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: fired ? 0.6 : 0, fired, reason: fired ? data.reason : null }
-    }
-    default:
-      return { id: rule.rule_id, name: rule.name, severity: rule.severity, score: 0, fired: false, reason: null }
-  }
-}
-
-function resolvePriority(evaluated: EvaluatedRule[]): BrainResult {
-  const fired = evaluated.filter(r => r.fired)
-  const critical = fired.filter(r => r.severity === 'critical')
-  const review = fired.filter(r => r.severity === 'review')
-  const info = fired.filter(r => r.severity === 'info')
-
-  let finalStatus = 'green'
-  let winner: EvaluatedRule | null = null
-
-  if (critical.length > 0) {
-    finalStatus = 'red'
-    winner = critical.sort((a, b) => b.score - a.score)[0] ?? null
-  } else if (review.length > 0) {
-    finalStatus = 'amber'
-    winner = review.sort((a, b) => b.score - a.score)[0] ?? null
-  } else if (info.length > 0) {
-    finalStatus = 'green'
-    winner = info.sort((a, b) => b.score - a.score)[0] ?? null
-  }
-
-  return {
-    finalStatus, ruleTriggered: winner?.id ?? null, ruleScore: winner?.score ?? null,
-    explanation: winner?.reason ?? null, evaluatedRules: evaluated, engineVersion: ENGINE_VERSION,
-  }
-}
-
-async function evaluateTransaction(db: any, input: {
-  orgId: string; clientId: string | null; amount: number; reference: string | null; metadata: Record<string, unknown>
-}): Promise<BrainResult> {
-  const rules = await loadRules(db, input.orgId)
-  const evaluated: EvaluatedRule[] = []
-  for (const rule of rules) {
-    if (!rule.is_active) continue
-    evaluated.push(await applyRule(db, rule, input))
-  }
-  return resolvePriority(evaluated)
 }
 
 // ── Vendor auto-learning (mirrors learning.service.ts + vendor.service.ts) ──
@@ -338,18 +186,12 @@ Deno.serve(async (req) => {
       reference: body.reference ?? null, transactionDate: body.transaction_date, source: body.source,
     })
 
-    // 2. Brain
-    const brainResult = await evaluateTransaction(admin, {
-      orgId: body.org_id, clientId, amount: body.amount,
-      reference: body.reference ?? null, metadata: body.metadata ?? {},
-    })
-
-    // 3. Chain continuity
+    // 2. Chain continuity
     const { data: lastAudit } = await admin.from('audit_events')
       .select('entry_hash').eq('org_id', body.org_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
     const previousHash = lastAudit?.entry_hash ?? null
 
-    // 4. Insert transaction
+    // 3. Insert transaction (risk_status is set by the database's Brain)
     const { data: tx, error: insertErr } = await admin.from('transactions').insert({
       org_id: body.org_id,
       client_id: clientId,
@@ -360,9 +202,6 @@ Deno.serve(async (req) => {
       reference: body.reference ?? null,
       description: body.description ?? null,
       transaction_date: body.transaction_date,
-      // The Brain's verdict; the colour itself is derived by the database.
-      risk_status: brainResult.finalStatus,
-      status_reason: brainResult.explanation,
       raw_hash: rawHash,
       previous_hash: previousHash,
       metadata: body.metadata ?? {},
@@ -375,20 +214,7 @@ Deno.serve(async (req) => {
       return respond({ error: safeMessage(insertErr, 'Failed to create the transaction') }, 500)
     }
 
-    // 5. Persist Brain evaluation
-    await admin.from('rule_evaluations').insert({
-      transaction_id: tx.id,
-      transaction_version: tx.version,
-      final_status: brainResult.finalStatus,
-      rule_triggered: brainResult.ruleTriggered,
-      rule_score: brainResult.ruleScore,
-      explanation: brainResult.explanation,
-      evaluated_rules: brainResult.evaluatedRules,
-      engine_version: brainResult.engineVersion,
-      ...(clientId ? { client_id: clientId } : {}),
-    })
-
-    // 6. Vendor auto-learning (best-effort) + 7. CGC Core (best-effort) --
+    // Vendor auto-learning (best-effort) + CGC Core (best-effort) --
     // scheduled via EdgeRuntime.waitUntil rather than a bare fire-and-forget
     // call: this isolate can be torn down right after the response is sent,
     // and an un-awaited promise has no guarantee of finishing before that
@@ -399,7 +225,7 @@ Deno.serve(async (req) => {
       cgcEvaluateBestEffort({
         transactionId: tx.id, orgId: body.org_id, amount: body.amount, currency,
         description: body.description ?? null, reference: body.reference ?? null, date: body.transaction_date,
-        source: body.source, semaphore: brainResult.finalStatus, confidence: brainResult.ruleScore,
+        source: body.source, semaphore: tx.semaphore, confidence: null,
         userEmail: user.email ?? 'service@ledgiproof',
       }),
     ])
@@ -407,7 +233,7 @@ Deno.serve(async (req) => {
     if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(background)
     else await background // local/dev runtime fallback
 
-    // 8. Audit chain
+    // 4. Audit chain
     const entryHash = await buildAuditHash({
       previousHash, transactionId: tx.id, transactionVersion: tx.version,
       eventType: 'created', timestamp: tx.created_at, actorId: user.id,

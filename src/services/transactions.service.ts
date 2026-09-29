@@ -2,16 +2,15 @@
 // The only correct way to write a transaction into LedgiProof.
 // Every insert flows through:
 //   1. buildRawHash        → raw_hash  (pre-human fingerprint)
-//   2. Brain.evaluate      → semaphore assignment  (+ user_patterns learning)
+//   2. db.insert           → transaction row; the database's risk Brain
+//                            (trg_00_evaluate_risk, brain_f0_risk_in_db.sql)
+//                            sets risk_status and writes rule_evaluations
 //   3. CGC.evaluate        → Proof-of-Decision     (governance layer)
-//   4. db.insert           → transaction row
-//   5. Brain.persist       → rule_evaluations row
 //   6. CGC.persist         → audit_events cgc_proof
 //   7. Audit.append        → audit_events chain entry
 
 import { db } from '../lib/supabase'
 import { buildRawHash, buildFinalHash, buildAuditHash } from '../lib/hash'
-import { evaluateTransaction, persistEvaluation } from './brain.service'
 import { appendAuditEvent, getLatestAuditHash } from './audit.service'
 import { getCurrentUserId } from '../lib/supabase'
 import { createNotification } from '../hooks/useNotifications'
@@ -108,20 +107,7 @@ export async function createTransaction(
     source:          input.source
   })
 
-  // 2. Run Brain — evaluate rules and assign semaphore
-  const brainResult = await evaluateTransaction({
-    orgId:           input.orgId,
-    clientId:        input.clientId ?? null,
-    amount:          input.amount,
-    currency,
-    reference:       input.reference ?? null,
-    description:     input.description ?? null,
-    transactionDate: input.transactionDate,
-    source:          input.source,
-    metadata:        input.metadata ?? {}
-  })
-
-  // 3. Get last audit entry hash for chain continuity
+  // 2. Get last audit entry hash for chain continuity
   const previousHash = await getLatestAuditHash(input.orgId)
 
   // 4. Insert transaction row
@@ -136,8 +122,7 @@ export async function createTransaction(
     reference:            input.reference ?? null,
     description:          input.description ?? null,
     transaction_date:     input.transactionDate,
-    risk_status:          brainResult.finalStatus,   // the colour is derived in the DB
-    status_reason:        brainResult.explanation ?? null,
+    // risk_status / status_reason: set by the database's Brain on insert.
     raw_hash:             rawHash,
     previous_hash:        previousHash,
     metadata:             (input.metadata ?? {}) as Json,
@@ -158,9 +143,6 @@ export async function createTransaction(
   if (error || !data) {
     throw new Error(`[Transactions] Insert failed: ${toSafeMessage(error, 'database error')}`)
   }
-
-  // 5. Persist Brain evaluation
-  await persistEvaluation(data.id, data.version, brainResult)
 
   // 5b. 1099 normalization — auto-assign the learned vendor (payee) for this
   // merchant, if a confirmed pattern exists. Best-effort and non-blocking:
@@ -195,8 +177,8 @@ export async function createTransaction(
     reference:     input.reference ?? null,
     date:          input.transactionDate,
     source:        input.source,
-    semaphore:     brainResult.finalStatus,
-    confidence:    brainResult.ruleScore,
+    semaphore:     data.semaphore,
+    confidence:    null,
     metadata:      input.metadata ?? {}
   }).catch(() => {}) // CGC failure never blocks the transaction
 
@@ -221,18 +203,18 @@ export async function createTransaction(
     entryHash,
     metadata: {
       raw_hash:       rawHash,
-      brain_result:   brainResult,
-      semaphore:      brainResult.finalStatus
+      brain_result:   { risk_status: data.risk_status, reason: data.status_reason },
+      semaphore:      data.semaphore
     }
   })
 
   // Fire notification for amber/red transactions
-  if (['amber','red'].includes(brainResult.finalStatus)) {
+  if (data.risk_status === 'amber' || data.risk_status === 'red') {
     createNotification({
       orgId:         input.orgId,
       userId:        actorId,
       type:          'review_requested',
-      title:         brainResult.finalStatus === 'red'
+      title:         data.risk_status === 'red'
                        ? '🔴 Transaction needs immediate review'
                        : '🟡 Transaction flagged for review',
       body:          `${input.description ?? input.reference ?? 'Transaction'} · ${
@@ -298,19 +280,6 @@ export async function editTransaction(
     source:          current.source
   })
 
-  // Re-evaluate with Brain
-  const brainResult = await evaluateTransaction({
-    orgId:           input.orgId,
-    clientId:        current.client_id ?? null,
-    amount:          newAmount,
-    currency:        newCurrency,
-    reference:       newRef ?? null,
-    description:     newDesc ?? null,
-    transactionDate: newDate,
-    source:          current.source,
-    metadata:        newMeta
-  })
-
   const previousHash = await getLatestAuditHash(input.orgId)
   const newVersion   = current.version + 1
 
@@ -329,8 +298,7 @@ export async function editTransaction(
       reference:            newRef,
       description:          newDesc,
       transaction_date:     newDate,
-      risk_status:          brainResult.finalStatus,   // the colour is derived in the DB
-      status_reason:        brainResult.explanation ?? null,
+      // The database's Brain re-evaluates the new version on insert.
       raw_hash:             rawHash,
       previous_hash:        previousHash,
       metadata:             newMeta as Json,
@@ -343,8 +311,6 @@ export async function editTransaction(
     throw new Error(`[Transactions] Edit insert failed: ${toSafeMessage(error, 'database error')}`)
   }
 
-  await persistEvaluation(data.id, data.version, brainResult)
-
   // Build diff for audit trail
   const diff: Record<string, { before: unknown; after: unknown }> = {}
   if (input.amount          !== undefined) diff['amount']           = { before: current.amount,           after: newAmount }
@@ -354,8 +320,8 @@ export async function editTransaction(
   if (input.transactionDate !== undefined) diff['transaction_date'] = { before: current.transaction_date, after: newDate }
 
   const prevSemaphore = current.semaphore as SemaphoreStatus
-  if (prevSemaphore !== brainResult.finalStatus) {
-    diff['semaphore'] = { before: prevSemaphore, after: brainResult.finalStatus }
+  if (prevSemaphore !== data.semaphore) {
+    diff['semaphore'] = { before: prevSemaphore, after: data.semaphore }
   }
 
   const entryHash = await buildAuditHash({
@@ -380,7 +346,7 @@ export async function editTransaction(
     metadata: {
       edit_reason:  input.editReason,
       raw_hash:     rawHash,
-      brain_result: brainResult
+      brain_result: { risk_status: data.risk_status, reason: data.status_reason }
     }
   })
 

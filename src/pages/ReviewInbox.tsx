@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next'
 import { useScope } from '../hooks/useScope'
 import { getAccounts } from '../services/accounts.service'
 import {
-  getReviewQueue, postReviewed, setCategorizationRule, suggestWithAi,
+  getReviewQueue, postReviewed, setCategorizationRule,
   type ReviewItem, type RulePrompt, type SuggestionSource
 } from '../services/review.service'
 import { formatCurrency } from '../lib/currency'
@@ -81,7 +81,6 @@ export default function ReviewInbox() {
   const [hasBank,     setHasBank]     = useState(true)
   const [accounts,    setAccounts]    = useState<Account[]>([])
   const [choices,     setChoices]     = useState<Record<string, Choice>>({})
-  const [aiPending,   setAiPending]   = useState<Set<string>>(new Set())
   const [busy,        setBusy]        = useState<Set<string>>(new Set())
   const [rowErrors,   setRowErrors]   = useState<Record<string, string>>({})
   const [prompts,     setPrompts]     = useState<RulePrompt[]>([])
@@ -120,26 +119,8 @@ export default function ReviewInbox() {
         const c = suggestedChoice(it)
         if (c) initial[it.id] = c
       }
+      // What the Brain can't suggest stays blank: the person chooses (no AI).
       setChoices(initial)
-
-      // Whatever nothing else could suggest goes to the AI (up to 25 at once).
-      const blank = queue.items.filter(it => !it.suggested_account_id).map(it => it.id).slice(0, 25)
-      if (blank.length > 0) {
-        setAiPending(new Set(blank))
-        suggestWithAi(orgId, clientId, blank)
-          .then(suggestions => {
-            setChoices(prev => {
-              const next = { ...prev }
-              for (const s of suggestions) {
-                if (!next[s.transaction_id]) {
-                  next[s.transaction_id] = { accountId: s.account_id, source: 'ai', confidence: s.confidence }
-                }
-              }
-              return next
-            })
-          })
-          .finally(() => setAiPending(new Set()))
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -418,14 +399,12 @@ export default function ReviewInbox() {
                     ))}
                   </select>
                   <div style={{ fontSize: 11, marginTop: 4, minHeight: 14, color: 'var(--lp-text-muted)' }}>
-                    {aiPending.has(it.id) && !choice
-                      ? <span style={{ color: 'var(--lp-violet)' }}>✦ {t('review.aiThinking')}</span>
-                      : choice?.source && (
-                        <span style={{ color: choice.source === 'ai' ? 'var(--lp-violet)' : choice.source === 'rule' ? 'var(--sem-blue)' : 'var(--lp-text-muted)' }}>
-                          {choice.source === 'ai' ? '✦ ' : ''}{t(`review.sources.${choice.source}`)}
-                          {choice.confidence != null && ` · ${choice.confidence}%`}
-                        </span>
-                      )}
+                    {choice?.source && (
+                      <span style={{ color: choice.source === 'rule' ? 'var(--sem-blue)' : 'var(--lp-text-muted)' }}>
+                        {t(`review.sources.${choice.source}`)}
+                        {choice.confidence != null && ` · ${choice.confidence}%`}
+                      </span>
+                    )}
                   </div>
                 </div>
 

@@ -5,8 +5,6 @@
 //   getReviewQueue()      -> get_review_queue(): uncategorized transactions,
 //                            each with a suggested category (rule / learned /
 //                            vendor / known merchant / income).
-//   suggestWithAi()       -> suggest-categories edge function: fills in the
-//                            ones nothing else could suggest.
 //   postReviewed()        -> post_reviewed_transactions(): posts the balanced
 //                            entry (bank side implied), marks it blue/verified
 //                            with the audit hash chain, learns the merchant.
@@ -25,7 +23,7 @@ import { db } from '../lib/supabase'
 import { dbError, LP_ERROR_CODE } from '../lib/errors'
 
 export type SuggestionSource =
-  | 'rule' | 'learned' | 'vendor' | 'merchant' | 'bank_category' | 'income' | 'ai'
+  | 'rule' | 'learned' | 'vendor' | 'merchant' | 'bank_category' | 'income'
   | 'invoice' | 'deposit' | 'bill' | 'bill_payment'
 
 /** A deposit whose amount is exactly an open invoice's balance. */
@@ -106,20 +104,6 @@ export async function getReviewQueue(orgId: string, clientId: string | null): Pr
   })
   if (error) throw dbError(error, 'Could not load the transactions to review')
   return data as unknown as ReviewQueue
-}
-
-export async function suggestWithAi(
-  orgId: string,
-  clientId: string | null,
-  transactionIds: string[]
-): Promise<{ transaction_id: string; account_id: string; account_code: string; account_name: string; confidence: number }[]> {
-  if (transactionIds.length === 0) return []
-  const { data, error } = await db.functions.invoke('suggest-categories', {
-    body: { org_id: orgId, client_id: clientId, transaction_ids: transactionIds.slice(0, 25) }
-  })
-  // AI suggestions are a bonus: any failure just leaves those rows to the user.
-  if (error || !data?.suggestions) return []
-  return data.suggestions
 }
 
 export async function postReviewed(

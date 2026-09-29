@@ -1,5 +1,6 @@
 // PATH: src/pages/FirmReportsSummary.tsx
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useScope }       from '../hooks/useScope'
 import { db }              from '../lib/supabase'
@@ -28,6 +29,10 @@ interface ClientSummaryRow {
 // entities' books have no shared meaning to add together. Each row links
 // out to that client's own full Balance Sheet / P&L for drill-down.
 export default function FirmReportsSummary() {
+  const { t, i18n } = useTranslation()
+  const monthNames = useMemo(
+    () => Array.from({ length: 12 }, (_, k) => new Date(2000, k, 1).toLocaleString(i18n.language, { month: 'long' })),
+    [i18n.language])
   const scope = useScope()
   const orgId = scope.orgId
   const now   = new Date()
@@ -71,18 +76,18 @@ export default function FirmReportsSummary() {
     <div style={{ padding: '28px 32px', flex: 1, overflowY: 'auto' }}>
 
       <div style={{ marginBottom: 24 }}>
-        <h1 className="lp-page-title">Reports</h1>
-        <p className="lp-page-sub">Revenue, expenses, and balance status across every client</p>
+        <h1 className="lp-page-title">{t('reports.firm.title')}</h1>
+        <p className="lp-page-sub">{t('reports.firm.subtitle')}</p>
       </div>
 
       {/* Client selector — jump straight to one client's own report, or
           stay on "All clients" for the comparison table below. */}
       <div className="lp-card" style={{ marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div style={{ minWidth: 220 }}>
-          <label style={{ fontSize: 12, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>Client</label>
+          <label style={{ fontSize: 12, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>{t('reports.firm.client')}</label>
           <select className="lp-input" style={{ width: '100%' }} value={selectedClientId}
             onChange={e => setSelectedClientId(e.target.value)}>
-            <option value="all">All clients (comparison)</option>
+            <option value="all">{t('reports.firm.allClients')}</option>
             {clients.map(c => (
               <option key={c.id} value={c.id}>{c.company_name || c.display_name}</option>
             ))}
@@ -104,7 +109,7 @@ export default function FirmReportsSummary() {
       {/* Controls */}
       <div className="lp-card" style={{ marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div>
-          <label style={{ fontSize: 12, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>Year</label>
+          <label style={{ fontSize: 12, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>{t('reports.controls.year')}</label>
           <select className="lp-input" style={{ width: 90 }} value={year}
             onChange={e => setYear(Number(e.target.value))}>
             {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y =>
@@ -113,16 +118,16 @@ export default function FirmReportsSummary() {
         </div>
 
         <div>
-          <label style={{ fontSize: 12, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>Through month</label>
+          <label style={{ fontSize: 12, color: 'var(--lp-text-muted)', display: 'block', marginBottom: 5 }}>{t('reports.controls.throughMonth')}</label>
           <select className="lp-input" style={{ width: 130 }} value={month}
             onChange={e => setMonth(Number(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            {monthNames.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
           </select>
         </div>
 
         <button onClick={runReport} disabled={loading} className="lp-btn lp-btn-primary"
           style={{ padding: '9px 24px' }}>
-          {loading ? 'Generating…' : 'Run report'}
+          {loading ? t('reports.controls.generating') : t('reports.controls.run')}
         </button>
       </div>
 
@@ -137,10 +142,10 @@ export default function FirmReportsSummary() {
         <div className="lp-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>
-            No active clients yet
+            {t('reports.firm.noClientsTitle')}
           </div>
           <div style={{ fontSize: 13, color: 'var(--lp-text-muted)' }}>
-            Add a client to start seeing their numbers here.
+            {t('reports.firm.noClientsBody')}
           </div>
         </div>
       )}
@@ -151,9 +156,9 @@ export default function FirmReportsSummary() {
             display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20
           }}>
             {[
-              { label: 'Total Revenue',  value: totalRevenue,  color: 'var(--sem-green)' },
-              { label: 'Total Expenses', value: totalExpenses, color: 'var(--sem-red-soft)' },
-              { label: 'Net Income',     value: totalNet,      color: totalNet >= 0 ? 'var(--sem-green)' : 'var(--sem-red-soft)' },
+              { label: t('reports.firm.totalRevenue'),  value: totalRevenue,  color: 'var(--sem-green)' },
+              { label: t('reports.firm.totalExpenses'), value: totalExpenses, color: 'var(--sem-red-soft)' },
+              { label: t('reports.firm.netIncome'),     value: totalNet,      color: totalNet >= 0 ? 'var(--sem-green)' : 'var(--sem-red-soft)' },
             ].map(({ label, value, color }) => (
               <div key={label} className="lp-card">
                 <div style={{ fontSize: 11, color: 'var(--lp-text-muted)', marginBottom: 6 }}>{label}</div>
@@ -167,7 +172,7 @@ export default function FirmReportsSummary() {
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                 <thead>
                   <tr style={{ background: 'var(--lp-surface-2)', borderBottom: '0.5px solid var(--lp-border)' }}>
-                    {['Client', 'Revenue', 'Expenses', 'Net Income', 'Status', ''].map((h, i) => (
+                    {[t('reports.firm.client'), t('reports.firm.revenue'), t('reports.firm.expenses'), t('reports.firm.netIncome'), t('reports.firm.status'), ''].map((h, i) => (
                       <th key={h || i} style={{
                         textAlign: i === 0 ? 'left' : i === 5 ? 'left' : 'right',
                         padding: '10px 16px', fontSize: 11.5, fontWeight: 600,
@@ -201,12 +206,12 @@ export default function FirmReportsSummary() {
                           border: `0.5px solid ${r.is_balanced ? 'var(--sem-green-border)' : 'var(--sem-red-border)'}`,
                           color: r.is_balanced ? 'var(--sem-green)' : 'var(--sem-red)'
                         }}>
-                          {r.is_balanced ? '✓ Balanced' : '⚠ Out of balance'}
+                          {r.is_balanced ? t('reports.firm.balanced') : t('reports.firm.outOfBalance')}
                         </span>
                       </td>
                       <td style={{ padding: '12px 16px', textAlign: 'left' }}>
                         <Link to={`/clients/${r.client_id}/reports`} className="lp-btn lp-btn-ghost" style={{ fontSize: 12, padding: '5px 12px' }}>
-                          View →
+                          {t('reports.firm.view')}
                         </Link>
                       </td>
                     </tr>
@@ -229,10 +234,10 @@ export default function FirmReportsSummary() {
         <div className="lp-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>
-            Select a period and run the report
+            {t('reports.empty.title')}
           </div>
           <div style={{ fontSize: 13, color: 'var(--lp-text-muted)' }}>
-            One row per client — revenue, expenses, net income, and balance status.
+            {t('reports.firm.emptyBody')}
           </div>
         </div>
       )}

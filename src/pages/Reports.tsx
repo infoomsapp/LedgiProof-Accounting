@@ -1,5 +1,6 @@
 // PATH: src/pages/Reports.tsx
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useScope }     from '../hooks/useScope'
 import { useOrgStore }  from '../store/org.store'
 import { db }           from '../lib/supabase'
@@ -53,26 +54,29 @@ type ReportKey =
   | 'balance_sheet' | 'pl' | 'cash_flow' | 'budget'
   | 'trial_balance' | 'general_ledger' | 'ar_aging' | 'ap_aging'
 
+// The second element is an i18n KEY (module scope can't call hooks): every
+// render site resolves it with t(). The names used to be English literals,
+// so a Spanish UI read "Budget vs Actual" ("actual" = current, in Spanish).
 const REPORT_TABS: [ReportKey, string][] = [
-  ['balance_sheet',  'Balance Sheet'],
-  ['pl',             'P&L'],
-  ['cash_flow',      'Cash Flow'],
-  ['trial_balance',  'Trial Balance'],
-  ['general_ledger', 'General Ledger'],
-  ['ar_aging',       'A/R Aging'],
-  ['ap_aging',       'A/P Aging'],
-  ['budget',         'Budget vs Actual'],
+  ['balance_sheet',  'reports.names.balance_sheet'],
+  ['pl',             'reports.names.pl'],
+  ['cash_flow',      'reports.names.cash_flow'],
+  ['trial_balance',  'reports.names.trial_balance'],
+  ['general_ledger', 'reports.names.general_ledger'],
+  ['ar_aging',       'reports.names.ar_aging'],
+  ['ap_aging',       'reports.names.ap_aging'],
+  ['budget',         'reports.names.budget'],
 ]
 
 const REPORT_TITLES: Record<ReportKey, string> = {
-  balance_sheet:  'Balance Sheet',
-  pl:             'P&L',
-  cash_flow:      'Cash Flow',
-  budget:         'Budget vs Actual',
-  trial_balance:  'Trial Balance',
-  general_ledger: 'General Ledger',
-  ar_aging:       'Accounts Receivable Aging',
-  ap_aging:       'Accounts Payable Aging',
+  balance_sheet:  'reports.titles.balance_sheet',
+  pl:             'reports.titles.pl',
+  cash_flow:      'reports.titles.cash_flow',
+  budget:         'reports.titles.budget',
+  trial_balance:  'reports.titles.trial_balance',
+  general_ledger: 'reports.titles.general_ledger',
+  ar_aging:       'reports.titles.ar_aging',
+  ap_aging:       'reports.titles.ap_aging',
 }
 
 // How each report is scoped in time.
@@ -193,6 +197,11 @@ interface ReportsProps {
 }
 
 export default function Reports({ orgIdOverride, clientIdOverride, entityNameOverride }: ReportsProps = {}) {
+  const { t, i18n } = useTranslation()
+  // Month names in the interface's language (MONTHS stays English for CSV).
+  const monthNames = useMemo(
+    () => Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleString(i18n.language, { month: 'long' })),
+    [i18n.language])
   // scope.clientId is set when this page is reached inside a firm's client
   // workspace (/clients/:clientId/reports) and null for solo/pyme orgs and
   // for a firm's own org-level view — both real cases, not "show everyone".
@@ -321,13 +330,13 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
 
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h1 className="lp-page-title">Financial Reports</h1>
-          <p className="lp-page-sub">Statements, ledger and aging — all from the same journal entries</p>
+          <h1 className="lp-page-title">{t('reports.title')}</h1>
+          <p className="lp-page-sub">{t('reports.subtitle')}</p>
         </div>
         {hasRun && !loading && (
           <div style={{ display:'flex', gap:8 }}>
             <button
-              onClick={() => printToPDF(`${entityName} — ${REPORT_TITLES[report]} ${
+              onClick={() => printToPDF(`${entityName} — ${t(REPORT_TITLES[report])} ${
                 RANGE_REPORTS.has(report) ? `${from} to ${to}` : AS_OF_REPORTS.has(report) ? asOf : `${year}-${String(month).padStart(2,'0')}`}`)}
               className="lp-btn lp-btn-ghost" style={{ fontSize:12.5 }}
             >
@@ -419,7 +428,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
       {/* Controls */}
       <div className="lp-card" style={{ marginBottom:20, display:'flex', gap:12, alignItems:'flex-end', flexWrap:'wrap' }}>
         <div>
-          <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>Report</label>
+          <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>{t('reports.controls.report')}</label>
           <div style={{ display:'flex', flexWrap:'wrap' }}>
             {/* Rounding is keyed on position, not on a report's name: with a
                 fourth report the old name-based rule gave every button after
@@ -434,7 +443,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                 borderRadius: i === 0 ? '7px 0 0 7px'
                             : i === tabs.length - 1 ? '0 7px 7px 0' : 0,
                 borderLeft:   i === 0 ? undefined : 'none'
-              }}>{l}</button>
+              }}>{t(l)}</button>
             ))}
           </div>
         </div>
@@ -442,19 +451,19 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
         {RANGE_REPORTS.has(report) && (
           <>
             <div>
-              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>Period</label>
+              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>{t('reports.controls.period')}</label>
               <select className="lp-input" style={{ width:140 }} value={preset}
                 onChange={e => choosePreset(e.target.value as RangePreset)}>
                 {RANGE_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>From</label>
+              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>{t('reports.controls.from')}</label>
               <input type="date" className="lp-input" value={from}
                 onChange={e => { setFrom(e.target.value); setPreset('custom') }} />
             </div>
             <div>
-              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>To</label>
+              <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>{t('reports.controls.to')}</label>
               <input type="date" className="lp-input" value={to}
                 onChange={e => { setTo(e.target.value); setPreset('custom') }} />
             </div>
@@ -463,14 +472,14 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
 
         {AS_OF_REPORTS.has(report) && (
           <div>
-            <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>As of</label>
+            <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>{t('reports.controls.asOf')}</label>
             <input type="date" className="lp-input" value={asOf} onChange={e => setAsOf(e.target.value)} />
           </div>
         )}
 
         {!RANGE_REPORTS.has(report) && !AS_OF_REPORTS.has(report) && (<>
         <div>
-          <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>Year</label>
+          <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>{t('reports.controls.year')}</label>
           <select className="lp-input" style={{ width:90 }} value={year}
             onChange={e => setYear(Number(e.target.value))}>
             {[now.getFullYear()-1, now.getFullYear(), now.getFullYear()+1].map(y =>
@@ -480,13 +489,13 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
 
         <div>
           <label style={{ fontSize:12, color:'var(--lp-text-muted)', display:'block', marginBottom:5 }}>
-            {report === 'balance_sheet' ? 'As of month'
-              : report === 'budget' || report === 'cash_flow' ? 'Month'
-              : 'Through month'}
+            {report === 'balance_sheet' ? t('reports.controls.asOfMonth')
+              : report === 'budget' || report === 'cash_flow' ? t('reports.controls.month')
+              : t('reports.controls.throughMonth')}
           </label>
           <select className="lp-input" style={{ width:130 }} value={month}
             onChange={e => setMonth(Number(e.target.value))}>
-            {MONTHS.map((m,i) => <option key={i} value={i+1}>{m}</option>)}
+            {monthNames.map((m,i) => <option key={i} value={i+1}>{m}</option>)}
           </select>
         </div>
         </>)}
@@ -494,13 +503,13 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
         <button onClick={handleRun} disabled={loading || (RANGE_REPORTS.has(report) && (!from || !to || from > to))}
           className="lp-btn lp-btn-primary"
           style={{ padding:'9px 24px' }}>
-          {loading ? 'Generating…' : 'Run report'}
+          {loading ? t('reports.controls.generating') : t('reports.controls.run')}
         </button>
 
         {report === 'budget' && canEditBudget && (
           <button onClick={() => setShowBudgetEditor(v => !v)} className="lp-btn lp-btn-ghost"
             style={{ padding:'9px 18px' }}>
-            {showBudgetEditor ? 'Hide budget editor' : 'Set budget'}
+            {showBudgetEditor ? t('reports.budget.hideEditor') : t('reports.budget.set')}
           </button>
         )}
       </div>
@@ -525,19 +534,19 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
         <div style={{ maxWidth:700 }}>
           <ReportLetterhead
             entityName={entityName}
-            reportTitle="Budget vs Actual"
-            period={`${MONTHS[month-1]} ${year}`}
+            reportTitle={t('reports.titles.budget')}
+            period={`${monthNames[month-1]} ${year}`}
           />
 
           {bvaData.period_budget === 0 && bvaData.lines.every(l => !l.has_budget) ? (
             <div className="lp-card" style={{ textAlign:'center', padding:'32px 24px' }}>
               <div style={{ fontSize:14, fontWeight:600, color:'var(--lp-text)', marginBottom:6 }}>
-                No budget set for {MONTHS[month-1]} {year}
+                {t('reports.budget.noneTitle', { month: monthNames[month-1], year })}
               </div>
               <div style={{ fontSize:13, color:'var(--lp-text-muted)' }}>
                 {canEditBudget
-                  ? 'Use "Set budget" above. The monthly ceiling is also what lets the assistant warn you before an expense puts the month over budget.'
-                  : 'Ask the workspace owner or accountant to set one.'}
+                  ? t('reports.budget.noneCanEdit')
+                  : t('reports.budget.noneAsk')}
               </div>
             </div>
           ) : (
@@ -557,15 +566,15 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
                       <span style={{ fontSize:13, fontWeight:700,
                         color: over ? 'var(--sem-red)' : 'var(--sem-green)' }}>
-                        {over ? 'Over the monthly ceiling' : 'Within the monthly ceiling'}
+                        {over ? t('reports.budget.overCeiling') : t('reports.budget.withinCeiling')}
                       </span>
                       <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800,
                         color: over ? 'var(--sem-red)' : 'var(--sem-green)' }}>
-                        {fmt(Math.abs(left))} {over ? 'over' : 'left'}
+                        {over ? t('reports.budget.amountOver', { amount: fmt(Math.abs(left)) }) : t('reports.budget.amountLeft', { amount: fmt(Math.abs(left)) })}
                       </span>
                     </div>
                     <div style={{ fontSize:12, color:'var(--lp-text-muted)', marginTop:6 }}>
-                      Spent {fmt(bvaData.total_actual)} of {fmt(bvaData.period_budget)} budgeted for the month.
+                      {t('reports.budget.spentOf', { spent: fmt(bvaData.total_actual), budget: fmt(bvaData.period_budget) })}
                     </div>
                   </div>
                 )
@@ -578,10 +587,10 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                   fontSize:11, fontWeight:700, letterSpacing:0.5,
                   color:'var(--lp-text-muted)', textTransform:'uppercase'
                 }}>
-                  <span>Account</span>
-                  <span style={{ textAlign:'right' }}>Budget</span>
-                  <span style={{ textAlign:'right' }}>Actual</span>
-                  <span style={{ textAlign:'right' }}>Remaining</span>
+                  <span>{t('reports.budget.colAccount')}</span>
+                  <span style={{ textAlign:'right' }}>{t('reports.budget.colBudget')}</span>
+                  <span style={{ textAlign:'right' }}>{t('reports.budget.colActual')}</span>
+                  <span style={{ textAlign:'right' }}>{t('reports.budget.colRemaining')}</span>
                 </div>
 
                 {bvaData.lines.map(l => {
@@ -601,7 +610,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                         {l.name}
                         {!l.has_budget && (
                           <span style={{ marginLeft:8, fontSize:10.5, color:'var(--lp-text-muted)' }}>
-                            (not budgeted)
+                            {t('reports.budget.notBudgeted')}
                           </span>
                         )}
                       </span>
@@ -613,7 +622,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                         color: !l.has_budget ? 'var(--lp-text-muted)'
                              : over ? 'var(--sem-red)' : 'var(--sem-green)' }}>
                         {l.has_budget
-                          ? `${fmt(Math.abs(l.remaining))}${over ? ' over' : ''}`
+                          ? (over ? t('reports.budget.amountOver', { amount: fmt(Math.abs(l.remaining)) }) : fmt(Math.abs(l.remaining)))
                           : '--'}
                         {l.has_budget && l.over_pct !== null && (
                           <span style={{ display:'block', fontSize:10.5, color:'var(--lp-text-muted)' }}>
@@ -630,7 +639,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
                   padding:'10px 14px', borderTop:'0.5px solid var(--lp-border)',
                   background:'var(--lp-surface-2)', fontSize:13, fontWeight:700
                 }}>
-                  <span>Totals</span>
+                  <span>{t('reports.budget.totals')}</span>
                   <span style={{ textAlign:'right', fontFamily:'monospace' }}>{fmt(bvaData.total_budget)}</span>
                   <span style={{ textAlign:'right', fontFamily:'monospace' }}>{fmt(bvaData.total_actual)}</span>
                   <span style={{ textAlign:'right', fontFamily:'monospace' }}>
@@ -640,9 +649,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
               </div>
 
               <div style={{ marginTop:14, fontSize:11.5, color:'var(--lp-text-muted)' }}>
-                Actual figures come from the same journal entries as the P&amp;L, on
-                the same convention. Accounts with no budget are listed when they
-                spent something, so unbudgeted spending is visible rather than missing.
+                {t('reports.budget.footnote')}
               </div>
 
               <ReportFooter />
@@ -657,7 +664,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
           <ReportLetterhead
             entityName={entityName}
             reportTitle="Balance Sheet"
-            period={`As of ${MONTHS[Number(bsData.as_of.split('-')[1]) - 1]} ${bsData.as_of.split('-')[0]}`}
+            period={t('reports.asOfPeriod', { month: monthNames[Number(bsData.as_of.split('-')[1]) - 1], year: bsData.as_of.split('-')[0] })}
           />
 
           <div style={{
@@ -732,7 +739,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
           <ReportLetterhead
             entityName={entityName}
             reportTitle="Statement of Cash Flows"
-            period={`${MONTHS[month-1]} ${year}`}
+            period={`${monthNames[month-1]} ${year}`}
           />
 
           {/* The reconciliation leads, because it is the one thing that says
@@ -884,7 +891,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
       )}
       {(report === 'ar_aging' || report === 'ap_aging') && agData && agData.kind === (report === 'ar_aging' ? 'ar' : 'ap') && hasRun && (
         <div style={{ maxWidth:980 }}>
-          <ReportLetterhead entityName={entityName} reportTitle={REPORT_TITLES[report]}
+          <ReportLetterhead entityName={entityName} reportTitle={t(REPORT_TITLES[report])}
             period={`As of ${new Date(agData.as_of + 'T12:00:00').toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}`} />
           <AgingReport data={agData} />
           <ReportFooter />
@@ -895,10 +902,10 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
         <div className="lp-card" style={{ textAlign:'center', padding:'48px 24px' }}>
           <div style={{ fontSize:36, marginBottom:12 }}>📊</div>
           <div style={{ fontSize:14, fontWeight:600, color:'var(--lp-text)', marginBottom:6 }}>
-            Select a period and run the report
+            {t('reports.empty.title')}
           </div>
           <div style={{ fontSize:13, color:'var(--lp-text-muted)' }}>
-            Reports are generated from your journal entries.
+            {t('reports.empty.body')}
           </div>
         </div>
       )}

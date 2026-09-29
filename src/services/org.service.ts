@@ -94,3 +94,28 @@ export async function getUserOrgsByCategory(): Promise<UserOrgsByCategory> {
     client:   result.client   ?? []
   }
 }
+
+// ── Workspaces allowed by the plan ──────────────────────────────────────────
+
+/** How many workspaces (own books) the user's plan allows, and how many they have. */
+export interface WorkspaceAllowance {
+  plan:       string
+  /** -1 = unlimited */
+  limit:      number
+  used:       number
+  can_create: boolean
+}
+
+export async function getWorkspaceAllowance(): Promise<WorkspaceAllowance> {
+  const { data, error } = await db.rpc('get_workspace_allowance')
+  if (error) throw dbError(error, 'Could not check your plan')
+  return data as unknown as WorkspaceAllowance
+}
+
+/** Another organization with its own books (refused with LQ009 over the plan). */
+export async function createWorkspaceOrg(name: string): Promise<string> {
+  const { data, error } = await db.rpc('create_workspace_org', { p_name: name })
+  if (error) throw dbError(error, 'Could not create the organization')
+  if (!data) throw new Error('RPC returned no org_id')
+  return data as unknown as string
+}

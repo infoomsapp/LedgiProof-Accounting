@@ -8114,6 +8114,7 @@ export type Database = {
         }
         Returns: Json
       }
+      create_workspace_org: { Args: { p_name: string }; Returns: string }
       cron_generate_all_recurring_checklists: {
         Args: never
         Returns: undefined
@@ -8613,6 +8614,7 @@ export type Database = {
         Returns: Json
       }
       get_w9_request: { Args: { p_token: string }; Returns: Json }
+      get_workspace_allowance: { Args: never; Returns: Json }
       get_workspace_conversation_archive: {
         Args: { p_archive_id: string }
         Returns: Json

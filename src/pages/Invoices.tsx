@@ -239,6 +239,8 @@ export default function Invoices() {
       setLinkCopiedId(inv.id)
       setTimeout(() => setLinkCopiedId(null), 2000)
       await load()
+      // The open panel showed "DRAFT" after the row turned SENT.
+      if (selected === inv.id) await loadDetail(inv.id)
     } catch (e: any) {
       alert(`Could not create the link: ${e?.message ?? 'unknown error'}`)
     } finally {
@@ -262,6 +264,7 @@ export default function Invoices() {
       setEmailSentId(inv.id)
       setTimeout(() => setEmailSentId(null), 2500)
       await load()
+      if (selected === inv.id) await loadDetail(inv.id)
     } catch (e: any) {
       alert(`Could not email the invoice: ${e?.message ?? 'unknown error'}`)
     } finally {
@@ -909,7 +912,14 @@ export default function Invoices() {
             <Button variant="ghost" onClick={() => setPrinting(true)}>
               <Icon name="print" size={13} /> Print / Save PDF
             </Button>
-            {detail.status !== 'paid' && detail.status !== 'void' && (
+            {/* A draft isn't in the books yet (nothing owed on Accounts
+                Receivable): a payment against it would credit A/R for a sale
+                never recorded. Send it first. */}
+            {detail.status === 'draft' ? (
+              <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', textAlign: 'center' }}>
+                Send the invoice to record payments against it.
+              </div>
+            ) : detail.status !== 'paid' && detail.status !== 'void' && (
               <Button variant="success" onClick={() => setShowPayment(true)}>
                 + Record payment
               </Button>

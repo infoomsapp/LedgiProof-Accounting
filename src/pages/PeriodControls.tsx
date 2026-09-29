@@ -13,7 +13,7 @@
 // Access: canClosePeriods (owner/admin/accountant of any workspace -- every
 // plan includes closing).
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useScope }     from '../hooks/useScope'
 import { useUserRole }  from '../hooks/useUserRole'
@@ -78,6 +78,20 @@ export default function PeriodControls() {
 
   useEffect(() => { void load() }, [load])
 
+  // "Last month" is the usual default, but not when it's already closed: the
+  // page offered "Close the books through August" with August closed. Move
+  // once to the first open month (never past the current one).
+  const movedPastClosed = useRef(false)
+  useEffect(() => {
+    if (movedPastClosed.current || !check?.closed_through) return
+    movedPastClosed.current = true
+    const [cy, cm] = check.closed_through.split('-').map(Number) as [number, number]
+    if (target.year * 12 + target.month > cy * 12 + cm) return
+    const next = new Date(cy, cm, 1)                     // month after closed_through
+    if (next > now) return
+    setTarget({ year: next.getFullYear(), month: next.getMonth() + 1 })
+  }, [check?.closed_through])   // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleClose() {
     if (!confirm(`Close the books through ${monthLabel(target.year, target.month)}? `
       + 'Nothing dated on or before the end of that month can be changed until an owner or admin reopens it.')) return
@@ -115,6 +129,10 @@ export default function PeriodControls() {
 
   const grid     = buildYearGrid(year, rows, check?.closed_through ?? null)
   const blocking = !!check && (check.to_review > 0 || check.draft_batches > 0)
+  const alreadyClosed = !!check?.closed_through && (() => {
+    const [cy, cm] = check.closed_through.split('-').map(Number) as [number, number]
+    return target.year * 12 + target.month <= cy * 12 + cm
+  })()
   const targets: { year: number; month: number }[] = []
   for (let i = 0; i < 24; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
@@ -157,8 +175,10 @@ export default function PeriodControls() {
               ))}
             </select>
           </div>
-          <button className="lp-btn lp-btn-primary" disabled={busy || loading || blocking} onClick={() => { void handleClose() }}>
-            {busy ? 'Closing…' : `Close the books through ${monthLabel(target.year, target.month)}`}
+          <button className="lp-btn lp-btn-primary" disabled={busy || loading || blocking || alreadyClosed} onClick={() => { void handleClose() }}>
+            {busy ? 'Closing…'
+              : alreadyClosed ? `Already closed through ${monthLabel(target.year, target.month)}`
+              : `Close the books through ${monthLabel(target.year, target.month)}`}
           </button>
         </div>
 

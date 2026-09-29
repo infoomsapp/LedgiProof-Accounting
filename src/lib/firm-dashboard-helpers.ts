@@ -113,8 +113,11 @@ export function buildActivityItems(events: AuditActivityItem[], t: TranslateFn):
     return {
       key:   ev.id,
       color: color as ActivityItem['color'],
-      text:  `${auditActionIcon(ev.action)} ${translateAuditAction(ev.action, t)}`,
-      sub:   ev.actor_name ?? (ev.description ? ev.description.slice(0, 32) : t('common.system')),
+      // What happened AND to what: "• Created · STARBUCKS #1021". The action
+      // alone ("• created", eight times) said nothing.
+      text:  `${auditActionIcon(ev.action)} ${translateAuditAction(ev.action, t)}`
+             + (ev.description ? ` · ${ev.description.slice(0, 40)}` : ''),
+      sub:   ev.actor_name ?? t('common.system'),
       at:    ev.created_at
     }
   })

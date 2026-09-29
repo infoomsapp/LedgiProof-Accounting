@@ -31,6 +31,7 @@ import { formatCurrency } from '../lib/currency'
 import { useAuthStore } from '../store/auth.store'
 import PendingReceipts from '../components/review/PendingReceipts'
 import VerifyQueue from '../components/review/VerifyQueue'
+import BrainWhy from '../components/review/BrainWhy'
 import type { Account, LpRole } from '../types/database.types'
 
 // Same roles post_reviewed_transactions() accepts (the journal write policy).
@@ -405,6 +406,7 @@ export default function ReviewInbox() {
                         {choice.confidence != null && ` · ${choice.confidence}%`}
                       </span>
                     )}
+                    {choice?.accountId === it.suggested_account_id && <BrainWhy evidence={it.suggestion_evidence} />}
                   </div>
                 </div>
 

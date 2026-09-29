@@ -54,6 +54,21 @@ export interface BillMatch {
   kind:        'open' | 'in_transit'
 }
 
+/**
+ * One reason behind a suggestion (lp_private.suggest_account's evidence,
+ * brain_f2_evidence.sql). Fixed points, no AI: the UI's "Why?".
+ */
+export interface BrainEvidence {
+  signal:        'rule' | 'learned' | 'vendor' | 'merchant' | 'bank_category' | 'income' | 'agreement' | 'conflict'
+  points:        number
+  account_id?:   string
+  account_name?: string
+  merchant?:     string
+  count?:        number
+  category?:     string
+  detail?:       string
+}
+
 export interface ReviewItem {
   id:                     string
   transaction_date:       string
@@ -67,6 +82,8 @@ export interface ReviewItem {
   suggested_account_id:   string | null
   suggestion_source:      SuggestionSource | null
   suggestion_confidence:  number | null
+  /** Why the Brain suggests it; null for invoice / bill matches. */
+  suggestion_evidence:    BrainEvidence[] | null
   suggested_account_code: string | null
   suggested_account_name: string | null
   has_receipt:            boolean

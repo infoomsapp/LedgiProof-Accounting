@@ -68,7 +68,7 @@ export default function TermsOfServicePage() {
       <h2 id="service">2. The Service</h2>
       <p>LedgiProof provides cloud-based bookkeeping and financial management software. Features include, depending on your subscription plan:</p>
       <ul>
-        <li>AI-powered transaction classification (semaphore engine)</li>
+        <li>Automatic transaction classification (semaphore engine: rules, your own confirmations and known merchants)</li>
         <li>Bank account connectivity through Plaid</li>
         <li>Receipt capture and storage</li>
         <li>Mileage tracking</li>

@@ -360,7 +360,8 @@ export default function SoloDashboard() {
                       fontFamily: 'monospace', fontSize: 12.5, fontWeight: 500,
                       color: tx.amount >= 0 ? 'var(--sem-green)' : 'var(--sem-red-soft)', whiteSpace: 'nowrap'
                     }}>
-                      {fmtCur(tx.amount)}
+                      {/* A single transaction shows its exact amount; only summaries round. */}
+                      {formatCurrency(tx.amount, 'USD')}
                     </span>
                   </div>
                 ))}

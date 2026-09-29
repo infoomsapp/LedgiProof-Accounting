@@ -128,15 +128,17 @@ export default function EstimatePrint({ estimate, items, org, client }: Props) {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
+          gap: 16,
           paddingBottom: 18,
           borderBottom: '2pt solid #1d4ed8'
         }}>
           {/* Left: org info */}
-          <div style={{ flex: 1, maxWidth: '60%' }}>
+          <div style={{ flex: 1, maxWidth: '60%', minWidth: 0 }}>
             {/* Logo placeholder — replace with real logo if available */}
             <div style={{
               fontSize: 24, fontWeight: 700, color: '#1d4ed8',
-              letterSpacing: '-0.02em', marginBottom: 6
+              letterSpacing: '-0.02em', marginBottom: 6,
+              overflowWrap: 'anywhere', lineHeight: 1.15
             }}>
               {org.name}
             </div>

@@ -44,6 +44,7 @@ export default function PymeClientEditDialog({ open, client, onClose, onSaved }:
   const [paymentTerms, setPaymentTerms] = useState(30)
   const [taxExempt,    setTaxExempt]    = useState(false)
   const [taxExemptWhy, setTaxExemptWhy] = useState('')
+  const [notes,        setNotes]        = useState('')
 
   const [saving,    setSaving]    = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -65,6 +66,7 @@ export default function PymeClientEditDialog({ open, client, onClose, onSaved }:
     setPaymentTerms(client.payment_terms ?? 30)
     setTaxExempt   (client.tax_exempt ?? false)
     setTaxExemptWhy(client.tax_exempt_reason ?? '')
+    setNotes       (client.notes ?? '')
     setSaveError(null)
   }, [open, client])
 
@@ -96,7 +98,8 @@ export default function PymeClientEditDialog({ open, client, onClose, onSaved }:
         default_currency: currency.trim()     || 'USD',
         payment_terms:    Number.isFinite(paymentTerms) ? paymentTerms : 30,
         tax_exempt:       taxExempt,
-        tax_exempt_reason: taxExempt ? (taxExemptWhy.trim() || null) : null
+        tax_exempt_reason: taxExempt ? (taxExemptWhy.trim() || null) : null,
+        notes:            notes.trim() || null
       }, client.org_id)
       onSaved?.(updated)
       onClose()
@@ -329,6 +332,17 @@ export default function PymeClientEditDialog({ open, client, onClose, onSaved }:
           />
         </Field>
       )}
+
+      <Field label="Internal notes">
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Visible only to your team — not the client."
+          className="lp-input"
+          style={{ width: '100%', minHeight: 70, resize: 'vertical', fontFamily: 'inherit' }}
+          disabled={saving}
+        />
+      </Field>
     </Modal>
   )
 }

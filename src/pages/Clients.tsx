@@ -151,6 +151,8 @@ export default function Clients() {
   // friction with no equivalent in any competitor onboarding flow.
   const [emptyStateAddOpen, setEmptyStateAddOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
+  const [inactiveClients, setInactiveClients] = useState<Client[]>([])
+  const [showInactive,    setShowInactive]    = useState(false)
 
   // Invite modal
   const [showInvite,  setShowInvite]  = useState(false)
@@ -210,6 +212,7 @@ export default function Clients() {
     setMembers((mems.data ?? []) as Member[])
     setInvitations((invs.data ?? []) as Invitation[])
     setClients(clts)
+    setInactiveClients(await getClients(orgId, { inactive: true }).catch(() => []))
 
     // 🆕 A2: Load client portal invitations (graceful degradation if fails)
     try {
@@ -411,6 +414,15 @@ export default function Clients() {
     }
   }
 
+  async function reactivateClient(c: Client) {
+    try {
+      await updateClient(c.id, { is_active: true })
+      await load()
+    } catch (e: any) {
+      alert(`Could not reactivate client: ${e?.message ?? 'unknown error'}`)
+    }
+  }
+
   // Real gap fixed 2026-09-24: "Add Client" and "Invite to portal" used to
   // be two disconnected entry points -- one generic top-level button opening
   // a modal that made you find the client again in a dropdown, separate from
@@ -560,7 +572,7 @@ export default function Clients() {
       ) : (
         <>
           {(
-            clients.length === 0 ? (
+            clients.length === 0 && inactiveClients.length === 0 ? (
               <div className="lp-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
                 <div style={{
                   width: 48, height: 48, borderRadius: 12, margin: '0 auto 14px',
@@ -590,6 +602,13 @@ export default function Clients() {
                 )}
               </div>
             ) : (
+              <>
+              {inactiveClients.length > 0 && (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--lp-text-muted)', marginBottom: 8, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
+                  Show inactive clients ({inactiveClients.length})
+                </label>
+              )}
               <div className="lp-table-wrap">
                 <table className="lp-table">
                   <thead>
@@ -600,8 +619,8 @@ export default function Clients() {
                     </tr>
                   </thead>
                   <tbody>
-                    {clients.map(c => (
-                      <tr key={c.id}>
+                    {(showInactive || clients.length === 0 ? [...clients, ...inactiveClients] : clients).map(c => (
+                      <tr key={c.id} style={c.is_active ? undefined : { opacity: 0.65 }}>
                         <td style={{ fontSize: 13, color: 'var(--lp-text)', fontWeight: 500 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             {c.display_name}
@@ -735,7 +754,7 @@ export default function Clients() {
                                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--chat-bubble-mine-bg)' }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                               >
-                                💬 Chat
+                                <Icon name="chat" size={11} /> Chat
                               </button>
 
                               {/* Portal status, unified into this same row instead of a
@@ -802,50 +821,30 @@ export default function Clients() {
                                 )
                               })()}
 
-                              {/* 🆕 P4 Fase 2.A — Edit button → dedicated page */}
+                              {/* Deactivate keeps history; an inactive client can be brought back */}
                               <button
-                                onClick={() => navigate(`/clients/${c.id}/edit`)}
-                                title="Edit client details"
+                                onClick={() => c.is_active ? deleteClient(c) : reactivateClient(c)}
+                                title={c.is_active ? 'Deactivate client (history is kept)' : 'Make this client active again'}
                                 style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4,
                                   background:   'transparent',
                                   border:       '0.5px solid var(--lp-border)',
-                                  color:        'var(--lp-text)',
+                                  color:        c.is_active ? 'var(--sem-red)' : 'var(--sem-green)',
                                   borderRadius: 6,
                                   padding:      '3px 9px',
                                   fontSize:     11,
                                   cursor:       'pointer',
                                   fontFamily:   'inherit'
                                 }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                              >
-                                ✏ Edit
-                              </button>
-
-                              {/* Existing Delete button (Fase 1) */}
-                              <button
-                                onClick={() => deleteClient(c)}
-                                disabled={!c.is_active}
-                                title={c.is_active ? 'Deactivate client' : 'Already inactive'}
-                                style={{
-                                  background:   'transparent',
-                                  border:       '0.5px solid var(--lp-border)',
-                                  color:        c.is_active ? 'var(--sem-red)' : 'var(--lp-text-muted)',
-                                  borderRadius: 6,
-                                  padding:      '3px 9px',
-                                  fontSize:     11,
-                                  cursor:       c.is_active ? 'pointer' : 'not-allowed',
-                                  fontFamily:   'inherit',
-                                  opacity:      c.is_active ? 1 : 0.5
-                                }}
                                 onMouseEnter={e => {
-                                  if (c.is_active) e.currentTarget.style.background = 'var(--sem-red-bg)'
+                                  e.currentTarget.style.background = c.is_active ? 'var(--sem-red-bg)' : 'var(--sem-green-bg)'
                                 }}
                                 onMouseLeave={e => {
                                   e.currentTarget.style.background = 'transparent'
                                 }}
                               >
-                                🗑 Delete
+                                <Icon name={c.is_active ? 'archive' : 'refresh'} size={11} />
+                                {c.is_active ? 'Deactivate' : 'Reactivate'}
                               </button>
                             </div>
                           </td>
@@ -855,6 +854,7 @@ export default function Clients() {
                   </tbody>
                 </table>
               </div>
+              </>
             )
           )}
 

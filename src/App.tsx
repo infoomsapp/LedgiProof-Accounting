@@ -58,7 +58,6 @@ const Clients                 = lazyPage(() => import('./pages/Clients'))
 const Notes                   = lazyPage(() => import('./pages/Notes'))
 const Vendors                 = lazyPage(() => import('./pages/Vendors'))
 const Worksheet1099           = lazyPage(() => import('./pages/Worksheet1099'))
-const EditClientPage          = lazyPage(() => import('./pages/EditClientPage'))
 const PymeClients             = lazyPage(() => import('./pages/pyme/PymeClients'))
 const Team                    = lazyPage(() => import('./pages/Team'))
 const ImportData              = lazyPage(() => import('./pages/ImportData'))
@@ -469,16 +468,6 @@ export default function App() {
               'solo_owner', 'pyme_owner'
             ]}>
               <ErrorBoundary section="1099-worksheet"><Worksheet1099 /></ErrorBoundary>
-            </RoleGuard>
-          } />
-
-          {/* 🆕 P4 Fase 2.A — Dedicated client edit page */}
-          <Route path="clients/:id/edit" element={
-            <RoleGuard allowed={[
-              'bookkeeper_owner', 'bookkeeper_admin',
-              'accountant_owner', 'accountant_admin'
-            ]}>
-              <ErrorBoundary section="edit-client"><EditClientPage /></ErrorBoundary>
             </RoleGuard>
           } />
 

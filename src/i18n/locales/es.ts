@@ -564,7 +564,7 @@ export default {
     currency:         'Moneda',
     terms:            'Términos',
     netTerms:         'Neto {{days}}',
-    editClientDetails:'✏ Editar datos del cliente',
+    editClientDetails:'Editar datos del cliente',
 
     cardTransactions:      'Transacciones',
     cardTransactionsHint:  'Revisar, categorizar, conciliar',

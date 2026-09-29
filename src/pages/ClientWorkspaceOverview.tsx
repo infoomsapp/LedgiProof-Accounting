@@ -16,11 +16,14 @@
 //
 // Constitution: this is pure presentation + navigation. No business logic.
 
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useScope }    from '../hooks/useScope'
 import { useUserRole } from '../hooks/useUserRole'
 import Icon, { type IconName } from '../components/ui/Icon'
+import PymeClientEditDialog from '../components/pyme/PymeClientEditDialog'
+import type { Client } from '../types/database.types'
 
 // `titleKey`/`hintKey` hold i18n KEYS (module scope can't call hooks) —
 // resolved with t() at the render site below.
@@ -58,7 +61,7 @@ export default function ClientWorkspaceOverview() {
   const { t }    = useTranslation()
   const scope    = useScope()
   const navigate = useNavigate()
-  const { canViewPayroll, canPostJournalEntries, canClosePeriods } = useUserRole()
+  const { canViewPayroll, canPostJournalEntries, canClosePeriods, canManageClients } = useUserRole()
 
   const NAV_CARDS = [
     ...BASE_NAV_CARDS,
@@ -67,7 +70,9 @@ export default function ClientWorkspaceOverview() {
     ...(canClosePeriods         ? [PERIODS_NAV_CARD] : []),
   ]
 
-  const client = scope.client
+  const [edited,  setEdited]  = useState<Client | null>(null)
+  const [editing, setEditing] = useState(false)
+  const client = edited && edited.id === scope.client?.id ? edited : scope.client
 
   return (
     <div style={{
@@ -97,25 +102,27 @@ export default function ClientWorkspaceOverview() {
 
           <div style={{ flex: 1, minWidth: 8 }} />
 
-          <button
-            onClick={() => navigate(`/clients/${client.id}/edit`)}
-            style={{
-              background:   'transparent',
-              border:       '0.5px solid var(--lp-border)',
-              color:        'var(--lp-text)',
-              borderRadius: 6,
-              padding:      '4px 10px',
-              fontSize:     11.5,
-              fontWeight:   500,
-              cursor:       'pointer',
-              fontFamily:   'inherit',
-              whiteSpace:   'nowrap'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-          >
-            {t('clientWorkspace.editClientDetails')}
-          </button>
+          {canManageClients && (
+            <button
+              onClick={() => setEditing(true)}
+              style={{
+                background:   'transparent',
+                border:       '0.5px solid var(--lp-border)',
+                color:        'var(--lp-text)',
+                borderRadius: 6,
+                padding:      '4px 10px',
+                fontSize:     11.5,
+                fontWeight:   500,
+                cursor:       'pointer',
+                fontFamily:   'inherit',
+                whiteSpace:   'nowrap'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              {t('clientWorkspace.editClientDetails')}
+            </button>
+          )}
         </div>
       )}
 
@@ -168,6 +175,12 @@ export default function ClientWorkspaceOverview() {
           </button>
         ))}
       </div>
+      <PymeClientEditDialog
+        open={editing}
+        client={client}
+        onClose={() => setEditing(false)}
+        onSaved={updated => setEdited(updated)}
+      />
     </div>
   )
 }

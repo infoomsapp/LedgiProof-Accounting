@@ -60,12 +60,12 @@ function rethrowIfDuplicateEmail(error: { code?: string; message: string }, emai
   throw dbError(error, 'Failed to save the client')
 }
 
-export async function getClients(orgId: string): Promise<Client[]> {
+export async function getClients(orgId: string, opts: { inactive?: boolean } = {}): Promise<Client[]> {
   const { data, error } = await db
     .from('clients')
     .select('*')
     .eq('org_id', orgId)
-    .eq('is_active', true)
+    .eq('is_active', !opts.inactive)
     .order('display_name')
   if (error) throw dbError(error, 'Failed to load clients')
   return (data ?? []) as Client[]

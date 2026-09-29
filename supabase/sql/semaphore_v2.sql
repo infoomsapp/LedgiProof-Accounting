@@ -1167,3 +1167,80 @@ drop trigger if exists trg_normalize_current_transaction_version on public.trans
 create trigger trg_normalize_current_transaction_version
   before insert on public.transactions
   for each row execute function public.normalize_current_transaction_version();
+
+-- ── 18-21. Applied later the same day (see migrations semaphore_v2_e .. _i) ──
+--   e: automation posts to default_cash_account (section 10 above already shows it).
+--   f/g/h: the three trigger functions run as security definer; un-verifying by a
+--          direct edit is LV009 (section 2 above already shows it).
+--   i: "No supporting document" only for money out >= min_amount (75 USD), and
+--      it clears when a receipt is attached:
+update public.rule_definitions
+   set config = jsonb_build_object('min_amount', 75)
+ where rule_id = 'missing_document' and org_id is null;
+
+create or replace function lp_private.refresh_missing_document(p_tx uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_tx     public.transactions%rowtype;
+  v_fired  text[];
+  v_min    numeric;
+  v_needs  boolean;
+begin
+  select * into v_tx from public.transactions where id = p_tx and is_current;
+  if not found or v_tx.locked_at is not null then return; end if;
+
+  select coalesce(array_agg(x ->> 'id'), '{}') into v_fired
+    from public.rule_evaluations e,
+         jsonb_array_elements(e.evaluated_rules) x
+   where e.transaction_id = v_tx.id and e.transaction_version = v_tx.version
+     and coalesce((x ->> 'fired')::boolean, false);
+  -- Only touch the verdict when this rule is the whole story.
+  if exists (select 1 from unnest(v_fired) f where f <> 'missing_document') then return; end if;
+
+  select coalesce((config ->> 'min_amount')::numeric, 75) into v_min
+    from public.rule_definitions where rule_id = 'missing_document' and org_id is null;
+  v_needs := v_tx.amount < 0 and abs(v_tx.amount) >= coalesce(v_min, 75)
+             and not lp_private.transaction_has_receipt(v_tx.transaction_group_id);
+
+  update public.transactions
+     set risk_status = case when v_needs then 'amber' else 'green' end::public.semaphore_status,
+         status_reason = case when v_needs then 'No supporting document attached to this transaction'
+                              when status_reason = 'No supporting document attached to this transaction' then null
+                              else status_reason end
+   where id = v_tx.id
+     and risk_status is distinct from (case when v_needs then 'amber' else 'green' end)::public.semaphore_status;
+end;
+$$;
+revoke all on function lp_private.refresh_missing_document(uuid) from public;
+
+create or replace function lp_private.trg_document_refreshes_risk()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op <> 'INSERT' and old.transaction_id is not null then
+    perform lp_private.refresh_missing_document(old.transaction_id);
+  end if;
+  if tg_op <> 'DELETE' and new.transaction_id is not null and new.document_kind = 'receipt' then
+    perform lp_private.refresh_missing_document(new.transaction_id);
+  end if;
+  return null;
+end;
+$$;
+revoke all on function lp_private.trg_document_refreshes_risk() from public;
+
+drop trigger if exists trg_document_refreshes_risk on public.documents;
+create trigger trg_document_refreshes_risk
+  after insert or update of transaction_id, deleted_at, document_kind or delete on public.documents
+  for each row execute function lp_private.trg_document_refreshes_risk();
+
+-- ── 22. Seeds can target a type (applied as semaphore_v2_j_seed_targets) ─────
+-- Found live: "Owner capital deposit" was suggested as Sales Revenue and a bank's
+-- monthly service charge as Professional Fees.
+alter table lp_private.categorization_seeds
+  add column if not exists account_type text check (account_type in ('income','expense','equity','liability','asset'));
+insert into lp_private.categorization_seeds (kind, ord, pattern, account_pattern, sign, confidence, account_type) values
+  ('merchant', 0, '(owner|capital|contribution|investment from|member contribution)', '(capital|contribution|owner.*equity)', 1, 60, 'equity'),
+  ('merchant', 0, '(owner draw|owner withdrawal|distribution to)', '(draw|distribution)', -1, 60, 'equity');
+update lp_private.categorization_seeds
+   set account_pattern = '(bank)'
+ where (kind = 'merchant' and ord = 11) or (kind = 'plaid_category' and pattern = 'BANK_FEES');
+-- suggest_account: "and a.type = coalesce(h.account_type, case when h.sign < 0 then 'expense' else 'income' end)"

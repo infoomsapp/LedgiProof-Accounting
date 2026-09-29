@@ -89,11 +89,17 @@ export default function ReviewInbox() {
   const [error,       setError]       = useState<string | null>(null)
   const [loading,     setLoading]     = useState(true)
 
-  // Leaf income/expense accounts of this scope -- the only valid categories.
+  // Every leaf account of this scope except the bank/cash accounts themselves
+  // (the bank side is implied) -- the same set post_reviewed_transactions()
+  // accepts. Not only income/expense: an owner's contribution is equity, a
+  // loan payment a liability, a laptop an asset.
   const categories = useMemo(() => {
-    const scoped  = accounts.filter(a => (a.client_id ?? null) === (clientId ?? null))
+    const scoped  = accounts.filter(a => (a.client_id ?? null) === (clientId ?? null) && a.is_active !== false)
     const parents = new Set(scoped.map(a => a.parent_id).filter(Boolean))
-    return scoped.filter(a => !parents.has(a.id) && (a.type === 'income' || a.type === 'expense'))
+    const isCash  = (a: Account) => a.type === 'asset'
+      && (a.cash_flow_category === 'cash' || /(checking|cash|bank)/i.test(a.name))
+      && !/(undeposited|in transit)/i.test(a.name)
+    return scoped.filter(a => !parents.has(a.id) && !isCash(a))
   }, [accounts, clientId])
 
   const load = useCallback(async () => {
@@ -318,20 +324,25 @@ export default function ReviewInbox() {
             const choice   = choices[it.id]
             const isBusy   = busy.has(it.id)
             const moneyIn  = Number(it.amount) > 0
-            const incomeAccts  = categories.filter(a => a.type === 'income')
-            const expenseAccts = categories.filter(a => a.type === 'expense')
-            const groups = moneyIn
-              ? [[t('review.income'), incomeAccts], [t('review.expense'), expenseAccts]] as const
-              : [[t('review.expense'), expenseAccts], [t('review.income'), incomeAccts]] as const
+            const byType = (type: string) => categories.filter(a => a.type === type)
+            const groups = ([
+              ...(moneyIn
+                ? [[t('review.income'), byType('income')], [t('review.expense'), byType('expense')]]
+                : [[t('review.expense'), byType('expense')], [t('review.income'), byType('income')]]),
+              [t('review.equity'),    byType('equity')],
+              [t('review.liability'), byType('liability')],
+              [t('review.asset'),     byType('asset')],
+            ]) as [string, Account[]][]
             return (
               <div key={it.id} style={{
-                display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px minmax(220px, 300px) auto',
-                gap: 12, alignItems: 'center', padding: '12px 16px',
+                // Wraps instead of squeezing: on a narrow screen the merchant
+                // keeps its width and the category + button drop to a new line.
+                display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', padding: '12px 16px',
                 borderTop: i === 0 ? 'none' : '0.5px solid var(--lp-border)',
                 opacity: isBusy ? 0.55 : 1, transition: 'opacity 0.15s'
               }}>
                 {/* Transaction */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0, flex: '1 1 220px' }}>
                   <span aria-hidden title={it.semaphore} style={{
                     width: 9, height: 9, borderRadius: '50%', marginTop: 5, flexShrink: 0,
                     background: SEM_COLOR[it.semaphore]
@@ -345,7 +356,9 @@ export default function ReviewInbox() {
                       {it.has_receipt && (
                         <span title={t('review.hasReceipt')} aria-label={t('review.hasReceipt')} style={{ marginLeft: 8 }}>📎</span>
                       )}
-                      {(it.semaphore === 'red' || it.semaphore === 'amber') && (
+                      {/* Everything here is amber (not in the books yet); only a real
+                          flag -- a rule that fired, or red -- gets words. */}
+                      {(it.semaphore === 'red' || it.status_reason) && (
                         <span style={{ color: SEM_COLOR[it.semaphore], marginLeft: 8 }}>
                           {it.status_reason ?? t('review.needsLook')}
                         </span>
@@ -360,13 +373,13 @@ export default function ReviewInbox() {
                 {/* Amount */}
                 <div style={{
                   textAlign: 'right', fontSize: 13.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
-                  color: moneyIn ? 'var(--sem-green)' : 'var(--lp-text)'
+                  color: moneyIn ? 'var(--sem-green)' : 'var(--lp-text)', flex: '0 0 110px'
                 }}>
                   {formatCurrency(Number(it.amount), it.currency)}
                 </div>
 
                 {/* Category */}
-                <div>
+                <div style={{ flex: '1 1 220px', maxWidth: 320, minWidth: 0 }}>
                   <select
                     className="lp-input"
                     aria-label={t('review.choose')}

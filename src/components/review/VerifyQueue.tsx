@@ -137,12 +137,11 @@ export default function VerifyQueue({ orgId, clientId, canWrite, onChanged, onRu
             const flagged = it.semaphore === 'amber' || it.semaphore === 'red'
             return (
               <div key={it.id} style={{
-                display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 110px minmax(160px, 240px) auto',
-                gap: 12, alignItems: 'center', padding: '12px 16px',
+                display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', padding: '12px 16px',
                 borderTop: i === 0 ? 'none' : '0.5px solid var(--lp-border)',
                 opacity: isBusy ? 0.55 : 1, transition: 'opacity 0.15s'
               }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0, flex: '1 1 200px' }}>
                   <span aria-hidden title={it.semaphore} style={{
                     width: 9, height: 9, borderRadius: '50%', marginTop: 5, flexShrink: 0,
                     background: flagged ? 'var(--sem-amber)' : 'var(--sem-green)'
@@ -168,12 +167,12 @@ export default function VerifyQueue({ orgId, clientId, canWrite, onChanged, onRu
 
                 <div style={{
                   textAlign: 'right', fontSize: 13.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
-                  color: moneyIn ? 'var(--sem-green)' : 'var(--lp-text)'
+                  color: moneyIn ? 'var(--sem-green)' : 'var(--lp-text)', flex: '0 0 100px'
                 }}>
                   {formatCurrency(Number(it.amount), it.currency)}
                 </div>
 
-                <div style={{ minWidth: 0 }}>
+                <div style={{ minWidth: 0, flex: '1 1 180px', maxWidth: 280 }}>
                   <div style={{ fontSize: 12.5, color: 'var(--lp-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {it.matched_to
                       ? t('review.verifyQueue.settles', { document: it.matched_to })
@@ -187,7 +186,7 @@ export default function VerifyQueue({ orgId, clientId, canWrite, onChanged, onRu
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
                   {canWrite && !it.matched_to && (
                     <button type="button" className="lp-btn lp-btn-ghost" disabled={isBusy}
                       onClick={() => { void change(it.id) }}>

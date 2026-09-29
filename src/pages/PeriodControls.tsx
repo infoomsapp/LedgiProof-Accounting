@@ -10,8 +10,8 @@
 // (/clients/:clientId/periods). The server enforces every rule
 // (phase4_period_close.sql); this page explains them.
 //
-// Access: canClosePeriods (owner/admin/accountant of an accountant firm, the
-// plan that includes period closing).
+// Access: canClosePeriods (owner/admin/accountant of any workspace -- every
+// plan includes closing).
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -113,7 +113,7 @@ export default function PeriodControls() {
     return <div style={{ padding: 32, color: 'var(--lp-text-muted)', fontSize: 13 }}>Loading…</div>
   }
 
-  const grid     = buildYearGrid(year, rows)
+  const grid     = buildYearGrid(year, rows, check?.closed_through ?? null)
   const blocking = !!check && (check.to_review > 0 || check.draft_batches > 0)
   const targets: { year: number; month: number }[] = []
   for (let i = 0; i < 24; i++) {

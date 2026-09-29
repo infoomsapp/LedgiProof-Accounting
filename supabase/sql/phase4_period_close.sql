@@ -434,3 +434,27 @@ revoke all on function public.reopen_books_from(uuid, uuid, integer, integer, te
 grant execute on function public.get_close_checklist(uuid, uuid, integer, integer)        to authenticated, service_role;
 grant execute on function public.close_books_through(uuid, uuid, integer, integer)        to authenticated, service_role;
 grant execute on function public.reopen_books_from(uuid, uuid, integer, integer, text)    to authenticated, service_role;
+
+-- ── Closing date (applied as period_close_closing_date, 2026-09-28) ──────────
+-- Found live: closing through August left July (and every month before the
+-- first activity) OPEN. A month with no row of its own takes the status of the
+-- closing date: CLOSED when a later month in the same books is CLOSED.
+create or replace function public.get_period_status(p_org_id uuid, p_client_id uuid, p_date date)
+returns period_status
+language sql stable security definer
+set search_path to 'public'
+as $function$
+  select coalesce(
+    (select status from public.period_controls
+      where org_id = p_org_id
+        and client_id is not distinct from p_client_id
+        and period_year  = extract(year  from p_date)::smallint
+        and period_month = extract(month from p_date)::smallint),
+    (select 'CLOSED'::public.period_status from public.period_controls
+      where org_id = p_org_id
+        and client_id is not distinct from p_client_id
+        and status = 'CLOSED'
+        and make_date(period_year, period_month, 1) > date_trunc('month', p_date)::date
+      limit 1),
+    'OPEN')
+$function$;

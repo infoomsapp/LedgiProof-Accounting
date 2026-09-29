@@ -62,9 +62,10 @@ export interface UserRoleInfo {
   //             OR super_admin globally.
   canPostJournalEntries:   boolean
 
-  // canClosePeriods: transition period_controls OPEN → ADJUSTMENT → CLOSED.
-  //   Required: lp_role IN ('owner', 'admin', 'accountant') in an accountant firm,
-  //             OR super_admin globally.
+  // canClosePeriods: close the books through a month (close_books_through).
+  //   Required: lp_role IN ('owner', 'admin', 'accountant') in ANY workspace
+  //             (every plan includes closing, like QuickBooks and Xero), OR
+  //             super_admin globally -- the same roles the server checks.
   canClosePeriods:         boolean
 
   // canReverseManualBatch: post a reversal batch against a posted batch.
@@ -220,7 +221,8 @@ export function useUserRole(): UserRoleInfo {
        workspaceRole === 'accountant')
 
     const canPostJournalEntries = isSuperAdmin || isControllerInAccountantFirm
-    const canClosePeriods       = isSuperAdmin || isControllerInAccountantFirm
+    const canClosePeriods       = isSuperAdmin || workspaceRole === 'owner'
+                                || workspaceRole === 'admin' || workspaceRole === 'accountant'
     const canReverseManualBatch = isSuperAdmin || isControllerInAccountantFirm
 
     // CLOSED → OPEN: owner/admin (reopen_books_from, LP005 otherwise)

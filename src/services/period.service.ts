@@ -72,14 +72,22 @@ export async function reopenBooksFrom(orgId: string, clientId: string | null, ye
 }
 
 // A 12-month grid for the UI: DB rows merged with implicit OPEN months.
+/**
+ * The twelve months of `year`. A month with no row of its own takes the
+ * status of the closing date (get_period_status on the server): CLOSED when
+ * it ends on or before `closedThrough` ("YYYY-MM-DD", the last closed day).
+ */
 export function buildYearGrid(
   year: number,
-  rows: PeriodControl[]
+  rows: PeriodControl[],
+  closedThrough: string | null = null
 ): Array<{ month: number; label: string; status: PeriodStatus; row: PeriodControl | null }> {
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   return Array.from({ length: 12 }, (_, i) => {
     const month = i + 1
     const row   = rows.find(r => r.period_month === month) ?? null
-    return { month, label: `${MONTHS[i]} ${year}`, status: row?.status ?? 'OPEN', row }
+    const ym    = `${year}-${String(month).padStart(2, '0')}`
+    const byClosingDate: PeriodStatus = closedThrough && ym <= closedThrough.slice(0, 7) ? 'CLOSED' : 'OPEN'
+    return { month, label: `${MONTHS[i]} ${year}`, status: row?.status ?? byClosingDate, row }
   })
 }

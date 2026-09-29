@@ -283,8 +283,13 @@ async function applyRule(rule: RuleDefinition, input: RuleInput): Promise<Evalua
     }
 
     case 'missing_document': {
-      // Phase 1: fired if metadata has no document_url
-      const fired = !input.metadata?.['document_url']
+      // A document is asked for only on money going out of at least
+      // min_amount (75 USD: the IRS threshold for documentary evidence) --
+      // not on deposits or a $5 coffee. Attaching the receipt later clears
+      // the flag in the database (lp_private.refresh_missing_document).
+      const minAmount = cfgNumber(cfg, 'min_amount', 75)
+      const fired = input.amount < 0 && Math.abs(input.amount) >= minAmount
+        && !input.metadata?.['document_url']
       return {
         id: rule.rule_id, name: rule.name, severity: rule.severity,
         score: fired ? 0.7 : 0,

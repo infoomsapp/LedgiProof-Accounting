@@ -23,7 +23,8 @@ const KIND_LABEL: Record<string, string> = {
 
 /** Debit-positive figure shown on the account's normal side. */
 export function onNormalSide(a: Pick<LedgerAccount, 'normal_balance'>, debitPositive: number): number {
-  return a.normal_balance === 'credit' ? -debitPositive : debitPositive
+  const v = a.normal_balance === 'credit' ? -debitPositive : debitPositive
+  return v === 0 ? 0 : v   // never -0: it prints as "-$0.00"
 }
 
 export default function GeneralLedgerReport({ data }: { data: GeneralLedger }) {

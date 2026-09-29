@@ -19,13 +19,12 @@ export const supabase: SupabaseClient<Database> = createClient<Database>(
       autoRefreshToken:   true,
       persistSession:     true,
       detectSessionInUrl: false  // desktop app — no URL-based OAuth redirects
-    },
-    global: {
-      headers: {
-        'x-app-name':    'LedgiProof',
-        'x-app-version': import.meta.env.VITE_APP_VERSION ?? '0.1.0'
-      }
     }
+    // No custom global headers: supabase-js sends them on Edge Function calls
+    // too, and a header the functions' CORS preflight doesn't list (it used to
+    // send x-app-name / x-app-version) makes the browser block EVERY function
+    // call -- AI suggestions, receipt OCR, sending invoices, Stripe, certify.
+    // Nothing on the server read them.
   }
 )
 

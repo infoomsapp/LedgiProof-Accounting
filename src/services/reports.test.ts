@@ -56,5 +56,6 @@ describe('general ledger balances', () => {
   it('shows a credit-normal balance as positive', () => {
     expect(onNormalSide({ normal_balance: 'credit' }, -75)).toBe(75)
     expect(onNormalSide({ normal_balance: 'debit' }, 950)).toBe(950)
+    expect(Object.is(onNormalSide({ normal_balance: 'credit' }, 0), -0)).toBe(false)
   })
 })

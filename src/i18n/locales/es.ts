@@ -555,6 +555,12 @@ export default {
     uploadArrow:             'Subir →',
     viewMoreRequests:        'Ver {{count}} más →',
   },
+  portalEnded: {
+    title:    'Tu cuenta fue desactivada',
+    body:     'Tu acceso a este portal terminó. Contacta a tu contador si lo necesitas de nuevo.',
+    bodyFirm: '{{firm}} desactivó la cuenta de {{client}}, así que el portal está cerrado por ahora. Contáctalos si necesitas acceso otra vez.',
+    signOut:  'Cerrar sesión',
+  },
   clientWorkspace: {
     cardReview:          'Por revisar',
     cardReviewHint:      'Confirma transacciones con un clic',
@@ -1003,6 +1009,8 @@ export default {
     LK003: 'Esta nota está archivada: restáurala primero',
     LK004: 'Archiva la nota antes de borrarla',
     LK005: 'Solo quien la escribió o un owner, admin o contador puede borrar esta nota',
+    LY001: 'Este cliente está desactivado: reactívalo antes de invitar a alguien a su portal',
+    LY002: 'La firma desactivó esta cuenta de cliente: pídeles que la reactiven',
     LJ001: 'Este asiento no cuadra: débitos {{debit}}, créditos {{credit}}',
     LJ002: 'Esa cuenta pertenece a otra contabilidad',
     LM001: 'El owner se define al crear el espacio de trabajo',

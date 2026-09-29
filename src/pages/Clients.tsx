@@ -403,7 +403,11 @@ export default function Clients() {
 
 ` +
       `This hides the client from new invoices. Historical data is preserved ` +
-      `and you can re-activate them later.`
+      `and you can re-activate them later.` +
+      (portalActiveClientIds.has(c.id)
+        ? `\n\nTheir portal access is suspended too: they won't be able to sign in ` +
+          `until you reactivate them. Ask them to download any documents they need first.`
+        : '')
     )
     if (!ok) return
     try {
@@ -762,7 +766,7 @@ export default function Clients() {
                                   "Portal" badge by their name already says so); a pending
                                   invite gets Resend/Revoke right where it was created;
                                   no invite yet still gets the original one-click Invite. */}
-                              {portalActiveClientIds.has(c.id) ? null : (() => {
+                              {portalActiveClientIds.has(c.id) || !c.is_active ? null : (() => {
                                 const pending = clientInvites.find(
                                   inv => inv.client_id === c.id && inv.status === 'pending'
                                 )

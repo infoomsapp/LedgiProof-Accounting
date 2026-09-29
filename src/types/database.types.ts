@@ -8278,6 +8278,7 @@ export type Database = {
         Returns: Json
       }
       get_client_portal_memberships: { Args: never; Returns: Json }
+      get_my_suspended_portal_access: { Args: never; Returns: Json }
       get_clients_admin: {
         Args: { p_org_id?: string }
         Returns: {

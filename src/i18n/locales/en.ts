@@ -559,6 +559,12 @@ export default {
     uploadArrow:             'Upload →',
     viewMoreRequests:        'View {{count}} more →',
   },
+  portalEnded: {
+    title:    'Your account was deactivated',
+    body:     'Your access to this client portal has ended. Contact your accountant if you need it back.',
+    bodyFirm: '{{firm}} deactivated the {{client}} account, so the portal is closed for now. Contact them if you need access again.',
+    signOut:  'Sign out',
+  },
   clientWorkspace: {
     cardReview:          'For review',
     cardReviewHint:      'Confirm transactions in one click',
@@ -1010,6 +1016,8 @@ export default {
     LK003: 'This note is archived: restore it first',
     LK004: 'Archive the note before deleting it',
     LK005: 'Only the author or an owner, admin or accountant can delete this note',
+    LY001: 'This client is deactivated: reactivate it before inviting anyone to its portal',
+    LY002: 'This client account was deactivated by the firm: ask them to reactivate it',
     LJ001: "This entry doesn't balance: debits {{debit}}, credits {{credit}}",
     LJ002: 'That account belongs to a different set of books',
     LM001: 'The owner is set when the workspace is created',

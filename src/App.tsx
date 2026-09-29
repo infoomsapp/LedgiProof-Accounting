@@ -104,6 +104,7 @@ import DropZone from './components/upload/DropZone'
 import ErrorBoundary from './components/error/ErrorBoundary'
 import RoleGuard from './components/auth/RoleGuard'
 import Unauthorized from './pages/Unauthorized'
+import PortalAccessEnded from './pages/PortalAccessEnded'
 
 // 🆕 Client Switcher Sprint 2 — Foundation + Routing
 import FirmRouteRedirect       from './components/auth/FirmRouteRedirect'
@@ -372,6 +373,9 @@ export default function App() {
         </BrowserRouter>
       )
     }
+    // A portal client whose access the firm ended (client deactivated or
+    // contact revoked) is told so, instead of being asked to create a workspace.
+    if (profile?.user_type === 'client_user') return <PortalAccessEnded />
     return <OnboardingWizard />
   }
 

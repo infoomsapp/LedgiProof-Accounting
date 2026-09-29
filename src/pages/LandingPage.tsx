@@ -76,7 +76,7 @@ const FEATURES = [
   {
     icon: <IconBank />,
     title: 'Bank transactions, classified',
-    desc: 'Import from your bank and every transaction gets auto-categorized, with a confidence score you can trust or override.'
+    desc: 'Import from your bank and each transaction gets a suggested category with the reasons behind it. Confirm in one click; merchants you have confirmed are categorized on their own.'
   },
   {
     icon: <IconSemaphore />,
@@ -147,7 +147,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="web-hero-subtitle">
-          AI-powered transaction classification with cryptographic audit trails.
+          Transaction classification that shows its reasons — no black box — with cryptographic audit trails.
           Built for self-employed professionals and bookkeeping firms.
         </p>
 

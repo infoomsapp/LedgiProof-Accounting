@@ -282,13 +282,9 @@ export default function AccountantDashboard() {
                     >
                       {t('dashboard.closePeriodButton')}
                     </button>
-                    <button
-                      className="lp-btn lp-btn-ghost"
-                      onClick={() => navigate('/periods')}
-                      style={{ width: '100%', fontSize: 12 }}
-                    >
-                      {t('dashboard.closeOwnBooksLink')}
-                    </button>
+                    {/* The firm's own books live in Personal ("Your own books"),
+                        one click away in the switcher: /periods from Firm mode
+                        only bounced back to /clients. */}
                   </>
                 )}
               </div>

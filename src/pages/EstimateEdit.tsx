@@ -36,8 +36,13 @@ import SendEstimateDialog               from '../components/estimates/SendEstima
 import EstimateActivityPanel            from '../components/estimates/EstimateActivityPanel'
 import SemaphoreSpinner                 from '../components/ui/SemaphoreSpinner'
 import Icon                             from '../components/ui/Icon'
-import { type Estimate } from '../types/estimate'
+import { type Estimate, type EstimateItem } from '../types/estimate'
 import { formatCurrency } from '../lib/currency'
+
+// One stable empty list: `?? []` made a new array on every render for an
+// estimate with no lines yet, useEstimateDraft reset its state on each new
+// array, and a blank estimate re-rendered forever (the preview never loaded).
+const NO_ITEMS: EstimateItem[] = []
 
 export default function EstimateEdit() {
   const { id }   = useParams<{ id: string }>()
@@ -55,7 +60,7 @@ export default function EstimateEdit() {
 
   const bundle   = useEstimateBundle(id)
   const estimate = bundle.data?.estimate
-  const items    = bundle.data?.items ?? []
+  const items    = bundle.data?.items ?? NO_ITEMS
 
   // ── Load org + client info for the preview ─────────────────────────────
   const [orgInfo,    setOrgInfo]    = useState<{ name: string; business_type?: string | null; principal_business?: string | null; business_code?: string | null } | null>(null)
@@ -70,16 +75,20 @@ export default function EstimateEdit() {
         .select('name, business_type, principal_business, business_code')
         .eq('id', estimate.org_id)
         .maybeSingle<{ name: string; business_type: string | null; principal_business: string | null; business_code: string | null }>(),
+      // clients has company_name / display_name, not name (it was a 400).
       db.from('clients')
-        .select('name, email')
+        .select('company_name, display_name, email')
         .eq('id', estimate.client_id)
-        .maybeSingle<{ name: string; email: string | null }>()
+        .maybeSingle<{ company_name: string | null; display_name: string | null; email: string | null }>()
     ]).then(([orgRes, clientRes]) => {
       if (cancelled) return
       if (orgRes.error)    console.error('[EstimateEdit] Could not load org info:', orgRes.error)
       if (clientRes.error) console.error('[EstimateEdit] Could not load client info:', clientRes.error)
       if (orgRes.data)     setOrgInfo(orgRes.data)
-      if (clientRes.data)  setClientInfo(clientRes.data)
+      if (clientRes.data)  setClientInfo({
+        name:  clientRes.data.company_name || clientRes.data.display_name || '',
+        email: clientRes.data.email
+      })
     })
 
     return () => { cancelled = true }

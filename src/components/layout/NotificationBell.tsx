@@ -63,9 +63,10 @@ export default function NotificationBell() {
   async function handleClick(n: Notification) {
     await markRead(n.id)
     if (n.transaction_id) {
-      navigate('/transactions')
-      // Dispatch event so TransactionList can pre-select it
-      window.dispatchEvent(new CustomEvent('lp:open-tx', { detail: n.transaction_id }))
+      // Transactions opens ?id= in its detail panel (the same deep link the
+      // dashboard uses). The old 'lp:open-tx' event had no listener, so a
+      // click on a transaction notification only closed the panel.
+      navigate(`/transactions?id=${n.transaction_id}`)
     } else if (n.note_id) {
       const { data } = await db.from('workspace_notes').select('client_id').eq('id', n.note_id).single()
       openChat((data as { client_id: string } | null)?.client_id, 'notes')
@@ -118,18 +119,20 @@ export default function NotificationBell() {
       {/* Dropdown panel */}
       {open && (
         <div style={{
-          position: 'absolute', right: 0, top: 'calc(100% + 6px)',
-          width: 320, maxHeight: 420, overflowY: 'auto',
-          background: '#1c2235',
-          border: '0.5px solid rgba(255,255,255,0.1)',
+          // Fixed to the top-right corner: anchored to the bell it opened
+          // leftwards under the sidebar, which painted over it.
+          position: 'fixed', right: 16, top: 56,
+          width: 340, maxWidth: 'calc(100vw - 32px)', maxHeight: 440, overflowY: 'auto',
+          background: 'var(--lp-surface)',
+          border: '0.5px solid var(--lp-border)',
           borderRadius: 12,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-          zIndex: 300
+          boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+          zIndex: 1000
         }}>
           {/* Header */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 14px', borderBottom: '0.5px solid rgba(255,255,255,0.07)'
+            padding: '12px 14px', borderBottom: '0.5px solid var(--lp-border)'
           }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--lp-text)' }}>
               Notifications
@@ -169,12 +172,12 @@ export default function NotificationBell() {
                 onClick={() => handleClick(n)}
                 style={{
                   width: '100%', background: n.is_read ? 'none' : 'rgba(59,130,246,0.05)',
-                  border: 'none', borderBottom: '0.5px solid rgba(255,255,255,0.05)',
+                  border: 'none', borderBottom: '0.5px solid var(--lp-border)',
                   padding: '11px 14px', textAlign: 'left', cursor: 'pointer',
                   display: 'flex', gap: 10, alignItems: 'flex-start',
                   transition: 'background 0.1s'
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--lp-surface-2)'}
                 onMouseLeave={e => e.currentTarget.style.background = n.is_read
                   ? 'none' : 'rgba(59,130,246,0.05)'}
               >
@@ -186,13 +189,13 @@ export default function NotificationBell() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: 12.5, fontWeight: n.is_read ? 400 : 500,
-                    color: n.is_read ? '#64748b' : 'var(--lp-text)',
+                    color: n.is_read ? 'var(--lp-text-muted)' : 'var(--lp-text)',
                     marginBottom: 2,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                   }}>
                     {n.title}
                   </div>
-                  <div style={{ fontSize: 11.5, color: '#475569', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', lineHeight: 1.5 }}>
                     {n.body}
                   </div>
                   <div style={{ fontSize: 10.5, color: '#334155', marginTop: 4 }}>

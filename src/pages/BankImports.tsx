@@ -10,6 +10,7 @@ import {
   openPlaidLink, syncTransactions, getBankConnections, disconnectBank
 } from '../services/plaid.service'
 import SemaphoreSpinner from '../components/ui/SemaphoreSpinner'
+import Icon, { type IconName } from '../components/ui/Icon'
 
 interface BankConnection {
   id:               string
@@ -39,14 +40,14 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 function AccountTypeIcon({ type }: { type: string }) {
-  const icons: Record<string, string> = {
-    depository: '🏦',
-    credit:     '💳',
-    investment: '📈',
-    loan:       '📋',
-    other:      '🏛'
+  const icons: Record<string, IconName> = {
+    depository: 'building',
+    credit:     'billing',
+    investment: 'trendUp',
+    loan:       'clipboardList',
+    other:      'building'
   }
-  return <span>{icons[type] ?? icons.other}</span>
+  return <Icon name={icons[type] ?? 'building'} size={18} />
 }
 
 export default function BankImports() {
@@ -250,7 +251,7 @@ export default function BankImports() {
 
         /* Empty state */
         <div className="lp-card" style={{ textAlign: 'center', padding: '56px 24px' }}>
-          <div style={{ fontSize: 40, marginBottom: 14 }}>🏦</div>
+          <div style={{ marginBottom: 14, color: 'var(--lp-text-muted)', display: 'flex', justifyContent: 'center' }}><Icon name="building" size={40} strokeWidth={1.4} /></div>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 8 }}>
             No bank accounts connected
           </div>
@@ -374,7 +375,7 @@ export default function BankImports() {
         background: 'rgba(255,255,255,0.02)', border: '0.5px solid var(--lp-border)',
         fontSize: 12, color: '#334155', lineHeight: 1.7, display: 'flex', gap: 10
       }}>
-        <span style={{ flexShrink: 0 }}>🔒</span>
+        <span style={{ flexShrink: 0, display: 'flex', paddingTop: 2 }}><Icon name="lock" size={14} /></span>
         <span>
           Bank credentials are handled entirely by Plaid and never stored by LedgiProof.
           Your access token is stored encrypted in Supabase Vault and is only used server-side.

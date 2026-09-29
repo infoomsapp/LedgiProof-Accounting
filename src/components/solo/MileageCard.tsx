@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { businessMileageRateForDate } from '../../lib/tax-tables-2026'
+import Icon from '../ui/Icon'
 
 interface Props {
   totalMilesYTD?:    number   // real YTD miles from DB
@@ -62,8 +63,10 @@ export default function MileageCard({ totalMilesYTD = 0, totalDeduction = 0, ent
           <div style={{
             fontSize: 11, color: 'var(--lp-text-muted)',
             textTransform: 'uppercase', letterSpacing: '0.07em',
-            fontWeight: 600, marginBottom: 4
+            fontWeight: 600, marginBottom: 4,
+            display: 'flex', alignItems: 'center', gap: 6
           }}>
+            <Icon name="car" size={13} />
             {t('solo.mileageYtd')}
           </div>
           <div style={{

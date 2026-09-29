@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getRecurringSubscriptions } from '../../services/solo-dashboard.service'
 import { formatCurrency } from '../../lib/currency'
+import Icon from '../ui/Icon'
 
 const fmt = (n: number) => formatCurrency(n, 'USD', { maximumFractionDigits: 0 })
 
@@ -33,7 +34,9 @@ export default function RecurringSubscriptionsCard({ orgId }: { orgId: string })
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp-text)' }}>{t('solo.recurringSubscriptions')}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp-text)', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="repeat" size={15} />{t('solo.recurringSubscriptions')}
+          </div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 3 }}>
             {t('solo.recurringSubscriptionsSub')}
           </div>

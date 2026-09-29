@@ -10,6 +10,7 @@ import {
   useSetAsideSummary, useSetAsideEntries, useAddSetAside, useUpdateSetAsideRate
 } from '../../hooks/useSetAside'
 import { formatCurrency } from '../../lib/currency'
+import Icon from '../ui/Icon'
 
 const fmt = (n: number) => formatCurrency(n, 'USD', { maximumFractionDigits: 0 })
 
@@ -65,7 +66,9 @@ export default function TaxSetAsideCard({ orgId, year, userId, netProfitYTD }: P
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap'
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp-text)' }}>{t('solo.taxSetAside')}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--lp-text)', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="archive" size={15} />{t('solo.taxSetAside')}
+          </div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 3 }}>
             {t('solo.taxSetAsideSub')}
           </div>

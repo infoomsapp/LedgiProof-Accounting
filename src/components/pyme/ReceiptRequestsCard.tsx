@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { PymeReceiptRequest } from '../../services/pyme-dashboard.service'
 import { formatDateShort } from '../../lib/dates'
+import Icon from '../ui/Icon'
 
 interface Props {
   requests: PymeReceiptRequest[]
@@ -42,7 +43,10 @@ export default function ReceiptRequestsCard({ requests, onUploadRequest }: Props
         textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
       }}>
-        <span>{t('pyme.receiptsRequestedTitle')}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="receipt" size={13} />
+          {t('pyme.receiptsRequestedTitle')}
+        </span>
         <span style={{
           fontSize: 11, color: '#3b82f6', textTransform: 'none',
           letterSpacing: 0, fontWeight: 500

@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { estimateQuarterlyTax, formatTax, formatPct } from '../../services/tax-estimator.service'
+import Icon from '../ui/Icon'
 
 interface Props {
   netProfitYTD:  number       // YTD net profit (more accurate than quarter-only)
@@ -79,8 +80,9 @@ export default function QuarterlyTaxCard({
           <div style={{
             fontSize: 11, color: 'var(--lp-text-muted)',
             textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600,
-            marginBottom: 4
+            marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6
           }}>
+            <Icon name="calculator" size={13} />
             {t('solo.quarterlyTaxEstimate', { quarter, year })}
           </div>
           <div style={{
@@ -234,6 +236,7 @@ export default function QuarterlyTaxCard({
               border: '0.5px solid rgba(251,191,36,0.2)',
               fontSize: 11.5, color: '#fbbf24', lineHeight: 1.5
             }}>
+              <Icon name="warning" size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
               {t('solo.addStateNotePrefix')} <strong>{t('solo.settingsTaxInfo')}</strong> {t('solo.addStateNoteSuffix')}
             </div>
           )}
@@ -244,6 +247,7 @@ export default function QuarterlyTaxCard({
               border: '0.5px solid rgba(59,130,246,0.2)',
               fontSize: 11.5, color: '#93c5fd', lineHeight: 1.5
             }}>
+              <Icon name="taxInfo" size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
               {t('solo.stateNote', { state: stateCode })}
             </div>
           )}

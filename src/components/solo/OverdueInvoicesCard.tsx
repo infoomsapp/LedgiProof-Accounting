@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getOverdueInvoices } from '../../services/invoice.service'
 import { formatCurrency } from '../../lib/currency'
+import Icon from '../ui/Icon'
 
 const fmt = (n: number) => formatCurrency(n, 'USD', { maximumFractionDigits: 0 })
 
@@ -43,7 +44,9 @@ export default function OverdueInvoicesCard({ orgId }: { orgId: string }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--sem-red)' }}>{t('solo.overdueInvoices')}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--sem-red)', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="time" size={15} />{t('solo.overdueInvoices')}
+          </div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 3 }}>
             {t('solo.overdueInvoicesSub')}
           </div>

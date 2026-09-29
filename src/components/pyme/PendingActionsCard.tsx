@@ -5,6 +5,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { PymePending } from '../../services/pyme-dashboard.service'
+import Icon from '../ui/Icon'
 
 interface Props {
   pending: PymePending
@@ -53,8 +54,9 @@ export default function PendingActionsCard({ pending }: Props) {
       <div style={{
         fontSize: 11, color: 'var(--lp-text-muted)',
         textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600,
-        marginBottom: 12
+        marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6
       }}>
+        <Icon name="clipboardList" size={13} />
         {t('pyme.whatNeedsAttention')}
       </div>
 

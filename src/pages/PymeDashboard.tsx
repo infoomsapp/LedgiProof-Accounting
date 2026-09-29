@@ -49,6 +49,7 @@ import SemaphoreDonut             from '../components/dashboard/v2/shared/Semaph
 import CriticalAlertBanner        from '../components/dashboard/v2/shared/CriticalAlertBanner'
 import ActivitySidebar, { type ActivityItem } from '../components/dashboard/v2/shared/ActivitySidebar'
 import { formatCurrency } from '../lib/currency'
+import Icon from '../components/ui/Icon'
 
 const fmtCur = (n: number, ccy = 'USD') => formatCurrency(n, ccy, { maximumFractionDigits: 0 })
 
@@ -100,7 +101,7 @@ export default function PymeDashboard() {
         key:   tx.tx_id,
         color: color as ActivityItem['color'],
         text:  `${tx.merchant ?? tx.description ?? t('dashboard.transactionFallback')}`,
-        sub:   `${sign}${amountStr}${tx.has_message_thread ? ' · 💬' : ''}`,
+        sub:   `${sign}${amountStr}${tx.has_message_thread ? ` · ${t('pyme.hasThread')}` : ''}`,
         at:    tx.transaction_date,
         onClick: () => navigate(`/transactions?id=${tx.tx_id}`)
       }
@@ -196,7 +197,7 @@ export default function PymeDashboard() {
                 fontSize: 22, fontWeight: 600, color: 'var(--lp-text)',
                 letterSpacing: '-0.01em', margin: 0
               }}>
-                {greeting} <span style={{ opacity: 0.5 }}>👋</span>
+                {greeting}
               </h1>
               <p style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 4, margin: 0 }}>
                 {t('pyme.yourFirm')} <strong style={{ color: 'var(--lp-violet)', fontWeight: 600 }}>{d.firm.name}</strong>
@@ -224,11 +225,13 @@ export default function PymeDashboard() {
                   cursor:       'pointer',
                   fontFamily:   'inherit',
                   whiteSpace:   'nowrap',
+                  display:      'inline-flex', alignItems: 'center', gap: 6,
                   transition:   'opacity 0.15s'
                 }}
                 onMouseEnter={e => { e.currentTarget.style.opacity = '0.9' }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
               >
+                <Icon name="chat" size={14} />
                 {t('pyme.chatWithBookkeeper')}
               </button>
 
@@ -247,11 +250,13 @@ export default function PymeDashboard() {
                   cursor:       'pointer',
                   fontFamily:   'inherit',
                   whiteSpace:   'nowrap',
+                  display:      'inline-flex', alignItems: 'center', gap: 6,
                   transition:   'background 0.15s'
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-surface-2)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
               >
+                <Icon name="users" size={14} />
                 {t('pyme.myCustomers')}
               </button>
 
@@ -290,6 +295,7 @@ export default function PymeDashboard() {
                 onMouseEnter={e => { e.currentTarget.style.opacity = '0.9' }}
                 onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
               >
+                <Icon name="receipt" size={14} />
                 {t('pyme.sendReceipt')}
               </button>
             </div>

@@ -111,7 +111,7 @@ export default function BookkeeperDashboard() {
                 fontSize: 22, fontWeight: 600,
                 color: 'var(--lp-text)', letterSpacing: '-0.01em', margin: 0
               }}>
-                {greeting} <span style={{ opacity: 0.5 }}>👋</span>
+                {greeting}
               </h1>
               <p style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 4, margin: 0 }}>
                 {formatDateHeadline(now)}

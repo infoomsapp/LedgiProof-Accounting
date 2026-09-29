@@ -168,7 +168,7 @@ export default function SoloDashboard() {
             fontSize: 22, fontWeight: 700, color: 'var(--lp-text)',
             letterSpacing: '-0.01em', margin: 0
           }}>
-            {greeting} 👋
+            {greeting}
           </h1>
           <p style={{ fontSize: 13, color: 'var(--lp-text-muted)', marginTop: 5 }}>
             {t('solo.entrepreneurWorkspace')}
@@ -246,6 +246,7 @@ export default function SoloDashboard() {
             onMouseEnter={e => { if (orgId) e.currentTarget.style.opacity = '0.9' }}
             onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
           >
+            <Icon name="receipt" size={14} />
             {t('solo.uploadReceipt')}
           </button>
         </div>
@@ -262,7 +263,7 @@ export default function SoloDashboard() {
         background: 'var(--lp-surface)', border: '0.5px solid var(--lp-border)',
         borderRadius: 10
       }}>
-        {([['overview', 'solo.tabOverview'], ['taxes', 'solo.tabTaxes']] as const).map(([id, labelKey]) => (
+        {([['overview', 'solo.tabOverview', 'workspace'], ['taxes', 'solo.tabTaxes', 'taxInfo']] as const).map(([id, labelKey, icon]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -271,9 +272,11 @@ export default function SoloDashboard() {
               fontFamily: 'inherit', fontSize: 12.5,
               background: tab === id ? 'var(--sem-blue-bg-strong)' : 'transparent',
               color: tab === id ? 'var(--lp-accent)' : 'var(--lp-text-muted)',
-              fontWeight: tab === id ? 600 : 400
+              fontWeight: tab === id ? 600 : 400,
+              display: 'inline-flex', alignItems: 'center', gap: 6
             }}
           >
+            <Icon name={icon} size={14} />
             {t(labelKey)}
           </button>
         ))}

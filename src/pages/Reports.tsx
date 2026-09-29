@@ -14,6 +14,7 @@ import TrialBalanceReport from '../components/reports/TrialBalanceReport'
 import GeneralLedgerReport, { onNormalSide } from '../components/reports/GeneralLedgerReport'
 import AgingReport, { agingByParty } from '../components/reports/AgingReport'
 import { getBudgetVsActual, type BudgetVsActualData } from '../services/budget.service'
+import Icon from '../components/ui/Icon'
 import {
   getProfitAndLossRange, getTrialBalance, getGeneralLedger, getAging,
   presetRange, formatRange, isoDate, RANGE_PRESETS, AGING_BUCKETS,
@@ -900,7 +901,7 @@ export default function Reports({ orgIdOverride, clientIdOverride, entityNameOve
 
       {!hasRun && !loading && (
         <div className="lp-card" style={{ textAlign:'center', padding:'48px 24px' }}>
-          <div style={{ fontSize:36, marginBottom:12 }}>📊</div>
+          <div style={{ marginBottom: 12, color: 'var(--lp-text-muted)', display: 'flex', justifyContent: 'center' }}><Icon name="reports" size={36} strokeWidth={1.4} /></div>
           <div style={{ fontSize:14, fontWeight:600, color:'var(--lp-text)', marginBottom:6 }}>
             {t('reports.empty.title')}
           </div>

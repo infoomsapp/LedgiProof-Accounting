@@ -10,6 +10,7 @@ import {
   type ScheduleCData
 } from '../../services/solo-dashboard.service'
 import { formatCurrency } from '../../lib/currency'
+import Icon from '../ui/Icon'
 
 interface Props {
   data: ScheduleCData
@@ -54,8 +55,9 @@ export default function ScheduleCPreview({ data, year, onExportPdf, pdfLoading, 
         <div>
           <div style={{
             fontSize: 14, fontWeight: 700, color: 'var(--lp-text)',
-            letterSpacing: '-0.01em'
+            letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 7
           }}>
+            <Icon name="taxInfo" size={15} />
             {t('solo.scheduleCTitle', { year })}
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--lp-text-muted)', marginTop: 3 }}>
@@ -70,7 +72,8 @@ export default function ScheduleCPreview({ data, year, onExportPdf, pdfLoading, 
               disabled={pdfLoading}
               style={{ ...btnPrimary, opacity: pdfLoading ? 0.6 : 1, cursor: pdfLoading ? 'default' : 'pointer' }}
             >
-              {pdfLoading ? 'Generating…' : t('solo.exportPdf')}
+              <Icon name="invoices" size={13} />
+              {pdfLoading ? t('reports.controls.generating') : t('solo.exportPdf')}
             </button>
           )}
           {onExportCsv && (
@@ -78,6 +81,7 @@ export default function ScheduleCPreview({ data, year, onExportPdf, pdfLoading, 
               onClick={onExportCsv}
               style={btnGhost}
             >
+              <Icon name="chartBar" size={13} />
               {t('solo.exportCsv')}
             </button>
           )}

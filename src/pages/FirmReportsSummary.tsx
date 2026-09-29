@@ -9,6 +9,7 @@ import { getClients }      from '../services/invoice.service'
 import type { Client }     from '../types/database.types'
 import Reports             from './Reports'
 import { toSafeMessage } from '../lib/errors'
+import Icon from '../components/ui/Icon'
 
 const fmt = (n: number) => formatCurrency(n)
 
@@ -140,7 +141,7 @@ export default function FirmReportsSummary() {
 
       {hasRun && !loading && rows && rows.length === 0 && (
         <div className="lp-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+          <div style={{ marginBottom: 12, color: 'var(--lp-text-muted)', display: 'flex', justifyContent: 'center' }}><Icon name="reports" size={36} strokeWidth={1.4} /></div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>
             {t('reports.firm.noClientsTitle')}
           </div>
@@ -232,7 +233,7 @@ export default function FirmReportsSummary() {
 
       {!hasRun && !loading && (
         <div className="lp-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+          <div style={{ marginBottom: 12, color: 'var(--lp-text-muted)', display: 'flex', justifyContent: 'center' }}><Icon name="reports" size={36} strokeWidth={1.4} /></div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>
             {t('reports.empty.title')}
           </div>

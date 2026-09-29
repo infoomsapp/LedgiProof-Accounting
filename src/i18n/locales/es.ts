@@ -774,6 +774,12 @@ export default {
     needsLook:      'Revísala antes de confirmar',
     showingFirst:   'Mostrando las {{shown}} más recientes de {{total}}',
     hasReceipt:     'Recibo adjunto',
+    changeCategory: {
+      button:  'Cambiar categoría',
+      hint:    'Quita la categoría (y su verificación) para elegir de nuevo.',
+      confirm: '¿Quitar la categoría de esta transacción? Sus asientos se revierten, vuelve a Por revisar y LedgiProof volverá a preguntar por este comercio.',
+      done:    'Categoría quitada. Elige la nueva abajo o encuéntrala en Por revisar.',
+    },
     verifyQueue: {
       title:    'Categorizadas automáticamente — revisa y verifica',
       subtitle: 'LedgiProof las registró por sí solo (verde = lista): una regla tuya, un comercio que confirmaste tres veces o una coincidencia exacta con una factura o bill. Verifícalas, o cambia la categoría y volverá a preguntarte.',

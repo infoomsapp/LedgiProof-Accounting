@@ -778,6 +778,12 @@ export default {
     needsLook:      'Take a look before confirming',
     showingFirst:   'Showing the {{shown}} most recent of {{total}}',
     hasReceipt:     'Receipt attached',
+    changeCategory: {
+      button:  'Change category',
+      hint:    'Takes the category off (and its verification) so you can choose again.',
+      confirm: 'Take the category off this transaction? Its journal lines are reversed, it goes back to For review, and LedgiProof will ask again about this merchant.',
+      done:    'Category removed. Choose the new one below, or find it in For review.',
+    },
     verifyQueue: {
       title:    'Categorized automatically — check and verify',
       subtitle: 'LedgiProof put these in the books by itself (green = ready): a rule you set, a merchant you confirmed three times, or an exact match to an invoice or bill. Verify them, or change the category and it goes back to asking you.',

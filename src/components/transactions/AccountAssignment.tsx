@@ -9,10 +9,12 @@
 // The brain assigns the semaphore; the bookkeeper assigns the accounts.
 
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { db } from '../../lib/supabase'
 import { useAuthStore } from '../../store/auth.store'
 import { postJournalEntries } from '../../services/journal.service'
 import { approveTransaction } from '../../services/transactions.service'
+import { uncategorizeTransaction } from '../../services/review.service'
 import type { Transaction, Account, LpRole } from '../../types/database.types'
 
 interface AccountAssignmentProps {
@@ -38,6 +40,7 @@ export default function AccountAssignment({
   orgId,
   onPosted
 }: AccountAssignmentProps) {
+  const { t } = useTranslation()
   const { profile, user, membership } = useAuthStore()
 
   const actorId = user?.id ?? profile?.id ?? ''
@@ -52,29 +55,34 @@ export default function AccountAssignment({
   const [posted, setPosted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [existing, setExisting] = useState<any[]>([])
+  const [changing, setChanging] = useState(false)
+  const [changed,  setChanged]  = useState(false)
+
+  // The transaction's live journal lines -- read on open and again after
+  // posting, so the screen shows what the books now hold.
+  async function loadEntries() {
+    const { data } = await db.from('journal_entries')
+      .select(`
+        id, entry_type, amount, accounts(code, name, type)
+      `)
+      .eq('transaction_id', tx.id)
+      .eq('is_reversed', false)
+    const e = (data ?? []) as any[]
+    setExisting(e)
+    setPosted(e.length > 0)
+  }
 
   // Load accounts + check if entries already posted
   useEffect(() => {
     if (!orgId) return
-
-    Promise.all([
-      db.from('accounts')
-        .select('*')
-        .eq('org_id', orgId)
-        .eq('is_active', true)
-        .order('code'),
-      db.from('journal_entries')
-        .select(`
-          id, entry_type, amount, accounts(code, name, type)
-        `)
-        .eq('transaction_id', tx.id)
-        .eq('is_reversed', false)
-    ]).then(([accs, entries]) => {
-      setAccounts((accs.data ?? []) as Account[])
-      const e = (entries.data ?? []) as any[]
-      setExisting(e)
-      if (e.length > 0) setPosted(true)
-    })
+    db.from('accounts')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('is_active', true)
+      .order('code')
+      .then(accs => setAccounts((accs.data ?? []) as Account[]))
+    void loadEntries()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, tx.id])
 
   // Smart default: detect transaction direction
@@ -161,13 +169,36 @@ export default function AccountAssignment({
         ...(memo ? { note: memo } : {})
       })
 
-      setPosted(true)
+      await loadEntries()
+      setChanged(false)
       setPosting(false)
       onPosted?.()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to post journal entry')
       setPosting(false)
     }
+  }
+
+  // ── Change the category of a categorized (even verified) transaction ───
+  // The same uncategorize_transaction() as "Change" in For review: the lines
+  // are reversed with an audit entry, the verification goes with them, and the
+  // merchant goes back to "ask me". The database refuses it for a reconciled
+  // transaction (LV007), one that settles an invoice or bill (LV008) or one in
+  // a closed month (LP001) -- those messages are shown as they come.
+  async function handleChangeCategory() {
+    if (!confirm(t('review.changeCategory.confirm'))) return
+    setChanging(true)
+    setError(null)
+    try {
+      await uncategorizeTransaction(orgId, tx.id)
+      setExisting([])
+      setPosted(false)
+      setChanged(true)
+      onPosted?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    }
+    setChanging(false)
   }
 
   // ── Render posted state ────────────────────────────────────────────────
@@ -223,6 +254,18 @@ export default function AccountAssignment({
             </span>
           </div>
         ))}
+        {canPost && !tx.locked_at && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+            <button type="button" className="lp-btn lp-btn-ghost" disabled={changing}
+              onClick={() => { void handleChangeCategory() }}>
+              {changing ? '…' : t('review.changeCategory.button')}
+            </button>
+            <span style={{ fontSize: 11.5, color: 'var(--lp-text-muted)' }}>{t('review.changeCategory.hint')}</span>
+          </div>
+        )}
+        {error && (
+          <div role="alert" style={{ marginTop: 8, fontSize: 12, color: 'var(--sem-red)' }}>{error}</div>
+        )}
       </div>
     )
   }
@@ -314,6 +357,12 @@ export default function AccountAssignment({
 
   return (
     <div style={{ marginTop: 14 }}>
+      {changed && (
+        <div role="status" style={{
+          marginBottom: 12, padding: '8px 12px', borderRadius: 8, fontSize: 12.5,
+          background: 'var(--sem-blue-bg)', border: '0.5px solid var(--sem-blue-border)', color: 'var(--sem-blue)'
+        }}>✓ {t('review.changeCategory.done')}</div>
+      )}
       <div
         style={{
           fontSize: 11,

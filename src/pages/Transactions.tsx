@@ -659,7 +659,9 @@ export default function Transactions() {
       {/* ── Right: detail panel ─────────────────────────────────────── */}
       {detail && (
         <TransactionDetail
-          transaction={detail}
+          // The freshly loaded row, not the copy taken when it was opened:
+          // categorizing or verifying changes its colour while it is open.
+          transaction={rows.find(r => r.id === detail.id) ?? detail}
           orgId={orgId}
           onClose={() => setDetail(null)}
         />

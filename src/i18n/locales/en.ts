@@ -919,6 +919,7 @@ export default {
     LV006: "This transaction isn't categorized",
     LV007: 'This transaction is reconciled. Reopen the reconciliation to change it.',
     LV008: 'This transaction is matched to {{document}}. Undo that match first.',
+    LV009: 'A verified transaction stays verified. Remove its category to change it.',
     LW001: 'Vendor not found',
     LW002: 'W-9 request not found',
     LX001: 'No exchange rate available for {{currency}}',

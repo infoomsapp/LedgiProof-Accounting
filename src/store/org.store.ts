@@ -4,6 +4,21 @@ import { useAuthStore } from './auth.store'
 import type { Organization, OrganizationMembership } from '../types/database.types'
 import { toSafeMessage } from '../lib/errors'
 
+// The workspace the person picked, remembered on this device. Without it a
+// page reload fell back to the FIRST membership (usually the firm), so someone
+// working in their personal books who refreshed kept working -- importing,
+// categorizing -- in the firm's books without noticing.
+const ACTIVE_ORG_KEY = 'lp-active-org'
+function rememberedOrgId(): string | null {
+  try { return localStorage.getItem(ACTIVE_ORG_KEY) } catch { return null }
+}
+function rememberOrgId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(ACTIVE_ORG_KEY, id)
+    else localStorage.removeItem(ACTIVE_ORG_KEY)
+  } catch { /* private window / blocked storage: the first workspace is used */ }
+}
+
 interface OrgState {
   orgs: Organization[]
   activeOrg: Organization | null
@@ -78,7 +93,8 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     }
 
     // Intentar preservar la organización activa si sigue siendo válida
-    const currentActiveOrgId = get().activeOrg?.id
+    // (en memoria, o la que se eligió en este dispositivo antes de recargar)
+    const currentActiveOrgId = get().activeOrg?.id ?? rememberedOrgId()
     let nextOrg: Organization | null = null
     let nextMembership: OrganizationMembership | null = null
 
@@ -123,6 +139,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       loading: false,
       error: null
     })
+    rememberOrgId(nextOrg.id)
 
     useAuthStore.getState().setMembership(nextMembership)
   },
@@ -135,6 +152,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       activeOrg: org,
       error: null
     })
+    rememberOrgId(org.id)
     useAuthStore.getState().setMembership(membership)
   },
 
@@ -142,6 +160,7 @@ export const useOrgStore = create<OrgState>((set, get) => ({
   // CLEAR ORG STATE
   // ───────────────────────────────────────────────────────────────
   clearOrgState: () => {
+    rememberOrgId(null)
     set({
       orgs: [],
       activeOrg: null,

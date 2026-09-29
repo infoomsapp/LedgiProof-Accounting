@@ -38,7 +38,8 @@
 --
 -- Error codes (one per error): LV004 verified without Verify, LV005 verify
 -- before categorizing, LV006 remove a category that isn't there, LV007
--- reconciled, LV008 matched to an invoice/bill/payment.
+-- reconciled, LV008 matched to an invoice/bill/payment, LV009 un-verify by a
+-- direct edit.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── 0. Old score→colour machinery ───────────────────────────────────────────
@@ -79,20 +80,32 @@ returns public.semaphore_status language sql immutable as $$
   end)::public.semaphore_status
 $$;
 
+-- security definer: lp_private is invisible to signed-in users, and this runs
+-- on their inserts/updates (applied as semaphore_v2_f/g/h).
 create or replace function lp_private.trg_derive_semaphore()
-returns trigger language plpgsql set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 declare
-  v_in_books boolean;
+  v_in_books  boolean;
+  v_verifying boolean := coalesce(current_setting('lp.verifying', true), '') = 'on';
 begin
   -- Verification is a person's act and goes through Verify / For review only.
   if new.approved_by is not null
      and (tg_op = 'INSERT' or new.approved_by is distinct from old.approved_by)
-     and coalesce(current_setting('lp.verifying', true), '') <> 'on' then
+     and not v_verifying then
     raise exception using errcode = 'LV004',
       message = 'Use Verify to mark a transaction as verified';
   end if;
 
   v_in_books := tg_op = 'UPDATE' and lp_private.transaction_in_books(new.id);
+
+  -- Un-verifying is not a direct edit either: only removing the category
+  -- (uncategorize, or a retired version) clears it, and that is audited.
+  if tg_op = 'UPDATE' and old.approved_by is not null and new.approved_by is null
+     and v_in_books and not v_verifying then
+    raise exception using errcode = 'LV009',
+      message = 'A verified transaction stays verified. Remove its category to change it.';
+  end if;
+
   -- A verification is of a categorization: no categorization, nothing verified.
   if not v_in_books then
     new.approved_by := null;
@@ -105,6 +118,7 @@ begin
   return new;
 end;
 $$;
+revoke all on function lp_private.trg_derive_semaphore() from public;
 
 -- Named to sort first, so guard_reconciled_transaction sees the derived colour.
 drop trigger if exists trg_0_derive_semaphore on public.transactions;
@@ -114,7 +128,7 @@ create trigger trg_0_derive_semaphore
 
 -- Journal lines coming or going re-derive their transaction.
 create or replace function lp_private.trg_journal_touch_transaction()
-returns trigger language plpgsql set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
   if tg_op <> 'INSERT' and old.transaction_id is not null then
     update public.transactions set updated_at = now() where id = old.transaction_id;
@@ -181,7 +195,7 @@ returns text language sql stable set search_path = public as $$
 $$;
 
 create or replace function lp_private.trg_retire_transaction_version()
-returns trigger language plpgsql set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_link text;
 begin
@@ -769,12 +783,10 @@ begin
       v_skipped := v_skipped + 1;
       continue;
     end if;
-    -- Which bank account is it? Automation only answers when there is one.
-    select count(*) into v_banks
-      from public.accounts a
-     where a.org_id = p_org_id and a.client_id is not distinct from v_tx.client_id
-       and lp_private.is_cash_account(a);
-    if v_banks <> 1 then
+    -- The same bank account For review posts to when a person confirms
+    -- (applied as semaphore_v2_e_auto_uses_default_bank: the standard chart
+    -- has Checking + Savings, and "exactly one" meant automation never ran).
+    if lp_private.default_cash_account(p_org_id, v_tx.client_id) is null then
       v_skipped := v_skipped + 1;
       continue;
     end if;

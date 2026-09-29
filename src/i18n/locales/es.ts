@@ -912,6 +912,7 @@ export default {
     LV006: 'Esta transacción no está categorizada',
     LV007: 'Esta transacción está conciliada. Reabre la conciliación para cambiarla.',
     LV008: 'Esta transacción está vinculada a {{document}}. Deshaz ese vínculo primero.',
+    LV009: 'Una transacción verificada sigue verificada. Quita su categoría para cambiarla.',
     LW001: 'Proveedor no encontrado',
     LW002: 'Solicitud de W-9 no encontrada',
     LX001: 'No hay tipo de cambio disponible para {{currency}}',

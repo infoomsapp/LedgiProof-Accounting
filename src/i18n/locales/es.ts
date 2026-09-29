@@ -727,6 +727,7 @@ export default {
   workspaces: {
     personal:         'Personal',
     firm:             'Firma',
+    yourBooks:        'Tus propios libros',
     createMenu:       'Crear organización',
     createTitle:      'Crear organización',
     createSubtitle:   'Otra empresa con sus propios libros',
@@ -908,6 +909,7 @@ export default {
     LP007: 'Solo se pueden cerrar meses que ya empezaron',
     LQ008: 'El cierre de periodos no está incluido en el plan {{plan}}.',
     LQ009: 'Tu plan {{plan}} incluye hasta {{limit}} espacio(s) de trabajo.',
+    LQ010: 'Una firma agrega empresas como clientes, no como nuevas organizaciones.',
     LT001: 'Elige un rango de fechas válido',
     LT002: 'La antigüedad es de cuentas por cobrar o por pagar',
     LQ001: 'Llegaste al límite de {{limit}} facturas de este mes en el plan {{plan}}.',

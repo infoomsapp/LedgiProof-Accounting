@@ -311,13 +311,19 @@ export default function AppShell() {
           }}>
             <LogoBrand variant="sidebar" />
             <div style={{ fontSize: 10.5, color: 'var(--lp-text-muted)', marginTop: 5, marginLeft: 40 }}>
+              {/* What the ACTIVE workspace is. A professional in their personal
+                  workspace is keeping their own books there -- not a firm
+                  (QuickBooks Online Accountant calls it "Your books"). */}
               {!isProfessional && (
                 <span style={{ color: '#3b82f6' }}>Solo</span>
               )}
-              {isProfessional && !isSuperAdmin && isAccountantFirm && (
+              {isProfessional && !isSuperAdmin && !activeOrg?.is_firm && (
+                <span style={{ color: '#3b82f6', fontWeight: 600 }}>{t('workspaces.yourBooks')}</span>
+              )}
+              {isProfessional && !isSuperAdmin && activeOrg?.is_firm && isAccountantFirm && (
                 <span style={{ color: '#3b82f6', fontWeight: 600 }}>Accountant Firm</span>
               )}
-              {isProfessional && !isSuperAdmin && !isAccountantFirm && (
+              {isProfessional && !isSuperAdmin && activeOrg?.is_firm && !isAccountantFirm && (
                 <span style={{ color: '#3b82f6', fontWeight: 600 }}>Bookkeeper Firm</span>
               )}
             </div>

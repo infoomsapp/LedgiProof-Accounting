@@ -124,3 +124,14 @@ revoke all on function public.get_workspace_allowance()  from public, anon;
 revoke all on function public.create_workspace_org(text) from public, anon;
 grant execute on function public.get_workspace_allowance()  to authenticated;
 grant execute on function public.create_workspace_org(text) to authenticated;
+
+-- ── Firms add clients (applied as workspace_limits_firms_add_clients) ────────
+-- Like QuickBooks Online Accountant ("Your books" + clients) and Xero HQ, a
+-- firm has exactly one workspace of its own books next to the firm; every other
+-- company is added as a CLIENT, never as another organization.
+--   · workspace_allowance returns is_firm and can_create = not is_firm and (under the limit).
+--   · create_workspace_org, right after reading the allowance:
+--       if (v_allow ->> 'is_firm')::boolean then
+--         raise exception using errcode = 'LQ010',
+--           message = 'A firm adds companies as clients, not as new organizations.';
+--       end if;

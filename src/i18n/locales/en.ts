@@ -731,6 +731,7 @@ export default {
   workspaces: {
     personal:         'Personal',
     firm:             'Firm',
+    yourBooks:        'Your own books',
     createMenu:       'Create organization',
     createTitle:      'Create organization',
     createSubtitle:   'Another company with its own books',
@@ -915,6 +916,7 @@ export default {
     LP007: 'Only months that have started can be closed',
     LQ008: "Period closing isn't included in the {{plan}} plan.",
     LQ009: 'Your {{plan}} plan includes up to {{limit}} workspace(s).',
+    LQ010: 'A firm adds companies as clients, not as new organizations.',
     LT001: 'Choose a valid date range',
     LT002: 'Aging is either receivables or payables',
     LQ001: "You've reached this month's limit of {{limit}} invoices on the {{plan}} plan.",

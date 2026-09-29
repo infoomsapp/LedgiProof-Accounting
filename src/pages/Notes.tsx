@@ -16,6 +16,7 @@ import { useUserRole } from '../hooks/useUserRole'
 import { useChatBubbleStore } from '../store/chat-bubble.store'
 import {
   listAllWorkspaceNotesForOrg, createWorkspaceNote, approveWorkspaceNote, completeWorkspaceNote,
+  archiveWorkspaceNote, deleteWorkspaceNote,
   getWorkspaceNoteStatus, NOTE_STATUS_STYLE, type WorkspaceNoteWithClient, type WorkspaceNoteStatus
 } from '../services/workspace-notes.service'
 import { getClients } from '../services/invoice.service'
@@ -35,7 +36,17 @@ const FILTERS: { key: FilterTab; label: string }[] = [
   { key: 'pending_approval', label: 'Pending approval' },
   { key: 'approved',         label: 'Approved' },
   { key: 'done',             label: 'Done' },
+  { key: 'archived',         label: 'Archived' },
 ]
+
+function noteActionStyle(color: string): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'transparent',
+    border: '0.5px solid var(--lp-border)', color, cursor: 'pointer',
+    fontFamily: 'inherit', fontWeight: 500, whiteSpace: 'nowrap',
+  }
+}
 
 function refIcon(type: ContextRef['type']): IconName {
   return type === 'transaction' ? 'billing' : type === 'account' ? 'accounts' : 'calendar'
@@ -72,7 +83,7 @@ export default function Notes() {
 
   const filtered = useMemo(() => {
     if (!notes) return null
-    if (filter === 'all') return notes
+    if (filter === 'all') return notes.filter(n => !n.archived_at)
     return notes.filter(n => getWorkspaceNoteStatus(n) === filter)
   }, [notes, filter])
 
@@ -97,6 +108,33 @@ export default function Notes() {
       await load()
     } catch (e: any) {
       setError(e?.message ?? 'Could not complete note')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleArchive(noteId: string, archive: boolean) {
+    setBusyId(noteId)
+    setError(null)
+    try {
+      await archiveWorkspaceNote(noteId, archive)
+      await load()
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not update the note')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleDelete(noteId: string) {
+    if (!window.confirm('Delete this note permanently? This cannot be undone.')) return
+    setBusyId(noteId)
+    setError(null)
+    try {
+      await deleteWorkspaceNote(noteId)
+      await load()
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not delete the note')
     } finally {
       setBusyId(null)
     }
@@ -312,6 +350,35 @@ export default function Notes() {
                           }}
                         >
                           {busyId === n.id ? '…' : 'Mark done'}
+                        </button>
+                      )}
+                      {status === 'archived' ? (
+                        <>
+                          <button
+                            onClick={() => void handleArchive(n.id, false)}
+                            disabled={busyId === n.id}
+                            title="Move back to the active notes"
+                            style={noteActionStyle('var(--lp-accent)')}
+                          >
+                            <Icon name="refresh" size={11} /> Restore
+                          </button>
+                          <button
+                            onClick={() => void handleDelete(n.id)}
+                            disabled={busyId === n.id}
+                            title="Delete permanently (kept in the audit log as a fingerprint)"
+                            style={noteActionStyle('var(--sem-red)')}
+                          >
+                            <Icon name="trash" size={11} /> Delete
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => void handleArchive(n.id, true)}
+                          disabled={busyId === n.id}
+                          title="Hide this note; you can restore or delete it from Archived"
+                          style={noteActionStyle('var(--lp-text-muted)')}
+                        >
+                          <Icon name="archive" size={11} /> Archive
                         </button>
                       )}
                     </div>

@@ -7319,6 +7319,8 @@ export type Database = {
       }
       workspace_notes: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           approved_at: string | null
           approved_by: string | null
           body: string
@@ -7336,6 +7338,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           approved_at?: string | null
           approved_by?: string | null
           body: string
@@ -7353,6 +7357,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           approved_at?: string | null
           approved_by?: string | null
           body?: string
@@ -7998,7 +8004,12 @@ export type Database = {
         }
         Returns: Json
       }
+      archive_workspace_note: {
+        Args: { p_archive?: boolean; p_note_id: string }
+        Returns: Json
+      }
       complete_workspace_note: { Args: { p_note_id: string }; Returns: Json }
+      delete_workspace_note: { Args: { p_note_id: string }; Returns: Json }
       compute_account_balance: {
         Args: {
           p_account_id: string

@@ -12,7 +12,7 @@ import { useAuthStore } from '../../store/auth.store'
 import { useUserRole } from '../../hooks/useUserRole'
 import {
   listWorkspaceNotes, createWorkspaceNote, approveWorkspaceNote, completeWorkspaceNote,
-  getWorkspaceNoteStatus, NOTE_STATUS_STYLE, type WorkspaceNote
+  getWorkspaceNoteStatus, NOTE_STATUS_STYLE, type WorkspaceNote, archiveWorkspaceNote
 } from '../../services/workspace-notes.service'
 import ContextRefPicker from './ContextRefPicker'
 import type { ContextRef } from '../../services/workspace-chat.service'
@@ -89,6 +89,19 @@ export default function WorkspaceNotesTab({ orgId, clientId }: Props) {
       await load()
     } catch (e: any) {
       setError(e?.message ?? 'Could not approve note')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleArchive(noteId: string) {
+    setBusyId(noteId)
+    setError(null)
+    try {
+      await archiveWorkspaceNote(noteId)
+      await load()
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not archive note')
     } finally {
       setBusyId(null)
     }
@@ -262,8 +275,8 @@ export default function WorkspaceNotesTab({ orgId, clientId }: Props) {
                     {n.context_ref.label}
                   </div>
                 )}
-                {(canApproveThis || canComplete) && (
-                  <div style={{ marginTop: 6 }}>
+                {(
+                  <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
                     {canApproveThis && (
                       <button
                         onClick={() => void handleApprove(n.id)}
@@ -290,6 +303,19 @@ export default function WorkspaceNotesTab({ orgId, clientId }: Props) {
                         {busyId === n.id ? '…' : 'Mark done'}
                       </button>
                     )}
+                    <button
+                      onClick={() => void handleArchive(n.id)}
+                      disabled={busyId === n.id}
+                      title="Hide this note; restore or delete it from Notes → Archived"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'transparent',
+                        border: '0.5px solid var(--lp-border)', color: 'var(--lp-text-muted)',
+                        cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
+                      }}
+                    >
+                      <Icon name="archive" size={11} /> Archive
+                    </button>
                   </div>
                 )}
               </div>

@@ -25,13 +25,16 @@ export interface WorkspaceNote {
   due_at:             string | null
   reminder_sent_at:   string | null
   completed_at:       string | null
+  archived_at:        string | null
+  archived_by:        string | null
   created_at:         string
   updated_at:         string
 }
 
-export type WorkspaceNoteStatus = 'approved' | 'done' | 'pending_approval' | 'open'
+export type WorkspaceNoteStatus = 'archived' | 'approved' | 'done' | 'pending_approval' | 'open'
 
 export function getWorkspaceNoteStatus(note: WorkspaceNote): WorkspaceNoteStatus {
+  if (note.archived_at)  return 'archived'
   if (note.approved_at)  return 'approved'
   if (note.completed_at) return 'done'
   if (note.requires_approval) return 'pending_approval'
@@ -46,6 +49,7 @@ export const NOTE_STATUS_STYLE: Record<WorkspaceNoteStatus, { label: string; col
   done:              { label: '✓ Done',          color: 'var(--sem-green)', bg: 'var(--sem-green-bg)', border: 'var(--sem-green-border)' },
   pending_approval:  { label: 'Pending approval', color: 'var(--sem-amber)', bg: 'var(--sem-amber-bg)', border: 'var(--sem-amber-border)' },
   open:              { label: 'Open',             color: 'var(--lp-text-muted)', bg: 'var(--lp-surface-2)', border: 'var(--lp-border)' },
+  archived:          { label: 'Archived',         color: 'var(--lp-text-muted)', bg: 'var(--lp-surface-2)', border: 'var(--lp-border)' },
 }
 
 export async function listWorkspaceNotes(orgId: string, clientId: string): Promise<WorkspaceNote[]> {
@@ -54,6 +58,7 @@ export async function listWorkspaceNotes(orgId: string, clientId: string): Promi
     .select('*')
     .eq('org_id', orgId)
     .eq('client_id', clientId)
+    .is('archived_at', null)
     .order('created_at', { ascending: false })
   if (error) throw dbError(error, 'Failed to load notes')
   return (data ?? []) as unknown as WorkspaceNote[]
@@ -119,4 +124,17 @@ export async function approveWorkspaceNote(noteId: string): Promise<void> {
 export async function completeWorkspaceNote(noteId: string): Promise<void> {
   const { error } = await db.rpc('complete_workspace_note', { p_note_id: noteId })
   if (error) throw dbError(error, 'Failed to complete the note')
+}
+
+// Same model as TaxDome: archive (hidden, restorable) -> delete permanently
+// from the Archived list. The DB refuses to delete a note that isn't archived
+// (LK004) and records every deletion in activity_events.
+export async function archiveWorkspaceNote(noteId: string, archive = true): Promise<void> {
+  const { error } = await db.rpc('archive_workspace_note', { p_note_id: noteId, p_archive: archive })
+  if (error) throw dbError(error, archive ? 'Failed to archive the note' : 'Failed to restore the note')
+}
+
+export async function deleteWorkspaceNote(noteId: string): Promise<void> {
+  const { error } = await db.rpc('delete_workspace_note', { p_note_id: noteId })
+  if (error) throw dbError(error, 'Failed to delete the note')
 }

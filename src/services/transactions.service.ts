@@ -208,8 +208,10 @@ export async function createTransaction(
     }
   })
 
-  // Fire notification for amber/red transactions
-  if (data.risk_status === 'amber' || data.risk_status === 'red') {
+  // Notify only on a PROBLEM (red: possible duplicate, over the approval
+  // limit…). Amber ("first payment to…", "no receipt yet") is shown on the
+  // row itself; notifying the person about their own entry was just noise.
+  if (data.risk_status === 'red') {
     createNotification({
       orgId:         input.orgId,
       userId:        actorId,

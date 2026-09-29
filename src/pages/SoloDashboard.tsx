@@ -158,10 +158,6 @@ export default function SoloDashboard() {
   return (
     <div style={{ padding: '28px 32px', flex: 1, overflowY: 'auto' }}>
 
-      <TrialBannerInline />
-      <GettingStartedCard kind="self" />
-      <BooksSnapshotCard orgId={orgId} reviewPath="/review" />
-
       {/* ── Header ────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
@@ -254,6 +250,11 @@ export default function SoloDashboard() {
           </button>
         </div>
       </div>
+
+
+      <TrialBannerInline />
+      <GettingStartedCard kind="self" />
+      <BooksSnapshotCard orgId={orgId} reviewPath="/review" />
 
       {/* ── Tab switcher (by cadence) ─────────────────────────────────── */}
       <div style={{

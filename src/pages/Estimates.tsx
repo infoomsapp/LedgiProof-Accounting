@@ -95,6 +95,29 @@ export default function Estimates() {
   const [creating, setCreating]         = useState(false)
   const [createError, setCreateError]   = useState<string | null>(null)
 
+  // Who the estimate is for. It can't be changed after creation
+  // (update_estimate has no client), so it is chosen in the picker -- it
+  // used to be "the first client of the workspace", silently. Inside a firm
+  // client (scope.clientId) the client is already fixed.
+  const [customers,  setCustomers]  = useState<{ id: string; name: string }[] | null>(null)
+  const [customerId, setCustomerId] = useState<string>('')
+  useEffect(() => {
+    if (!pickerOpen || scope.clientId || !orgId) return
+    let cancelled = false
+    void db.from('clients')
+      .select('id, display_name, company_name')
+      .eq('org_id', orgId)
+      .order('display_name')
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) { setCreateError(dbError(error, 'Could not load customers').message); return }
+        const list = (data ?? []).map(c => ({ id: c.id, name: c.company_name || c.display_name || '—' }))
+        setCustomers(list)
+        setCustomerId(prev => (list.some(c => c.id === prev) ? prev : list[0]?.id ?? ''))
+      })
+    return () => { cancelled = true }
+  }, [pickerOpen, scope.clientId, orgId])
+
   // Single canonical "create an estimate" entry point: every other trigger
   // in the app (the LP-add menu's "Estimate" item via /clients?intent=
   // estimate, the Pyme dashboard's "+ New estimate" button) now lands here
@@ -147,42 +170,24 @@ export default function Estimates() {
     return c
   }, [listQuery.data])
 
-  async function handleSelectTemplate(template: EstimateTemplate) {
+  async function handleSelectTemplate(template: EstimateTemplate | null) {
+    const targetClientId = scope.clientId ?? customerId
+    if (!targetClientId) {
+      setCreateError('Choose who the estimate is for — add a customer first if you have none.')
+      return
+    }
     setPickerOpen(false)
     setCreating(true)
     setCreateError(null)
 
     try {
-      // 🆕 Sprint 3 Paso 2 — Resolve target client_id:
-      //   · firm-client scope → use scope.clientId (bookkeeper is inside that client)
-      //   · self mode         → fall back to "first client" (legacy behavior)
-      let targetClientId: string | null = scope.clientId
-
-      if (!targetClientId) {
-        const { data: clients, error: clientErr } = await db
-          .from('clients')
-          .select('id, display_name')
-          .eq('org_id', orgId)
-          .limit(1)
-
-        if (clientErr) throw dbError(clientErr, 'Could not load clients')
-
-        const firstClient = clients?.[0]
-        if (!firstClient) {
-          setCreateError('You need at least one client before creating an estimate. Go to "Clients" and add one first.')
-          setCreating(false)
-          return
-        }
-        targetClientId = firstClient.id
-      }
-
       const result = await createMut.mutateAsync({
         org_id:             orgId,
         client_id:          targetClientId,
-        template_id:        template.id,
-        template_category:  template.category,
-        title:              template.name,
-        valid_until:        template.default_valid_days
+        template_id:        template?.id ?? null,
+        template_category:  template?.category ?? null,
+        ...(template ? { title: template.name } : {}),
+        valid_until:        template?.default_valid_days
           ? new Date(Date.now() + template.default_valid_days * 86400_000).toISOString().slice(0, 10)
           : null,
         currency:           'USD'
@@ -590,6 +595,27 @@ export default function Estimates() {
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={handleSelectTemplate}
+        onSelectBlank={() => { void handleSelectTemplate(null) }}
+        headerSlot={scope.clientId ? null : (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+            <span style={{ fontWeight: 600 }}>For</span>
+            {customers === null ? (
+              <span style={{ color: 'var(--lp-text-muted)' }}>Loading customers…</span>
+            ) : customers.length === 0 ? (
+              <span style={{ color: 'var(--sem-amber)' }}>
+                You have no customers yet.{' '}
+                <button type="button" className="lp-link" onClick={() => navigate('/customers')}
+                  style={{ background: 'none', border: 'none', color: 'var(--lp-accent)', cursor: 'pointer', padding: 0, font: 'inherit' }}>
+                  Add one
+                </button>
+              </span>
+            ) : (
+              <select className="lp-input" value={customerId} onChange={e => setCustomerId(e.target.value)}>
+                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            )}
+          </label>
+        )}
         suggestedCategories={suggestedCategories}
         orgId={orgId}
       />

@@ -9,7 +9,7 @@
 //
 // Logic 100% preserved.
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   ESTIMATE_TEMPLATE_CATEGORY_LABELS,
   type EstimateTemplate,
@@ -25,6 +25,10 @@ interface Props {
   onSelect:             (template: EstimateTemplate) => void
   suggestedCategories?: EstimateTemplateCategory[]
   orgId?:               string
+  /** "Start blank": an empty estimate, no template. Always offered. */
+  onSelectBlank?:       () => void
+  /** Shown above the search (the page puts "who is it for?" here). */
+  headerSlot?:          ReactNode
 }
 
 type Group = 'trade' | 'driver' | 'service' | 'generic'
@@ -41,7 +45,9 @@ export default function TemplatePicker({
   onClose,
   onSelect,
   suggestedCategories = [],
-  orgId
+  orgId,
+  onSelectBlank,
+  headerSlot
 }: Props) {
   const [search, setSearch] = useState('')
   const { data: allTemplates = [], isLoading } = useEstimateTemplates()
@@ -85,6 +91,24 @@ export default function TemplatePicker({
         maxHeight: '70vh', overflow: 'hidden'
       }}>
 
+        {headerSlot}
+
+        {/* Blank: always available, templates or not (the subtitle promises it). */}
+        {onSelectBlank && (
+          <button
+            type="button"
+            onClick={onSelectBlank}
+            className="lp-btn"
+            style={{ justifyContent: 'flex-start', gap: 10, padding: '12px 14px', textAlign: 'left' }}
+          >
+            <span style={{ fontSize: 18 }}>📝</span>
+            <span style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>Start blank</span>
+              <span style={{ fontSize: 11, color: 'var(--lp-text-muted)' }}>An empty estimate you fill in yourself</span>
+            </span>
+          </button>
+        )}
+
         {/* Search */}
         <input
           type="text"
@@ -109,7 +133,9 @@ export default function TemplatePicker({
             color: 'var(--lp-text-muted)', fontSize: 13
           }}>
             <div style={{ fontSize: 32, marginBottom: 8, opacity: 0.4 }}>🔍</div>
-            No templates match your search.
+            {allTemplates.length === 0 && !search.trim()
+              ? 'No templates yet — start blank above.'
+              : 'No templates match your search.'}
           </div>
         )}
 

@@ -1,16 +1,18 @@
 // PATH: supabase/functions/resolve-transaction/index.ts
 //
-// Resolves a transaction's semaphore state from an explicit caller action.
+// Records an explicit caller action on a transaction. The semaphore colour is
+// never written here -- the database derives it (semaphore_v2.sql):
+//   blue verified by a person · green in the books, ready to verify ·
+//   amber needs eyes (not in the books, or flagged) · red problem/rejected.
 //
 // ── Resolution semantics ─────────────────────────────────────────────────────
-//   'approve'  → green  — client confirms "this transaction is mine / correct"
-//                         Moves to the professional review queue (ready for
-//                         the accountant/bookkeeper to certify and close).
-//   'certify'  → blue   — accountant/bookkeeper certifies and closes the
-//                         transaction. FINAL STATE. ORG MEMBER ONLY.
-//                         (owner/admin/accountant/approver)
-//   'clarify'  → amber  — additional information needed; still under review
-//   'reject'   → red    — transaction is wrong / not mine / disputed
+//   'approve'  — client confirms "this is mine / correct": the question is
+//                answered (review_status 'answered'). It does not verify.
+//   'certify'  — the professional verifies it: verify_transactions(), the
+//                same path as Verify in the app (refused, LV005, if it is not
+//                categorized yet). ORG MEMBER ONLY.
+//   'clarify'  — more information given; still under review ('answered').
+//   'reject'   — wrong / not mine / disputed ('rejected' → red).
 //
 // ── IMPORTANT: No keyword inference ─────────────────────────────────────────
 //   The `resolution` field is REQUIRED and must be one of the four values
@@ -143,59 +145,58 @@ Deno.serve(async (req) => {
       return j({ error: 'Only firm members may certify transactions' }, 403)
     }
 
-    // ── Map resolution → state ────────────────────────────────────────────────
-    // All structured resolutions carry confidence 95 — the caller has
-    // explicitly expressed intent rather than having it inferred from text.
-    const CONFIDENCE = 95
+    const trimmedMessage = (typeof message === 'string' ? message : '').trim().slice(0, 500)
 
-    let newSemaphore:    string
+    // ── Certify = Verify, through the one verification path ──────────────────
+    // Runs as the caller (their JWT), so the database checks their role and
+    // records them as the verifier; it also writes the audit entry.
+    if (resolution === 'certify') {
+      const { data: res, error: vErr } = await supabaseUser.rpc('verify_transactions', {
+        p_org_id:          tx.org_id,
+        p_transaction_ids: [tx.id]
+      })
+      if (vErr) return j({ error: safeMessage(vErr, 'Failed to verify the transaction') }, 400)
+      const failed = (res as any)?.failed?.[0]
+      if (failed) return j({ error: failed.error, code: failed.code }, 409)
+      const { data: after } = await supabaseAdmin
+        .from('transactions').select('semaphore').eq('id', tx.id).single()
+      return j({ success: true, resolution, newSemaphore: after?.semaphore ?? null })
+    }
+
     let newReviewStatus: string
     let auditEventType:  AuditEventType
 
     switch (resolution) {
       case 'approve':
-        // Client confirms the transaction is theirs. Moves to professional
-        // review queue (green). The accountant/bookkeeper will then certify
-        // and close it (blue).
-        newSemaphore    = 'green'
         newReviewStatus = 'answered'
         auditEventType  = 'semaphore_changed'
         break
-      case 'certify':
-        // Accountant/bookkeeper certified and closed. FINAL STATE (blue).
-        newSemaphore    = 'blue'
-        newReviewStatus = 'confirmed'
-        auditEventType  = 'approved'
-        break
       case 'reject':
-        newSemaphore    = 'red'
         newReviewStatus = 'rejected'
         auditEventType  = 'rejected'
         break
       case 'clarify':
       default:
-        newSemaphore    = 'amber'
         newReviewStatus = 'answered'
         auditEventType  = 'semaphore_changed'
         break
     }
 
-    const trimmedMessage = (typeof message === 'string' ? message : '').trim().slice(0, 500)
-
-    // ── Update transaction ────────────────────────────────────────────────────
-    const { error: updateErr } = await supabaseAdmin
+    // ── Update transaction (the colour follows from review_status) ────────────
+    const { data: updated, error: updateErr } = await supabaseAdmin
       .from('transactions')
       .update({
-        semaphore:        newSemaphore,
-        review_status:    newReviewStatus,
-        confidence_score: CONFIDENCE,
+        review_status: newReviewStatus,
         ai_reason: trimmedMessage
           ? `Resolved via ${resolution}: "${trimmedMessage.slice(0, 200)}"`
           : `Resolved via ${resolution}`
       })
       .eq('id', transaction_id)
+      .select('semaphore')
+      .single()
 
     if (updateErr) return j({ error: safeMessage(updateErr, 'Failed to update the transaction') }, 500)
+    const newSemaphore = updated?.semaphore ?? null
 
     // ── Audit entry ───────────────────────────────────────────────────────────
     const { data: lastEntry } = await supabaseAdmin
@@ -229,10 +230,10 @@ Deno.serve(async (req) => {
       entry_hash:           entryHash,
       metadata: {
         resolution,
-        confidence:     CONFIDENCE,
         message:        trimmedMessage || null,
         prev_semaphore: tx.semaphore,
-        certified_by_org_member: isOrgMember,
+        new_semaphore:  newSemaphore,
+        by_org_member:  isOrgMember,
         actor_role:     memberRole ?? 'client'
       }
     })
@@ -244,7 +245,6 @@ Deno.serve(async (req) => {
     return j({
       success:      true,
       resolution,
-      confidence:   CONFIDENCE,
       newSemaphore
     })
 

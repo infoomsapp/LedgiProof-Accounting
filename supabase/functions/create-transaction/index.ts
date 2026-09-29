@@ -7,7 +7,7 @@
 // a second, divergent implementation of financial-integrity logic in Dart.
 //
 //   1. buildRawHash        -> raw_hash  (pre-human fingerprint)
-//   2. Brain.evaluate      -> semaphore assignment
+//   2. Brain.evaluate      -> risk_status (the colour is derived in the DB)
 //   3. db.insert           -> transaction row
 //   4. Brain.persist       -> rule_evaluations row
 //   5. autoAssignLearnedVendor (best-effort, non-blocking)
@@ -357,7 +357,8 @@ Deno.serve(async (req) => {
       reference: body.reference ?? null,
       description: body.description ?? null,
       transaction_date: body.transaction_date,
-      semaphore: brainResult.finalStatus,
+      // The Brain's verdict; the colour itself is derived by the database.
+      risk_status: brainResult.finalStatus,
       status_reason: brainResult.explanation,
       raw_hash: rawHash,
       previous_hash: previousHash,

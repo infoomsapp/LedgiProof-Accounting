@@ -19,6 +19,7 @@ import { cgcEvaluate } from './cgc.service'
 import { autoAssignLearnedVendor } from './vendor.service'
 import { markReadModelDirty } from '../lib/read-model'
 import { formatCurrency } from '../lib/currency'
+import { getVerificationQueue, verifyTransactions, rowFailure, type VerificationItem } from './review.service'
 import type {
   Transaction,
   InsertTransaction,
@@ -135,7 +136,7 @@ export async function createTransaction(
     reference:            input.reference ?? null,
     description:          input.description ?? null,
     transaction_date:     input.transactionDate,
-    semaphore:            brainResult.finalStatus,
+    risk_status:          brainResult.finalStatus,   // the colour is derived in the DB
     status_reason:        brainResult.explanation ?? null,
     raw_hash:             rawHash,
     previous_hash:        previousHash,
@@ -328,7 +329,7 @@ export async function editTransaction(
       reference:            newRef,
       description:          newDesc,
       transaction_date:     newDate,
-      semaphore:            brainResult.finalStatus,
+      risk_status:          brainResult.finalStatus,   // the colour is derived in the DB
       status_reason:        brainResult.explanation ?? null,
       raw_hash:             rawHash,
       previous_hash:        previousHash,
@@ -387,69 +388,28 @@ export async function editTransaction(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  APPROVE — human approval for amber/red transactions
+//  APPROVE (= Verify) — a person confirms a categorized transaction -> blue
 // ═════════════════════════════════════════════════════════════════════════════
 
 export async function approveTransaction(
   input: ApproveTransactionInput
 ): Promise<Transaction> {
-  const { data: tx, error: fetchErr } = await db
-    .from('transactions')
-    .select('*')
-    .eq('id', input.transactionId)
-    .eq('org_id', input.orgId)
-    .single()
-
-  if (fetchErr || !tx) {
-    throw new Error(`[Transactions] Transaction not found: ${toSafeMessage(fetchErr, 'database error')}`)
-  }
-
-  if (tx.locked_at) throw new Error('[Transactions] Transaction already locked')
-  if (tx.semaphore === 'blue') throw new Error('[Transactions] Transaction already verified')
-
-  const now = new Date().toISOString()
+  // Verification is the database's verify_transactions(): it checks the
+  // caller's role, refuses a transaction that is not categorized yet (LV005),
+  // records who verified it and writes the audit entry. The colour (blue)
+  // follows from that -- it is never written from here.
+  const res = await verifyTransactions(input.orgId, [input.transactionId])
+  const failed = res.failed[0]
+  if (failed) throw rowFailure(failed)
 
   const { data, error } = await db
     .from('transactions')
-    .update({
-      semaphore:     'blue',
-      approved_by:   input.approverId,
-      approved_at:   now,
-      review_status: 'confirmed'
-    })
+    .select('*')
     .eq('id', input.transactionId)
-    .select()
     .single()
-
   if (error || !data) {
-    throw new Error(`[Transactions] Approval update failed: ${toSafeMessage(error, 'database error')}`)
+    throw new Error(`[Transactions] Verified, but could not reload it: ${toSafeMessage(error, 'database error')}`)
   }
-
-  const previousHash = await getLatestAuditHash(input.orgId)
-  const entryHash    = await buildAuditHash({
-    previousHash,
-    transactionId:      data.id,
-    transactionVersion: data.version,
-    eventType:          'approved',
-    timestamp:          now,
-    actorId:            input.approverId
-  })
-
-  await appendAuditEvent({
-    orgId:              input.orgId,
-    transactionId:      data.id,
-    transactionGroupId: data.transaction_group_id,
-    transactionVersion: data.version,
-    eventType:          'approved',
-    actorId:            input.approverId,
-    previousHash,
-    entryHash,
-    metadata: {
-      note:         input.note ?? null,
-      prev_semaphore: tx.semaphore
-    }
-  })
-
   return data
 }
 
@@ -535,46 +495,23 @@ export async function lockTransaction(
 // ═════════════════════════════════════════════════════════════════════════════
 //  CERTIFY — professional certification queue (Accountant/Bookkeeper firms)
 //
-//  `approveTransaction` above already jumps straight to semaphore:'blue' —
-//  that's the informal/legacy path `Transactions.tsx` bulk-approve uses today.
-//  This is the OTHER, formal path: a green transaction (client already
-//  confirmed it, or Brain auto-cleared it) waiting for a firm professional to
-//  certify it closed. It wraps the `resolve-transaction` Edge Function
-//  (resolution:'certify') — that function already exists and already enforces
-//  org-membership + role checks server-side, but had zero frontend callers.
+//  Everything in the books that no person has verified yet (green = ready,
+//  or amber when a rule flagged it), across all of the firm's clients.
+//  Certifying is the same verify_transactions() as Verify everywhere else.
 // ═════════════════════════════════════════════════════════════════════════════
 
-export interface CertificationQueueItem extends Transaction {
-  clients: { display_name: string | null } | null
-}
+export type CertificationQueueItem = VerificationItem
 
+/** The firm's whole book of work: in the books, not verified yet. */
 export async function getCertificationQueue(orgId: string): Promise<CertificationQueueItem[]> {
-  const { data, error } = await db
-    .from('transactions')
-    .select('*, clients(display_name)')
-    .eq('org_id', orgId)
-    .eq('is_current', true)
-    .eq('semaphore', 'green')
-    .order('transaction_date', { ascending: false })
-
-  if (error) {
-    throw new Error(`[Transactions] Certification queue fetch failed: ${toSafeMessage(error, 'database error')}`)
-  }
-  return (data ?? []) as CertificationQueueItem[]
+  const queue = await getVerificationQueue(orgId, { allClients: true })
+  return queue.items
 }
 
-export async function certifyTransaction(transactionId: string): Promise<void> {
-  const { data, error } = await db.functions.invoke('resolve-transaction', {
-    body: { transaction_id: transactionId, resolution: 'certify' }
-  })
-
-  if (error) {
-    const serverMessage = (data as { error?: string } | null)?.error
-    throw new Error(`[Transactions] Certification failed: ${serverMessage ?? toSafeMessage(error, 'database error')}`)
-  }
-  if (!data?.success) {
-    throw new Error(`[Transactions] Certification failed: ${data?.error ?? 'Unknown error'}`)
-  }
+export async function certifyTransaction(orgId: string, transactionId: string): Promise<void> {
+  const res = await verifyTransactions(orgId, [transactionId])
+  const failed = res.failed[0]
+  if (failed) throw rowFailure(failed)
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

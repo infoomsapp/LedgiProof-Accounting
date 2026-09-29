@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { SemaphoreStatus } from '../../types/database.types'
 import { SEMAPHORE_CONFIG } from './SemaphoreBadge'
 
@@ -12,6 +13,7 @@ interface SemaphoreFilterProps {
 const OPTIONS: FilterValue[] = ['all', 'blue', 'green', 'amber', 'red']
 
 export default function SemaphoreFilter({ value, onChange, counts }: SemaphoreFilterProps) {
+  const { t } = useTranslation()
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       {OPTIONS.map(opt => {
@@ -53,7 +55,7 @@ export default function SemaphoreFilter({ value, onChange, counts }: SemaphoreFi
                 transition:  'all 0.12s'
               }} />
             )}
-            {opt === 'all' ? 'All' : cfg!.label}
+            {opt === 'all' ? t('semaphoreLabel.all') : t(`semaphoreLabel.${opt}`, { defaultValue: cfg!.label })}
             {count !== undefined && (
               <span style={{
                 fontSize: 10.5,

@@ -1,27 +1,25 @@
 // ── LedgiProof Brain Service ──────────────────────────────────────────────────
 //
 // Loads rule_definitions from Supabase, evaluates them against a transaction,
-// and returns a semaphore status with full explainability payload.
+// and returns the RISK verdict with a full explainability payload. The verdict
+// is stored as transactions.risk_status; the colour a person sees is derived
+// from it in the database (semaphore_v2.sql) -- this file never sets it.
 //
 // Priority hierarchy (highest wins):
-//   critical → red     (manual intervention required)
-//   review   → amber   (requires review before proceeding)
-//   info     → green   (automated / informational — no issues detected)
-//   (none)   → green   (clean, awaiting human sign-off)
+//   critical → red     (a problem: possible duplicate, over the approval limit…)
+//   review   → amber   (worth a look: first-time payee, no document…)
+//   info     → green   (nothing flagged)
+//   (none)   → green   (nothing flagged)
 //
-// ── Semaphore lifecycle ───────────────────────────────────────────────────────
-//   green  AUTO   Brain assigned: no critical/review rules fired. Transaction
-//                 is clean — no issues detected. Awaits professional review.
-//   green  HUMAN  Client confirmed via resolve-transaction (resolution='approve'):
-//                 "this transaction is mine / correct." Moves to the professional
-//                 review queue. Still needs the accountant/bookkeeper to certify.
-//   amber         Requires human attention (review-severity rule fired, or reply
-//                 received but question not fully resolved).
-//   red           Critical issue or explicitly rejected.
-//   blue   HUMAN  Certified and CLOSED by the accountant/bookkeeper
-//                 (resolution='certify'). FINAL STATE. The Brain never assigns
-//                 blue — it is set only by an explicit professional closure or
-//                 the CGC APPROVE outcome (cryptographic certification).
+// ── The semaphore (derived, LedgiProof's rule) ────────────────────────────────
+//   blue   VERIFIED    a person confirmed it: categorized in For review,
+//                      Verify, a professional's certify, or reconciliation.
+//                      Never set by a machine.
+//   green  READY       in the books and nothing flagged; waits for a person.
+//                      Automation (a rule, a merchant confirmed 3 times, an
+//                      exact match) lands here.
+//   amber  NEEDS A LOOK  not in the books yet, or a review rule fired.
+//   red    PROBLEM     a critical rule fired, or someone rejected it.
 //
 // ═════════════════════════════════════════════════════════════════════════════
 //  Sprint 5 REFACTOR — Client-aware evaluation
@@ -354,8 +352,8 @@ function errorRule(rule: RuleDefinition, reason: string): EvaluatedRule {
 // ── Priority resolver ────────────────────────────────────────────────────────
 // Auto-assignment only: CRITICAL (red) > REVIEW (amber) > INFO (green) > NONE (green)
 // Green = "no issues detected, ready for professional review."
-// Blue (certified + closed) is never produced here — it is set by the
-// accountant/bookkeeper via resolve-transaction (resolution='certify').
+// Blue (verified) is never produced here — only a person verifies
+// (verify_transactions / For review / reconciliation).
 // If both critical and review rules fire, red wins.
 //
 // Note: .filter() returns a fresh array so .sort() does not mutate the input.

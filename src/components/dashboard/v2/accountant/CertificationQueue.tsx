@@ -70,7 +70,7 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
     setBusy(true)
     setBusyError(null)
     const ids = [...selected]
-    const results = await Promise.allSettled(ids.map(id => certifyTransaction(id)))
+    const results = await Promise.allSettled(ids.map(id => certifyTransaction(orgId, id)))
     const failed = results.filter(r => r.status === 'rejected').length
     setBusy(false)
     if (failed > 0) {
@@ -203,7 +203,7 @@ export default function CertificationQueue({ orgId, onCertified }: Props) {
                 {tx.description || tx.merchant_name || t('dashboard.untitledTransaction')}
               </div>
               <div style={{ fontSize: 11, color: 'var(--lp-text-muted)' }}>
-                {tx.clients?.display_name ?? t('dashboard.unassigned')} · {formatDate(tx.transaction_date)}
+                {tx.client_name ?? t('dashboard.unassigned')} · {formatDate(tx.transaction_date)}
               </div>
             </div>
 

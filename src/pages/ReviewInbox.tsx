@@ -5,7 +5,10 @@
 // suggested category; confirming it posts the balanced entry (the bank side
 // is implied), turns it blue -- verified -- and teaches LedgiProof the
 // merchant. The second time a merchant lands in the same account, a rule is
-// offered.
+// offered; the third time, that merchant is categorized by itself.
+//
+// Above the list, VerifyQueue shows what LedgiProof already categorized by
+// itself (green = ready): verify it (blue) or change it (back here).
 //
 // Suggestion order (server): rule > learned > vendor default > known
 // merchant > income; whatever is still blank goes to the AI edge function.
@@ -27,6 +30,7 @@ import {
 import { formatCurrency } from '../lib/currency'
 import { useAuthStore } from '../store/auth.store'
 import PendingReceipts from '../components/review/PendingReceipts'
+import VerifyQueue from '../components/review/VerifyQueue'
 import type { Account, LpRole } from '../types/database.types'
 
 // Same roles post_reviewed_transactions() accepts (the journal write policy).
@@ -276,6 +280,16 @@ export default function ReviewInbox() {
           clientId={clientId ?? null}
           canWrite={canPost}
           onExpenseCreated={() => { void load() }}
+        />
+      )}
+
+      {orgId && (
+        <VerifyQueue
+          orgId={orgId}
+          clientId={clientId ?? null}
+          canWrite={canPost}
+          onChanged={() => { void load() }}
+          onRulePrompts={p => setPrompts(prev => [...prev, ...p])}
         />
       )}
 

@@ -46,7 +46,7 @@ export default function CertifyChip({ orgId, onCertified }: { orgId: string; onC
     setBusyId(id)
     setError(null)
     try {
-      await certifyTransaction(id)
+      await certifyTransaction(orgId, id)
       await load()
       onCertified?.()
     } catch (e: any) {
@@ -114,7 +114,7 @@ export default function CertifyChip({ orgId, onCertified }: { orgId: string; onC
                   {tx.description || tx.merchant_name || t('dashboard.untitledTransaction')}
                 </div>
                 <div style={{ fontSize: 10.5, color: 'var(--lp-text-muted)' }}>
-                  {tx.clients?.display_name ?? t('dashboard.unassigned')} · {formatCurrency(tx.amount, tx.currency)}
+                  {tx.client_name ?? t('dashboard.unassigned')} · {formatCurrency(tx.amount, tx.currency)}
                 </div>
               </div>
               <button

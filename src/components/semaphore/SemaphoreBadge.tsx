@@ -1,4 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import type { SemaphoreStatus } from '../../types/database.types'
+
+// LedgiProof's rule (derived in the database, semaphore_v2.sql):
+//   blue verified by a person · green in the books, ready to verify ·
+//   amber needs a look · red problem. The label says the meaning, not the colour.
 
 const CONFIG: Record<SemaphoreStatus, { label: string; color: string; bg: string; border: string }> = {
   blue:  { label: 'Blue',   color: '#3b82f6', bg: 'rgba(59,130,246,0.10)',  border: 'rgba(59,130,246,0.25)' },
@@ -14,6 +19,7 @@ interface SemaphoreBadgeProps {
 }
 
 export default function SemaphoreBadge({ status, size = 'md', showDot = true }: SemaphoreBadgeProps) {
+  const { t } = useTranslation()
   const c = CONFIG[status]
   return (
     <span style={{
@@ -39,12 +45,11 @@ export default function SemaphoreBadge({ status, size = 'md', showDot = true }: 
           flexShrink: 0
         }} />
       )}
-      {c.label}
+      {t(`semaphoreLabel.${status}`, { defaultValue: c.label })}
     </span>
   )
 }
 
 export { CONFIG as SEMAPHORE_CONFIG }
 
-// ✅ FIX AQUÍ
 export const SEMAPHORE_ORDER: SemaphoreStatus[] = ['blue', 'green', 'amber', 'red']

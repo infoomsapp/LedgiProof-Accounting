@@ -2,9 +2,12 @@
 // Reads a bank_import row (raw CSV/OFX content) and converts each line
 // into a transaction through the full pipeline:
 //   normalize → Brain → hash → insert transaction → audit event
+// and then hands the new lines to auto_categorize_transactions(): what is
+// certain posts by itself (green, ready to verify), the rest waits in For review.
 
 import { db } from '../lib/supabase'
 import { createTransaction } from './transactions.service'
+import { autoCategorize } from './review.service'
 import type { BankImport, PaymentMethodType } from '../types/database.types'
 import { toSafeMessage } from '../lib/errors'
 
@@ -27,7 +30,7 @@ export async function processBankImport(
   importId: string,
   orgId:    string,
   options?: { clientId?: string | null }
-): Promise<{ processed: number; errors: number; failed: string[] }> {
+): Promise<{ processed: number; errors: number; failed: string[]; autoCategorized: number }> {
   // 🆕 Sprint 4 Fix C — capture optional client scope. When the bookkeeper
   // initiates this import from /clients/:clientId/imports, all generated
   // transactions inherit that client_id. Self-mode (solo/pyme) passes null.
@@ -57,6 +60,7 @@ export async function processBankImport(
   await db.from('bank_imports').update({ status: 'processing' }).eq('id', importId)
 
   let processed = 0
+  const createdIds: string[] = []
   const failed: string[] = []
   const errors: Array<{ row: number; message: string; raw_data: string }> = []
 
@@ -69,7 +73,7 @@ export async function processBankImport(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!
     try {
-      await createTransaction({
+      const tx = await createTransaction({
         orgId,
         clientId,                                    // 🆕 Sprint 4 Fix C
         bankImportId: importId,
@@ -82,6 +86,7 @@ export async function processBankImport(
         paymentMethod,                               // 🆕 1099 Fase 2
         metadata:        { import_row: i + 1, import_id: importId }
       })
+      createdIds.push(tx.id)
       processed++
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -90,7 +95,19 @@ export async function processBankImport(
     }
   }
 
-  // 5. Update import status
+  // 5. Post what is certain. A failure here loses nothing -- the lines are
+  //    saved and wait in For review -- but it is reported, not swallowed.
+  let autoCategorized = 0
+  for (let k = 0; k < createdIds.length; k += 200) {
+    try {
+      const res = await autoCategorize(orgId, createdIds.slice(k, k + 200))
+      autoCategorized += res.posted.length
+    } catch (err: unknown) {
+      failed.push(`Automatic categorization: ${err instanceof Error ? err.message : String(err)} (the transactions are waiting in For review)`)
+    }
+  }
+
+  // 6. Update import status
   await db.from('bank_imports').update({
     status:          errors.length === rows.length ? 'failed' : 'done',
     processed_count: processed,
@@ -99,7 +116,7 @@ export async function processBankImport(
     processed_at:    new Date().toISOString()
   }).eq('id', importId)
 
-  return { processed, errors: errors.length, failed }
+  return { processed, errors: errors.length, failed, autoCategorized }
 }
 
 // ── CSV parser (simple — header + data rows) ─────────────────────────────────

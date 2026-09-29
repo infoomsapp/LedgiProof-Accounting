@@ -1,8 +1,11 @@
 // PATH: supabase/functions/plaid-sync/index.ts
 // Step 3 of 3.
 // Pulls new transactions from Plaid using /transactions/sync (cursor-based).
-// Converts them to LedgiProof transactions and runs Brain evaluation.
-// Auto-maps Plaid personal_finance_category to chart of accounts code.
+// Saves them as LedgiProof transactions (amber: not in the books yet) and
+// hands them to auto_categorize_transactions() -- the same engine For review
+// uses. Plaid's own category is kept in metadata as a SEED for suggestions;
+// it never posts anything by itself. Pending lines are skipped: Plaid replaces
+// them with the posted version later.
 // Uses cursor so only NEW transactions are fetched on each call.
 //
 // 🐛 Real bugs fixed during consolidation into supabase/functions/ (was
@@ -12,14 +15,8 @@
 //      Deploying it would register two handlers in one script — broken.
 //      Only the newer, more complete version (with account-code mapping +
 //      auto journal-entry posting) is kept here.
-//   2. Auto-posted journal entries always got amount=0. The old code tried
-//      to recover each transaction's amount via
-//      `txInserts.find(tx => tx.reference === t.reference)`, but `t` came
-//      from a `.select('id, metadata, confidence_score, semaphore')` call
-//      that never selected `reference` — so `t.reference` was always
-//      `undefined`, the `.find()` never matched, and `?.amount ?? 0` silently
-//      fell back to 0 for every single auto-posted entry. Fixed by selecting
-//      `amount` directly and reading it off `t`, no cross-referencing needed.
+//   2. (Removed 2026-09-28) the auto-posted journal entries: categorization
+//      now happens in auto_categorize_transactions(), see below.
 //
 // Deploy: supabase functions deploy plaid-sync
 // Call: POST with { org_id, connection_id? } — omit connection_id to sync all
@@ -35,76 +32,13 @@ const PLAID_BASE: Record<string, string> = {
   production:  'https://production.plaid.com'
 }
 
-// ── Plaid category → account code mapping ────────────────────────────────
-// Maps Plaid personal_finance_category.primary to LedgiProof account codes.
-// Codes must match seed_chart_of_accounts() in v8 migration.
-const CATEGORY_MAP: Record<string, { debitCode: string; creditCode: string }> = {
-  // Income: credit revenue, debit cash
-  'INCOME':                  { debitCode: '1020', creditCode: '4010' },
-  'TRANSFER_IN':             { debitCode: '1020', creditCode: '4030' },
-  // Operating expenses: debit expense, credit cash
-  'FOOD_AND_DRINK':          { debitCode: '6100', creditCode: '1020' },
-  'TRAVEL':                  { debitCode: '6110', creditCode: '1020' },
-  'TRANSPORTATION':          { debitCode: '6110', creditCode: '1020' },
-  'ENTERTAINMENT':           { debitCode: '6100', creditCode: '1020' },
-  'GENERAL_MERCHANDISE':     { debitCode: '6040', creditCode: '1020' },
-  'PERSONAL_CARE':           { debitCode: '6999', creditCode: '1020' },
-  'HOME_IMPROVEMENT':        { debitCode: '6999', creditCode: '1020' },
-  'MEDICAL':                 { debitCode: '6999', creditCode: '1020' },
-  'RENT_AND_UTILITIES':      { debitCode: '6020', creditCode: '1020' },
-  'UTILITIES':               { debitCode: '6030', creditCode: '1020' },
-  'GOVERNMENT_AND_NON_PROFIT': { debitCode: '6130', creditCode: '1020' },
-  'LOAN_PAYMENTS':           { debitCode: '2110', creditCode: '1020' },
-  'BANK_FEES':               { debitCode: '6090', creditCode: '1020' },
-  'GENERAL_SERVICES':        { debitCode: '6060', creditCode: '1020' },
-  'PROFESSIONAL_SERVICES':   { debitCode: '6060', creditCode: '1020' },
-  'SUBSCRIPTION':            { debitCode: '6120', creditCode: '1020' },
-  'INSURANCE':               { debitCode: '6070', creditCode: '1020' },
-  // Transfers: bank to bank
-  'TRANSFER_OUT':            { debitCode: '1030', creditCode: '1020' },
-}
-
-// ── 1099 Fase 2 — payment method from the funding account instrument ────────
-// Credit card → 'card' (excluded from 1099-NEC; reported by processor on
-// 1099-K). Depository (checking/savings) → 'ach' (reportable). Mirrors the SQL
-// helper public.payment_method_from_account_type so client + server agree.
-function paymentMethodFromAccountType(accountType: string | null | undefined): string {
-  switch ((accountType ?? '').toLowerCase()) {
-    case 'credit':     return 'card'
-    case 'depository': return 'ach'
-    default:           return 'unknown'
-  }
-}
-
-// ── Score → semaphore ─────────────────────────────────────────────────────
-function scoreToSemaphore(score: number): string {
-  if (score >= 90) return 'blue'
-  if (score >= 75) return 'green'
-  if (score >= 50) return 'amber'
-  return 'red'
-}
-
-// ── Brain evaluation ──────────────────────────────────────────────────────
-function evaluateTransaction(tx: {
-  amount: number; name: string; date: string; category?: string
-}): { score: number; semaphore: string; reason: string; requiresReview: boolean } {
-  let score  = 72
-  let reason = 'Bank import — pending classification'
-
-  if (tx.category && CATEGORY_MAP[tx.category]) {
-    score  = 82
-    reason = `Auto-categorized as ${tx.category.toLowerCase().replace(/_/g, ' ')}`
-  }
-
-  if (Math.abs(tx.amount) < 50)  { score = Math.min(score + 5, 90);  reason = 'Small amount — low risk' }
-  if (Math.abs(tx.amount) > 5000){ score = Math.max(score - 30, 30); reason = 'High value — review required' }
-  if (tx.amount < 0) score = Math.max(score - 5, 30)
-  if (tx.amount > 0) score = Math.min(score + 8, 92)
-
-  const semaphore    = scoreToSemaphore(score)
-  const requiresReview = semaphore === 'amber' || semaphore === 'red'
-  return { score, semaphore, reason, requiresReview }
-}
+// Categorization is not done here. It used to be: a fixed Plaid-category ->
+// account-code map posted journal lines straight into the ledger and a score
+// heuristic painted them blue (verified) with nobody looking -- transfers
+// booked as revenue, card spend against checking, invoice payments counted
+// twice. Now every bank line goes through auto_categorize_transactions(),
+// which only posts what is certain (a confirmed rule, a merchant confirmed
+// three times, an exact unique match) and leaves the rest in For review.
 
 // Length-independent string compare, so checking the service key does not leak
 // how many leading characters matched.
@@ -225,15 +159,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'No active bank connections found' }, { status: 404, headers: cors })
     }
 
-    // Load account code → UUID map for this org
-    const { data: accounts } = await supabaseAdmin
-      .from('accounts').select('id, code')
-      .eq('org_id', org_id).eq('is_active', true)
-
-    const accountByCode = new Map<string, string>(
-      (accounts ?? []).map((a: any) => [a.code, a.id])
-    )
-
     // 🆕 1099 Fase 2 — map each Plaid account_id → its account_type, so every
     // synced transaction gets the right payment_method (a Plaid Item can hold
     // both a checking account and a credit card). Built from ALL of the org's
@@ -277,6 +202,7 @@ Deno.serve(async (req) => {
 
     let totalAdded   = 0
     let totalRemoved = 0
+    let totalAutoPosted = 0
     const errors: string[] = []
     const processed  = new Set<string>()
 
@@ -320,7 +246,11 @@ Deno.serve(async (req) => {
           hasMore = syncData.has_more
         }
 
-        if (added.length > 0) {
+        // Pending lines are not imported: Plaid removes them and sends the
+        // posted version, which is the one that belongs in the books.
+        const postedLines = added.filter((t: any) => !t.pending)
+
+        if (postedLines.length > 0) {
           // Chain continuity, same as create-transaction: the last audit hash
           // this organization recorded.
           const { data: lastAudit } = await supabaseAdmin
@@ -332,16 +262,9 @@ Deno.serve(async (req) => {
             .maybeSingle()
           const previousHash = lastAudit?.entry_hash ?? null
 
-          const txInserts = await Promise.all(added.map(async (plaidTx: any) => {
+          const txInserts = await Promise.all(postedLines.map(async (plaidTx: any) => {
             const amount   = -plaidTx.amount
             const category = plaidTx.personal_finance_category?.primary ?? null
-            const brain    = evaluateTransaction({ amount, name: plaidTx.name,
-              date: plaidTx.date, category })
-
-            // Auto-assign journal entry if category is known
-            const accountMapping = category ? CATEGORY_MAP[category] : null
-            const debitAccountId  = accountMapping ? accountByCode.get(accountMapping.debitCode)  ?? null : null
-            const creditAccountId = accountMapping ? accountByCode.get(accountMapping.creditCode) ?? null : null
 
             // 🆕 1099 Fase 2 — derive the payment instrument from the funding
             // account this transaction belongs to (credit card → excluded from
@@ -370,29 +293,22 @@ Deno.serve(async (req) => {
               currency,
               reference:        plaidTx.transaction_id,
               description:      plaidTx.name,
+              merchant_name:    plaidTx.merchant_name ?? null,
               transaction_date: plaidTx.date,
               payment_method,                          // 🆕 1099 Fase 2
               vendor_id:        resolveVendorId(plaidTx.merchant_name ?? plaidTx.name), // 🆕 1099 Fase 1 parity
-              semaphore:        brain.semaphore,
-              status_reason:    brain.reason,
-              confidence_score: brain.score,
-              requires_review:  brain.requiresReview,
-              review_status:    'pending',
-              ai_reason:        brain.requiresReview
-                ? `Is this "${plaidTx.name}" charge personal or business?`
-                : null,
+              // No rules run on bank lines: nothing flagged. The colour is
+              // derived by the database (amber until it is in the books).
+              risk_status:      'green',
               version:          1,
               is_current:       true,
               created_by:       callerId ?? conn.connected_by,
               metadata: {
                 plaid_transaction_id: plaidTx.transaction_id,
-                plaid_category:       category,
+                plaid_category:       category,          // seed for suggestions
                 plaid_account_id:     plaidTx.account_id,
-                plaid_pending:        plaidTx.pending,
-                merchant_name:        plaidTx.merchant_name,
-                // Store account mapping hint for auto journal entry
-                suggested_debit_account_id:  debitAccountId,
-                suggested_credit_account_id: creditAccountId
+                plaid_pending:        false,
+                merchant_name:        plaidTx.merchant_name
               }
             }
           }))
@@ -401,71 +317,41 @@ Deno.serve(async (req) => {
           // (org_id, reference), so the old onConflict target made Postgres
           // reject the whole statement (42P10). ignoreDuplicates makes a row
           // Plaid re-sends a no-op instead of overwriting a review someone
-          // already did; .select() then returns only the rows that are NEW,
-          // which is exactly what the journal step below should post.
+          // already did; .select() then returns only the rows that are NEW.
           const { data: inserted, error: txErr } = await supabaseAdmin
             .from('transactions')
             .upsert(txInserts, { onConflict: 'org_id,raw_hash', ignoreDuplicates: true })
-            // 🐛 Fixed: previously omitted `amount` here, which broke the
-            // auto-post-journal-entries step below (see file header).
-            .select('id, amount, metadata, confidence_score, semaphore')
+            .select('id')
 
           if (txErr) throw new Error(`Transaction insert failed: ${safeMessage(txErr, 'database error')}`)
 
-          // Auto-post journal entries for high-confidence transactions (blue/green)
-          // where we have a known account mapping
-          const autoPostable = (inserted ?? []).filter((t: any) =>
-            ['blue','green'].includes(t.semaphore) &&
-            t.metadata?.suggested_debit_account_id &&
-            t.metadata?.suggested_credit_account_id
-          )
-
-          if (autoPostable.length > 0) {
-            const now = new Date()
-            const journalEntries = autoPostable.flatMap((t: any) => [
-              {
-                transaction_id: t.id,
-                account_id:     t.metadata.suggested_debit_account_id,
-                entry_type:     'debit',
-                amount:         Math.abs(t.amount),
-                currency:       'USD',
-                is_reversed:    false,
-                period_year:    now.getFullYear(),
-                period_month:   now.getMonth() + 1
-              },
-              {
-                transaction_id: t.id,
-                account_id:     t.metadata.suggested_credit_account_id,
-                entry_type:     'credit',
-                amount:         Math.abs(t.amount),
-                currency:       'USD',
-                is_reversed:    false,
-                period_year:    now.getFullYear(),
-                period_month:   now.getMonth() + 1
-              }
-            ])
-
-            if (journalEntries.length > 0) {
-              const { error: jeErr } = await supabaseAdmin
-                .from('journal_entries')
-                .upsert(journalEntries, { onConflict: 'transaction_id,account_id,entry_type' })
-
-              if (jeErr) {
-                // Non-fatal — the transaction itself was saved fine; log so
-                // it's visible instead of silently swallowing it.
-                console.warn(`[plaid-sync] journal_entries upsert failed: ${jeErr.message}`)
-              }
+          // Post what is certain; everything else waits in For review.
+          const newIds = (inserted ?? []).map((t: any) => t.id)
+          if (newIds.length > 0) {
+            const { data: auto, error: autoErr } = await supabaseAdmin.rpc('auto_categorize_transactions', {
+              p_org_id:          org_id,
+              p_transaction_ids: newIds,
+              p_actor:           callerId ?? conn.connected_by
+            })
+            if (autoErr) {
+              // The lines are saved and sit in For review; say so instead of hiding it.
+              errors.push(`${conn.institution_name}: automatic categorization failed (${safeMessage(autoErr, 'database error')}); the transactions are waiting in For review`)
+            } else {
+              totalAutoPosted += ((auto as any)?.posted ?? []).length
             }
           }
 
-          totalAdded += added.length
+          totalAdded += postedLines.length
         }
 
         if (removed.length > 0) {
+          // Retiring a line reverses its journal lines in the database; one
+          // matched to an invoice or bill is refused (LV008) and reported.
           for (const rm of removed) {
-            await supabaseAdmin.from('transactions')
+            const { error: rmErr } = await supabaseAdmin.from('transactions')
               .update({ is_current: false })
-              .eq('org_id', org_id).eq('reference', rm.transaction_id)
+              .eq('org_id', org_id).eq('reference', rm.transaction_id).eq('is_current', true)
+            if (rmErr) errors.push(`${conn.institution_name}: the bank withdrew a transaction LedgiProof could not remove (${safeMessage(rmErr, 'database error')})`)
           }
           totalRemoved += removed.length
         }
@@ -489,7 +375,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: errors.length === 0,
-      added:   totalAdded, removed: totalRemoved,
+      added:   totalAdded, removed: totalRemoved, auto_categorized: totalAutoPosted,
       synced:  connections.length,
       errors:  errors.length > 0 ? errors : undefined
     }, { headers: cors })

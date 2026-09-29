@@ -425,6 +425,53 @@ export type Database = {
           },
         ]
       }
+      activity_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          entry_hash: string
+          id: string
+          metadata: Json
+          org_id: string
+          previous_hash: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          entry_hash: string
+          id?: string
+          metadata?: Json
+          org_id: string
+          previous_hash?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          entry_hash?: string
+          id?: string
+          metadata?: Json
+          org_id?: string
+          previous_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_suggestions: {
         Row: {
           ai_reason: string | null
@@ -5869,6 +5916,7 @@ export type Database = {
           reference: string | null
           requires_review: boolean
           review_status: Database["public"]["Enums"]["review_status"]
+          risk_status: Database["public"]["Enums"]["semaphore_status"]
           semaphore: Database["public"]["Enums"]["semaphore_status"]
           source: Database["public"]["Enums"]["tx_source"]
           status_reason: string | null
@@ -5907,6 +5955,7 @@ export type Database = {
           reference?: string | null
           requires_review?: boolean
           review_status?: Database["public"]["Enums"]["review_status"]
+          risk_status?: Database["public"]["Enums"]["semaphore_status"]
           semaphore?: Database["public"]["Enums"]["semaphore_status"]
           source: Database["public"]["Enums"]["tx_source"]
           status_reason?: string | null
@@ -5945,6 +5994,7 @@ export type Database = {
           reference?: string | null
           requires_review?: boolean
           review_status?: Database["public"]["Enums"]["review_status"]
+          risk_status?: Database["public"]["Enums"]["semaphore_status"]
           semaphore?: Database["public"]["Enums"]["semaphore_status"]
           source?: Database["public"]["Enums"]["tx_source"]
           status_reason?: string | null
@@ -7824,14 +7874,6 @@ export type Database = {
         Args: { p_token: string }
         Returns: string
       }
-      accept_document_and_close: {
-        Args: {
-          p_document_id: string
-          p_reviewer_id: string
-          p_score_boost?: number
-        }
-        Returns: Json
-      }
       accept_estimate_public: {
         Args: {
           p_ip?: unknown
@@ -7880,6 +7922,14 @@ export type Database = {
       assign_transaction_to_client: {
         Args: { p_client_id: string; p_propagate?: boolean; p_tx_id: string }
         Returns: number
+      }
+      auto_categorize_transactions: {
+        Args: {
+          p_actor?: string
+          p_org_id: string
+          p_transaction_ids: string[]
+        }
+        Returns: Json
       }
       can_act_for_client: {
         Args: {
@@ -8488,6 +8538,7 @@ export type Database = {
           reference: string | null
           requires_review: boolean
           review_status: Database["public"]["Enums"]["review_status"]
+          risk_status: Database["public"]["Enums"]["semaphore_status"]
           semaphore: Database["public"]["Enums"]["semaphore_status"]
           source: Database["public"]["Enums"]["tx_source"]
           status_reason: string | null
@@ -8551,6 +8602,15 @@ export type Database = {
           tier: string
           workspace_role: string
         }[]
+      }
+      get_verification_queue: {
+        Args: {
+          p_all_clients?: boolean
+          p_client_id?: string
+          p_limit?: number
+          p_org_id: string
+        }
+        Returns: Json
       }
       get_w9_request: { Args: { p_token: string }; Returns: Json }
       get_workspace_conversation_archive: {
@@ -8714,30 +8774,18 @@ export type Database = {
         Args: { p_review_id?: string; p_transaction_id: string }
         Returns: string
       }
-      open_review_with_message:
-        | {
-            Args: {
-              p_assigned_to?: string
-              p_expires_hours?: number
-              p_org_id: string
-              p_question: string
-              p_question_type?: string
-              p_transaction_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_assigned_to?: string
-              p_expires_hours?: number
-              p_opened_by?: string
-              p_org_id: string
-              p_question: string
-              p_question_type?: string
-              p_transaction_id: string
-            }
-            Returns: string
-          }
+      open_review_with_message: {
+        Args: {
+          p_assigned_to?: string
+          p_expires_hours?: number
+          p_opened_by?: string
+          p_org_id: string
+          p_question: string
+          p_question_type?: string
+          p_transaction_id: string
+        }
+        Returns: string
+      }
       payment_method_from_account_type: {
         Args: { p_account_type: string }
         Returns: Database["public"]["Enums"]["payment_method_type"]
@@ -9003,10 +9051,6 @@ export type Database = {
         Args: { p_items: Json; p_recurring_id: string }
         Returns: undefined
       }
-      score_to_semaphore: {
-        Args: { p_score: number }
-        Returns: Database["public"]["Enums"]["semaphore_status"]
-      }
       search_admin_entities: {
         Args: { p_limit?: number; p_query: string }
         Returns: Json
@@ -9146,6 +9190,10 @@ export type Database = {
         Args: { pm: Database["public"]["Enums"]["payment_method_type"] }
         Returns: string
       }
+      uncategorize_transaction: {
+        Args: { p_org_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
       update_admin_email: {
         Args: { p_admin_id: string; p_new_email: string }
         Returns: Json
@@ -9188,6 +9236,10 @@ export type Database = {
       }
       valid_overdue_days: { Args: { p: number[] }; Returns: boolean }
       verify_scheduler_secret: { Args: { p: string }; Returns: boolean }
+      verify_transactions: {
+        Args: { p_org_id: string; p_transaction_ids: string[] }
+        Returns: Json
+      }
       workspace_hidden_for_side: {
         Args: {
           p_conv: string

@@ -24,13 +24,15 @@ import { useTranslation } from 'react-i18next'
 import { useScope } from '../hooks/useScope'
 import { getAccounts } from '../services/accounts.service'
 import {
-  getReviewQueue, postReviewed, setCategorizationRule,
+  getReviewQueue, postReviewed, setCategorizationRule, listKnownMerchants,
   type ReviewItem, type RulePrompt, type SuggestionSource
 } from '../services/review.service'
 import { formatCurrency } from '../lib/currency'
 import { useAuthStore } from '../store/auth.store'
 import PendingReceipts from '../components/review/PendingReceipts'
 import VerifyQueue from '../components/review/VerifyQueue'
+import BrainWhy from '../components/review/BrainWhy'
+import MergeMerchant from '../components/review/MergeMerchant'
 import type { Account, LpRole } from '../types/database.types'
 
 // Same roles post_reviewed_transactions() accepts (the journal write policy).
@@ -81,6 +83,7 @@ export default function ReviewInbox() {
   const [hasBank,     setHasBank]     = useState(true)
   const [accounts,    setAccounts]    = useState<Account[]>([])
   const [choices,     setChoices]     = useState<Record<string, Choice>>({})
+  const [known,       setKnown]       = useState<string[]>([])
   const [busy,        setBusy]        = useState<Set<string>>(new Set())
   const [rowErrors,   setRowErrors]   = useState<Record<string, string>>({})
   const [prompts,     setPrompts]     = useState<RulePrompt[]>([])
@@ -106,10 +109,12 @@ export default function ReviewInbox() {
     setLoading(true)
     setError(null)
     try {
-      const [queue, accts] = await Promise.all([
+      const [queue, accts, knownKeys] = await Promise.all([
         getReviewQueue(orgId, clientId),
-        getAccounts(orgId, clientId ? { clientId } : {})
+        getAccounts(orgId, clientId ? { clientId } : {}),
+        listKnownMerchants(orgId, clientId)
       ])
+      setKnown(knownKeys)
       setItems(queue.items)
       setTotal(queue.total)
       setHasBank(!!queue.bank_account)
@@ -345,6 +350,16 @@ export default function ReviewInbox() {
                         </span>
                       )}
                     </div>
+                    {canPost && it.suggestion_source !== 'learned' && it.suggestion_source !== 'rule' && (
+                      <MergeMerchant
+                        orgId={orgId}
+                        clientId={clientId}
+                        merchantKey={it.merchant_key}
+                        known={known}
+                        onMerged={() => { void load() }}
+                        onError={msg => setRowErrors(prev => ({ ...prev, [it.id]: msg }))}
+                      />
+                    )}
                     {rowErrors[it.id] && (
                       <div style={{ fontSize: 11.5, color: 'var(--sem-red)', marginTop: 3 }}>{rowErrors[it.id]}</div>
                     )}
@@ -405,6 +420,7 @@ export default function ReviewInbox() {
                         {choice.confidence != null && ` · ${choice.confidence}%`}
                       </span>
                     )}
+                    {choice?.accountId === it.suggested_account_id && <BrainWhy evidence={it.suggestion_evidence} />}
                   </div>
                 </div>
 

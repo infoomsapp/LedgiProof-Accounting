@@ -54,6 +54,21 @@ export interface BillMatch {
   kind:        'open' | 'in_transit'
 }
 
+/**
+ * One reason behind a suggestion (lp_private.suggest_account's evidence,
+ * brain_f2_evidence.sql). Fixed points, no AI: the UI's "Why?".
+ */
+export interface BrainEvidence {
+  signal:        'rule' | 'learned' | 'vendor' | 'merchant' | 'bank_category' | 'income' | 'agreement' | 'conflict'
+  points:        number
+  account_id?:   string
+  account_name?: string
+  merchant?:     string
+  count?:        number
+  category?:     string
+  detail?:       string
+}
+
 export interface ReviewItem {
   id:                     string
   transaction_date:       string
@@ -67,6 +82,8 @@ export interface ReviewItem {
   suggested_account_id:   string | null
   suggestion_source:      SuggestionSource | null
   suggestion_confidence:  number | null
+  /** Why the Brain suggests it; null for invoice / bill matches. */
+  suggestion_evidence:    BrainEvidence[] | null
   suggested_account_code: string | null
   suggested_account_name: string | null
   has_receipt:            boolean
@@ -104,6 +121,27 @@ export async function getReviewQueue(orgId: string, clientId: string | null): Pr
   })
   if (error) throw dbError(error, 'Could not load the transactions to review')
   return data as unknown as ReviewQueue
+}
+
+/** The merchants this workspace (or firm client) has confirmed, for "Same merchant as…". */
+export async function listKnownMerchants(orgId: string, clientId: string | null): Promise<string[]> {
+  const { data, error } = await db
+    .from('user_patterns')
+    .select('keyword')
+    .eq('org_id', orgId)
+    .eq('category', clientId ? `learned:${clientId}` : 'learned')
+    .eq('is_active', true)
+    .order('keyword')
+  if (error) throw dbError(error, 'Could not load the merchants')
+  return (data ?? []).map(r => r.keyword as string)
+}
+
+/** "This is the same merchant as…" (merge_merchants, brain_f2_merge_merchants.sql). */
+export async function mergeMerchants(orgId: string, clientId: string | null, fromKey: string, toKey: string): Promise<void> {
+  const { error } = await db.rpc('merge_merchants', {
+    p_org_id: orgId, p_client_id: clientId as string, p_from_key: fromKey, p_to_key: toKey
+  })
+  if (error) throw dbError(error, 'Could not merge the merchants')
 }
 
 export async function postReviewed(

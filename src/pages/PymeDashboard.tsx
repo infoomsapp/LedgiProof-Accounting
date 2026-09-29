@@ -234,7 +234,7 @@ export default function PymeDashboard() {
 
               {/* 🆕 P4 Fase 2.D — Customer management page */}
               <button
-                onClick={() => navigate('/pyme/clients')}
+                onClick={() => navigate('/customers')}
                 title={t('pyme.myCustomersTitle')}
                 style={{
                   padding:      '7px 14px',

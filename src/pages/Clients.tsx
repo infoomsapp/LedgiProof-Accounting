@@ -4,7 +4,7 @@
 //
 // Unified page: billing clients (from invoices module) + workspace members + invitations
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useSearchParams }      from 'react-router-dom'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore }        from '../store/auth.store'
 import { useChatBubbleStore }  from '../store/chat-bubble.store'
 import { useUserRole }     from '../hooks/useUserRole'
@@ -466,9 +466,9 @@ export default function Clients() {
         </div>
       </div>
 
-      {!isFirmContext && (
-        <PersonalWorkspaceNotice />
-      )}
+      {/* A workspace with its own books keeps its clients in the address
+          book (/customers) -- it has nothing to do on the firm's page. */}
+      {!isFirmContext && role.kind !== 'unknown' && <Navigate to="/customers" replace />}
 
       {/* 🆕 B3.7 — Intent banner: shown when user came from LpAddMenu with an intent */}
       {intentActive && (() => {
@@ -1171,29 +1171,6 @@ export default function Clients() {
   )
 }
 
-// ── New, isolated component -- personal-workspace notice ──────────────────
-//
-// Shown instead of the Add Client / Invite to portal actions when the
-// active org isn't a firm. Explains why, and points at the fix (switch
-// workspace) rather than silently hiding the buttons with no explanation.
-function PersonalWorkspaceNotice() {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 10,
-      padding: '12px 16px', marginBottom: 16,
-      background: 'var(--sem-amber-bg)', border: '0.5px solid var(--sem-amber-border)',
-      borderRadius: 9,
-    }}>
-      <div style={{ flexShrink: 0, marginTop: 1, color: 'var(--sem-amber)' }}>
-        <Icon name="warning" size={14} />
-      </div>
-      <div style={{ fontSize: 12.5, color: 'var(--lp-text)', lineHeight: 1.6 }}>
-        You're viewing this from your personal workspace, which can't have clients of its own.
-        Switch to your firm workspace (top-left switcher) to add a client or send a portal invite.
-      </div>
-    </div>
-  )
-}
 
 // ── New, isolated component -- shared "who this invite is for" confirmation
 // box, used by both the dropdown path (manual pick) and the per-row path

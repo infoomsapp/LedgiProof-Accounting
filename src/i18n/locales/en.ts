@@ -46,6 +46,7 @@ export default {
     bankConnections: 'Bank Connections',
     chartOfAccounts: 'Chart of Accounts',
     closeBooks:      'Close the books',
+    customers:       'Customers',
     payroll:         'Payroll',
     reports:         'Reports',
     time:            'Time',

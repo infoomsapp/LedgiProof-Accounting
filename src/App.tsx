@@ -108,6 +108,7 @@ import Unauthorized from './pages/Unauthorized'
 
 // 🆕 Client Switcher Sprint 2 — Foundation + Routing
 import FirmRouteRedirect       from './components/auth/FirmRouteRedirect'
+import CustomersRoute      from './components/auth/CustomersRoute'
 import ClientContextRoute      from './components/layout/ClientContextRoute'
 const ClientWorkspaceOverview = lazyPage(() => import('./pages/ClientWorkspaceOverview'))
 const ClientDocuments         = lazyPage(() => import('./pages/ClientDocuments'))
@@ -495,13 +496,12 @@ export default function App() {
               PYME owners manage THEIR billing customers here.
               The bookkeeper has their own equivalent at /clients (this page
               is intentionally NOT for bookkeepers). */}
-          <Route path="pyme/clients" element={
-            <RoleGuard allowed={[
-              'pyme_owner', 'pyme_staff'
-            ]}>
-              <ErrorBoundary section="pyme-clients"><PymeClients /></ErrorBoundary>
-            </RoleGuard>
+          <Route path="customers" element={
+            <CustomersRoute>
+              <ErrorBoundary section="customers"><PymeClients /></ErrorBoundary>
+            </CustomersRoute>
           } />
+          <Route path="pyme/clients" element={<Navigate to="/customers" replace />} />
 
           {/* 🆕 P-Import.A: Import Data wizard landing + sub-routes
               (sub-wizards live at /import/chart-of-accounts, etc — implemented

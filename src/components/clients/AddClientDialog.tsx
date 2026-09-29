@@ -17,6 +17,7 @@ import { useState } from 'react'
 import Modal from '../ui/modal'
 import Button from '../ui/Button'
 import { useAuthStore } from '../../store/auth.store'
+import { useOrgStore }  from '../../store/org.store'
 import { createClient } from '../../services/invoice.service'
 // 🆕 Sprint 5 Paso 5.5 — Inline template selection (replaces post-create modal).
 import TemplatePicker      from './TemplatePicker'
@@ -79,7 +80,14 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
   // in and isn't a client record at all, so this requirement never touches
   // that flow. With email always present, an invite always goes out --
   // full stop, no yes/no left to ask.
-  const inviteToPortal = email.trim().length > 0
+  //
+  // A business keeping its OWN books (not a firm) is different: its clients
+  // are the people it invoices -- an address book, like QuickBooks' and
+  // Xero's customer list. Email is optional, nobody is invited to a portal,
+  // and there are no books to set up for them.
+  const activeOrg      = useOrgStore(s => s.activeOrg)
+  const isCustomerBook = !activeOrg?.is_firm
+  const inviteToPortal = !isCustomerBook && email.trim().length > 0
   const [portalRole, setPortalRole] = useState<ClientPortalRole>('client_contact')
   const [inviteWarning, setInviteWarning] = useState<string | null>(null)
 
@@ -110,11 +118,11 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
       setError('Client name is required')
       return
     }
-    if (!email.trim()) {
+    if (!isCustomerBook && !email.trim()) {
       setError('Client email is required — this is how they get portal access.')
       return
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError('Enter a valid email address.')
       return
     }
@@ -160,7 +168,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
       // ── Step 2: optionally apply selected template ──────────────────
       // If template is selected, clone immediately. Partial failure here
       // is non-fatal — the client exists; we surface a warning + CTA.
-      if (templateId) {
+      if (templateId && !isCustomerBook) {
         try {
           const result = await cloneMut.mutateAsync({
             templateId,
@@ -242,8 +250,10 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
     <Modal
       open={open}
       onClose={handleClose}
-      title="Add a new client"
-      subtitle="Create a billing client. You can add bank connections and invoices to them later."
+      title={isCustomerBook ? 'Add a client' : 'Add a new client'}
+      subtitle={isCustomerBook
+        ? 'Someone you invoice. Only a name is required; add the rest whenever you like.'
+        : 'Create a billing client. You can add bank connections and invoices to them later.'}
       width={520}
       footer={
         <>
@@ -253,10 +263,11 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
           <Button
             variant="primary"
             loading={saving}
-            disabled={saving || displayName.trim().length === 0 || email.trim().length === 0}
+            disabled={saving || displayName.trim().length === 0 || (!isCustomerBook && email.trim().length === 0)}
             onClick={handleSubmit}
           >
-            {templateId && inviteToPortal ? 'Create client + apply template + invite'
+            {isCustomerBook ? 'Save client'
+              : templateId && inviteToPortal ? 'Create client + apply template + invite'
               : templateId ? 'Create client + apply template'
               : inviteToPortal ? 'Create client + send invite'
               : 'Create client'}
@@ -291,18 +302,20 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
 
       {/* Email + phone row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="Email" required>
+        <Field label="Email" required={!isCustomerBook}>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="billing@acme.com"
             className="lp-input"
-            required
+            required={!isCustomerBook}
             style={{ width: '100%' }}
           />
           <div style={{ fontSize: 10.5, color: 'var(--lp-text-muted)', marginTop: 4 }}>
-            Sends a client portal login invite — every client in LedgiProof is reachable by email.
+            {isCustomerBook
+              ? 'Where invoices and estimates are sent.'
+              : 'Sends a client portal login invite — every client in LedgiProof is reachable by email.'}
           </div>
         </Field>
         <Field label="Phone">
@@ -371,6 +384,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
           Visible right above the optional-fields toggle so the user sees it
           BEFORE clicking Create. If left at "(none)", client is created
           without a CoA bootstrap (same as legacy behavior). */}
+      {!isCustomerBook && (
       <div style={{
         padding:      12,
         background:   'var(--lp-muted-bg)',
@@ -388,6 +402,7 @@ export default function AddClientDialog({ open, onClose, orgId, onCreated }: Pro
           disabled={saving}
         />
       </div>
+      )}
 
       {showOptional && (
         <div style={{

@@ -42,6 +42,7 @@ export default {
     bankConnections: 'Conexiones bancarias',
     chartOfAccounts: 'Catálogo de cuentas',
     closeBooks:      'Cerrar el mes',
+    customers:       'Clientes',
     payroll:         'Nómina',
     reports:         'Reportes',
     time:            'Tiempo',

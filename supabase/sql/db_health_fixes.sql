@@ -121,3 +121,17 @@ select pg_temp.patch_function('public.get_recent_admin_events(integer)',
 select pg_temp.patch_function('public.open_review_with_message(uuid, uuid, text, text, uuid, uuid, integer)',
   array[E'''system'',\n    p_question,'],
   array[E'''bookkeeper'',\n    p_question,']);
+
+-- ── Automatic messages have no sender (migration system_message_sender) ────
+-- open_or_get_transaction_conversation ("Resolution conversation opened…")
+-- and accept_document_and_close ("Document accepted…") saved their automatic
+-- message as sender_role 'system' WITH a sender id, which
+-- transaction_messages_sender_ck forbids: opening a conversation on a red or
+-- amber transaction always failed. Who opened / accepted it is already on the
+-- conversation and the review; the message itself is the system's.
+select pg_temp.patch_function('public.open_or_get_transaction_conversation(uuid, uuid)',
+  array[E'    auth.uid(),\r\n    ''system'','],
+  array[E'    NULL,\r\n    ''system'',']);
+select pg_temp.patch_function('public.accept_document_and_close(uuid, uuid, smallint)',
+  array['v_tx.org_id, v_tx.id, p_reviewer_id, ''system'','],
+  array['v_tx.org_id, v_tx.id, NULL, ''system'',']);

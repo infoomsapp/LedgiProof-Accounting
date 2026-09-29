@@ -39,8 +39,7 @@ broken code:
 ## Known entries (2026-09-28)
 
 - `evaluate_transaction_evidence` (42804): not called by the app.
-- `register_document`, `send_transaction_message`, `soft_delete_document`
-  (42703, `audit_events.action`): the audit insert is wrapped in
-  `exception when others`, so the action itself works but its audit row is
-  lost. `audit_events` is the hash-chained transaction log; these events
-  need their own home.
+- The document / message audit inserts that used to fail silently now write
+  to `activity_events` (see `supabase/sql/activity_events.sql`). Check a
+  workspace's log with `select * from lp_private.verify_activity_chain('<org id>')`:
+  no row means the chain is intact.

@@ -838,6 +838,7 @@ export default {
     LD007: 'That transaction was edited; pick its current version',
     LE001: 'Estimate not found',
     LE002: 'This estimate has not been sent yet',
+    LG001: "The activity log can't be changed or deleted",
     LI001: 'The invoice lines could not be read',
     LI002: 'At most 200 lines per invoice',
     LI003: 'Invoice not found',

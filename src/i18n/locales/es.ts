@@ -831,6 +831,7 @@ export default {
     LD007: 'Ese movimiento fue editado; elige su versión actual',
     LE001: 'Cotización no encontrada',
     LE002: 'Esta cotización aún no se ha enviado',
+    LG001: 'El registro de actividad no se puede modificar ni borrar',
     LI001: 'No se pudieron leer las líneas de la factura',
     LI002: 'Máximo 200 líneas por factura',
     LI003: 'Factura no encontrada',
